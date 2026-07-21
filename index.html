@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第1ライン FY2027 ダッシュボード</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+.summary-card {
+  display: flex; flex-direction: column;
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 1.25rem;
+  text-decoration: none; color: inherit;
+  transition: border-color .2s, background .2s;
+}
+.summary-card:hover { border-color: var(--border2); background: var(--bg3); }
+.summary-card-icon { font-size: 20px; margin-bottom: .6rem; }
+.summary-card-title { font-size: 14px; font-weight: 700; margin-bottom: .3rem; }
+.summary-card-desc { font-size: 12px; color: var(--text2); line-height: 1.6; flex: 1; }
+.summary-card-footer { margin-top: .75rem; padding-top: .75rem; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: flex-end; }
+.summary-stat { font-family: var(--mono); font-size: 20px; font-weight: 700; }
+.summary-stat-label { font-size: 11px; color: var(--text3); margin-top: 1px; }
+</style>
+</head>
+<body>
+<nav class="nav" id="nav"></nav>
+<div id="loading"><div class="spinner"></div><span>読み込んでいます...</span></div>
+<div id="app">
+<main class="main">
+
+  <div class="page-header">
+    <h1>第1ライン ダッシュボード</h1>
+    <p id="subtitle">FY2027</p>
+  </div>
+
+  <!-- インフォメーション -->
+  <div class="card" style="margin-bottom:1.5rem" id="infoCard" style="display:none">
+    <div class="card-title">📢 インフォメーション</div>
+    <div id="infoList"></div>
+  </div>
+
+  <div class="metrics" id="metrics"></div>
+
+  <div class="grid3" style="margin-bottom:1.5rem" id="summaryCards"></div>
+
+  <div class="grid2">
+    <div class="card">
+      <div class="card-title">3SEレポート 月別推移</div>
+      <div class="chart-wrap" style="height:180px"><canvas id="seChart" role="img" aria-label="SEレポート月別推移"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">売上 月別推移（単位：千円）</div>
+      <div class="chart-wrap" style="height:180px"><canvas id="salesChart" role="img" aria-label="売上月別推移"></canvas></div>
+    </div>
+  </div>
+
+</main>
+</div>
+
+<script src="nav.js"></script>
+<script>
+const MONTHS = ['8月','9月','10月','11月','12月','1月','2月','3月','4月','5月','6月','7月'];
+
+async function fetchCSV(path) {
+  const res = await fetch(path);
+  const buf = await res.arrayBuffer();
+  const text = new TextDecoder('utf-8').decode(buf).replace(/^\uFEFF/, '');
+  return Papa.parse(text, { header: true, skipEmptyLines: true, dynamicTyping: true }).data;
+}
+
+function calcTenure(joinStr) {
+  const m = joinStr.match(/(\d+)年(\d+)月/);
+  if (!m) return '';
+  const joinY = parseInt(m[1]), joinM = parseInt(m[2]);
+  const now = new Date(); const baseY = now.getFullYear(); const baseM = now.getMonth() + 1;
+  let years = baseY - joinY; let months = baseM - joinM;
+  if (months < 0) { years--; months += 12; }
+  return years + '年' + months + 'ヶ月';
+}
+
+async function init() {
+  try {
+    const [seRows, salesRows, memberRows, infoRows] = await Promise.all([
+      fetchCSV('data/3se_report.csv'),
+      fetchCSV('data/sales.csv'),
+      fetchCSV('data/members/member_master.csv'),
+      fetchCSV('data/info.csv'),
+    ]);
+
+    const active = seRows.filter(r => !String(r['備考']||'').match(/異動|退職/));
+    const MONTH_KEYS = ['8月','9月','10月','11月','12月','1月','2月','3月','4月','5月','6月','7月'];
+    const calcTotal = r => MONTH_KEYS.reduce((s,m)=>s+(+r[m]||0), 0);
+    const seTotal   = seRows.reduce((s,r)=>s+calcTotal(r), 0);
+    const seAchieved = active.filter(r=>r['達成状況']==='達成').length;
+    const memberCount = memberRows.filter(r=>(r['ステータス']||'').trim()==='在籍').length;
+
+    // 売上集計
+    const today = new Date();
+    const salesActual = salesRows.filter(r => r['実績'] > 0);
+    const salesTotal  = salesActual.reduce((s,r)=>s+(+r['実績']||0), 0);
+    const salesBudget = salesActual.reduce((s,r)=>s+(+r['予算']||0), 0);
+    const salesRate   = salesBudget > 0 ? Math.round(salesTotal/salesBudget*100) : 0;
+
+    document.getElementById('subtitle').textContent =
+      `${today.toLocaleDateString('ja-JP')} 時点 — ライン員 ${memberCount}名`;
+
+    // インフォメーション
+    const infoCard = document.getElementById('infoCard');
+    const infoList = document.getElementById('infoList');
+    const todayStr = today.toISOString().slice(0,10);
+    const activeInfo = infoRows
+      .filter(r => r['開始日'] && r['終了日'] && todayStr >= String(r['開始日']).slice(0,10) && todayStr <= String(r['終了日']).slice(0,10))
+      .sort((a,b) => String(a['終了日']).localeCompare(String(b['終了日'])));
+
+    if (activeInfo.length > 0) {
+      infoCard.style.display = '';
+      activeInfo.forEach(r => {
+        const end = new Date(r['終了日']);
+        const diff = Math.ceil((end - today) / (1000*60*60*24));
+        const type = r['種別'] || 'info';
+        const dotClass = type === 'deadline' ? 'info-deadline' : type === 'event' ? 'info-event' : 'info-info';
+        const urgentClass = diff <= 7 ? 'info-urgent' : 'info-normal';
+        const dueText = diff <= 7 ? `残${diff}日` : `〜${String(r['終了日']).slice(0,10)}`;
+        infoList.innerHTML += `<div class="info-item">
+          <span class="info-dot ${dotClass}"></span>
+          <div>
+            <div style="font-weight:500">${r['タイトル']}</div>
+            <div class="info-body">${r['本文']||''}</div>
+            <div class="info-due ${urgentClass}">${dueText}</div>
+          </div>
+        </div>`;
+      });
+    }
+
+    // Metrics
+    const mEl = document.getElementById('metrics');
+    [
+      { label:'ライン員数',        val: memberCount+'名',  sub:'在籍',           cls:'blue'   },
+      { label:'3SEレポート累計',   val: seTotal+'件',      sub:`達成 ${seAchieved}名`, cls:'green'  },
+      { label:'累計売上（実績月）', val: salesTotal.toLocaleString(), sub:`予算比 ${salesRate}%（単位：千円）`, cls:'amber'  },
+      { label:'顧客数',            val: [...new Set(salesRows.map(r=>r['顧客名']))].length+'社', sub:'取引先', cls:'cyan' },
+    ].forEach(m => {
+      mEl.innerHTML += `<div class="metric ${m.cls}"><div class="metric-label">${m.label}</div><div class="metric-value">${m.val}</div><div class="metric-sub">${m.sub}</div></div>`;
+    });
+
+    // Summary cards
+    const seMonthly = MONTHS.map(m => seRows.reduce((s,r)=>s+(+r[m]||0),0));
+    document.getElementById('summaryCards').innerHTML = `
+      <a href="member.html" class="summary-card">
+        <div class="summary-card-icon">👥</div>
+        <div class="summary-card-title">メンバー</div>
+        <div class="summary-card-desc">第1ライン・第1-1ラインの構成とメンバー情報を確認できます。</div>
+        <div class="summary-card-footer">
+          <div><div class="summary-stat" style="color:var(--blue)">${memberCount}名</div><div class="summary-stat-label">在籍</div></div>
+          <span style="color:var(--text3)">→</span>
+        </div>
+      </a>
+      <a href="reports.html" class="summary-card">
+        <div class="summary-card-icon">📋</div>
+        <div class="summary-card-title">3SEレポート</div>
+        <div class="summary-card-desc">メンバー別・月別・四半期別の提出件数と達成状況を確認できます。</div>
+        <div class="summary-card-footer">
+          <div><div class="summary-stat" style="color:var(--green)">${seTotal}件</div><div class="summary-stat-label">FY累計</div></div>
+          <span style="color:var(--text3)">→</span>
+        </div>
+      </a>
+      <a href="sales.html" class="summary-card">
+        <div class="summary-card-icon">📈</div>
+        <div class="summary-card-title">売上・数字</div>
+        <div class="summary-card-desc">顧客別の予算vs実績を月次で確認できます。</div>
+        <div class="summary-card-footer">
+          <div><div class="summary-stat" style="color:var(--amber)">${salesTotal.toLocaleString()}</div><div class="summary-stat-label">累計実績（千円）</div></div>
+          <span style="color:var(--text3)">→</span>
+        </div>
+      </a>
+    `;
+
+    // SE月別グラフ
+    new Chart(document.getElementById('seChart'), {
+      type: 'bar',
+      data: { labels: MONTHS, datasets: [{ data: seMonthly, backgroundColor: 'rgba(59,130,246,0.6)', borderRadius: 3, borderSkipped: false }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+        scales: { x: { ticks: { color:'#7f8fa8', font:{size:10} }, grid:{display:false} }, y: { ticks: { color:'#7f8fa8', font:{size:10} }, grid:{color:'rgba(255,255,255,0.04)'}, beginAtZero:true } } }
+    });
+
+    // 売上月別グラフ
+    const salesByMonth = {};
+    salesRows.forEach(r => {
+      const d = new Date(r['月']); if(isNaN(d)) return;
+      const label = (d.getMonth()+1)+'月';
+      if (!salesByMonth[label]) salesByMonth[label] = { budget: 0, actual: 0 };
+      salesByMonth[label].budget += +r['予算']||0;
+      salesByMonth[label].actual += +r['実績']||0;
+    });
+    const salesMonths = Object.keys(salesByMonth).filter(k => salesByMonth[k].actual > 0);
+    new Chart(document.getElementById('salesChart'), {
+      type: 'line',
+      data: { labels: salesMonths, datasets: [
+        { label:'実績', data: salesMonths.map(m=>salesByMonth[m].actual), borderColor:'#f59e0b', backgroundColor:'rgba(245,158,11,0.08)', borderWidth:2, tension:0.4, fill:true, pointRadius:3, pointBackgroundColor:'#f59e0b' },
+        { label:'予算', data: salesMonths.map(m=>salesByMonth[m].budget), borderColor:'rgba(255,255,255,0.15)', borderDash:[4,3], borderWidth:1.5, fill:false, pointRadius:0 }
+      ]},
+      options: { responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{ labels:{ color:'#7f8fa8', font:{size:10}, boxWidth:10 } } },
+        scales:{ x:{ticks:{color:'#7f8fa8',font:{size:10}},grid:{display:false}}, y:{ticks:{color:'#7f8fa8',font:{size:10},callback:v=>v.toLocaleString()},grid:{color:'rgba(255,255,255,0.04)'},beginAtZero:false} } }
+    });
+
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('app').classList.add('ready');
+  } catch(e) {
+    document.getElementById('loading').innerHTML = `<div style="color:var(--red);font-size:13px">⚠ データの読み込みに失敗しました<br><small style="color:var(--text3);margin-top:8px;display:block">${e.message}</small></div>`;
+  }
+}
+init();
+</script>
+</body>
+</html>

@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>売上・数字 — 第1ライン FY2027</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+.cust-item{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:8px;overflow:hidden;transition:border-color .15s}
+.cust-item:hover{border-color:var(--border2)}
+.cust-item.open{border-color:var(--border2)}
+.cust-header{display:flex;align-items:center;gap:10px;padding:.85rem 1rem;cursor:pointer;user-select:none}
+.cust-color-bar{width:4px;height:36px;border-radius:2px;flex-shrink:0}
+.cust-name-wrap{flex:1}
+.cust-name{font-size:13px;font-weight:500;color:var(--text)}
+.cust-sub{font-size:11px;color:var(--text3);margin-top:1px;font-family:var(--mono)}
+.cust-bar-wrap{width:100px;background:var(--bg3);border-radius:3px;height:6px;overflow:hidden;flex-shrink:0}
+.cust-bar{height:100%;border-radius:3px;transition:width .5s ease}
+.cust-val{font-size:12px;font-family:var(--mono);color:var(--text);min-width:70px;text-align:right;flex-shrink:0}
+.cust-rate{font-size:12px;font-family:var(--mono);font-weight:700;min-width:42px;text-align:right;flex-shrink:0}
+.chevron{font-size:14px;color:var(--text3);transition:transform .2s;flex-shrink:0}
+.cust-item.open .chevron{transform:rotate(90deg)}
+.detail{display:none;padding:0 1rem 1rem;border-top:.5px solid var(--border)}
+.cust-item.open .detail{display:block}
+.detail-kpi{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:.85rem}
+.dkpi{background:var(--bg3);border-radius:var(--radius);padding:.6rem .85rem}
+.dkpi-label{font-size:10px;color:var(--text2);margin-bottom:3px}
+.dkpi-value{font-size:16px;font-weight:500;font-family:var(--mono)}
+.month-tbl{width:100%;border-collapse:collapse;font-size:12px;margin-top:1rem}
+.month-tbl th{font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;padding:5px 8px;border-bottom:.5px solid var(--border);text-align:right}
+.month-tbl th:first-child{text-align:left}
+.month-tbl td{padding:6px 8px;border-bottom:.5px solid var(--border);text-align:right;font-family:var(--mono);font-size:11px;color:var(--text)}
+.month-tbl td:first-child{text-align:left;font-family:var(--font);color:var(--text2)}
+.month-tbl tbody tr:last-child td{border-bottom:none}
+.month-tbl tfoot td{border-top:.5px solid var(--border2);font-weight:700;border-bottom:none;color:var(--blue)}
+.rate-pill{display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px}
+.hm-table{border-collapse:collapse;font-size:11px;min-width:100%}
+.hm-table th{font-size:10px;font-weight:500;color:var(--text3);padding:5px 6px;text-align:center;white-space:nowrap}
+.hm-table th:first-child{text-align:left;min-width:120px}
+.hm-table td{padding:4px 5px;text-align:center;font-family:var(--mono);font-size:10px;border-radius:4px}
+</style>
+</head>
+<body>
+<nav class="nav" id="nav"></nav>
+<div id="loading"><div class="spinner"></div><span>売上データを読み込んでいます...</span></div>
+<div id="app">
+<main class="main">
+  <div class="page-header">
+    <h1>売上・数字</h1>
+    <p id="subtitle">—</p>
+  </div>
+
+  <div class="metrics" id="metrics"></div>
+
+  <div class="grid2" style="margin-bottom:12px">
+    <div class="card">
+      <div class="card-title">月別売上推移</div>
+      <div style="font-size:10px;color:var(--text3);margin-bottom:8px;text-align:right">単位：千円</div>
+      <div class="chart-wrap" style="height:190px"><canvas id="lineChart" role="img" aria-label="月別売上推移"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">四半期別実績</div>
+      <div style="font-size:10px;color:var(--text3);margin-bottom:8px;text-align:right">単位：千円</div>
+      <div class="chart-wrap" style="height:190px"><canvas id="qChart" role="img" aria-label="四半期別売上"></canvas></div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:12px">
+    <div class="card-title">予算vs実績 月次ヒートマップ</div>
+    <div style="display:flex;gap:14px;font-size:11px;color:var(--text2);margin-bottom:10px;flex-wrap:wrap">
+      <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:rgba(34,197,94,.2);margin-right:5px;vertical-align:middle"></span>100%以上</span>
+      <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:rgba(245,158,11,.2);margin-right:5px;vertical-align:middle"></span>85〜99%</span>
+      <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:rgba(248,113,113,.2);margin-right:5px;vertical-align:middle"></span>85%未満</span>
+      <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--bg3);margin-right:5px;vertical-align:middle"></span>未確定</span>
+    </div>
+    <div style="overflow-x:auto" id="heatmap"></div>
+  </div>
+
+  <div class="section-label">顧客別詳細</div>
+  <div style="font-size:11px;color:var(--text3);margin-bottom:.75rem;text-align:right">単位：千円</div>
+  <div id="custList"></div>
+
+</main>
+</div>
+
+<script src="nav.js"></script>
+<script>
+const MONTH_ORDER = ['8月','9月','10月','11月','12月','1月','2月','3月','4月','5月','6月','7月'];
+const CUST_COLORS = ['#3b82f6','#22c55e','#f59e0b','#a78bfa','#f87171','#22d3ee','#fb923c','#e879f9','#4ade80','#facc15','#60a5fa'];
+const charts = {};
+
+function rateColor(r, future) {
+  if (future) return { bg:'var(--bg3)', text:'var(--text3)' };
+  if (r >= 100) return { bg:'rgba(34,197,94,.15)',  text:'#22c55e' };
+  if (r >= 85)  return { bg:'rgba(245,158,11,.15)', text:'#f59e0b' };
+  return           { bg:'rgba(248,113,113,.15)', text:'#f87171' };
+}
+
+function buildCustChart(id, data, color) {
+  if (charts[id]) charts[id].destroy();
+  const labels = data.filter(d=>d.actual>0||d.budget>0).map(d=>d.monthLabel);
+  charts[id] = new Chart(document.getElementById(id), {
+    type: 'bar',
+    data: { labels, datasets: [
+      { label:'実績', data:data.filter(d=>d.actual>0||d.budget>0).map(d=>d.actual||null), backgroundColor:color, borderRadius:3, borderSkipped:false },
+      { label:'予算', data:data.filter(d=>d.actual>0||d.budget>0).map(d=>d.budget), type:'line', borderColor:'rgba(255,255,255,0.2)', borderDash:[4,3], borderWidth:1.5, pointRadius:0, fill:false }
+    ]},
+    options: { responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ labels:{ color:'#7f8fa8', font:{size:10}, boxWidth:10 } } },
+      scales:{ x:{ticks:{color:'#7f8fa8',font:{size:10}},grid:{display:false}}, y:{ticks:{color:'#7f8fa8',font:{size:10},callback:v=>v.toLocaleString()},grid:{color:'rgba(255,255,255,0.04)'},beginAtZero:true} } }
+  });
+}
+
+async function init() {
+  try {
+    const res  = await fetch('data/sales.csv');
+    const buf  = await res.arrayBuffer();
+    const text = new TextDecoder('utf-8').decode(buf).replace(/^\uFEFF/, '');
+    const rows = Papa.parse(text, { header:true, skipEmptyLines:true, dynamicTyping:true }).data;
+
+    // 顧客別・月別に整理
+    const custMap = new Map();
+    rows.forEach(r => {
+      const name = (r['顧客名']||'').trim();
+      if (!name) return;
+      const d = new Date(r['月']); if(isNaN(d)) return;
+      const monthLabel = (d.getMonth()+1) + '月';
+      if (!custMap.has(name)) custMap.set(name, []);
+      custMap.get(name).push({ monthLabel, date: d, budget: +r['予算']||0, actual: +r['実績']||0 });
+    });
+
+    // 月順ソート
+    custMap.forEach((v,k) => custMap.set(k, v.sort((a,b)=>a.date-b.date)));
+
+    const customers = [...custMap.entries()].map(([name, months], i) => ({
+      name, color: CUST_COLORS[i % CUST_COLORS.length],
+      months,
+      totalBudget: months.reduce((s,m)=>s+m.budget, 0),
+      totalActual: months.reduce((s,m)=>s+m.actual, 0),
+    })).sort((a,b)=>b.totalActual-a.totalActual);
+
+    const grandBudget = customers.reduce((s,c)=>s+c.totalBudget, 0);
+    const grandActual = customers.reduce((s,c)=>s+c.totalActual, 0);
+    const grandRate   = grandBudget>0 ? Math.round(grandActual/grandBudget*100) : 0;
+    const achieved    = customers.filter(c=>Math.round(c.totalActual/c.totalBudget*100)>=100).length;
+    const warning     = customers.filter(c=>{ const r=Math.round(c.totalActual/c.totalBudget*100); return r>0&&r<85; }).length;
+
+    document.getElementById('subtitle').textContent =
+      `FY2027 ／ ${new Date().toLocaleDateString('ja-JP')} 更新 ／ 顧客 ${customers.length}社`;
+
+    // Metrics
+    const mEl = document.getElementById('metrics');
+    [
+      { label:'累計実績',     val: grandActual.toLocaleString(), sub:`予算比 ${grandRate}%（単位：千円）`, cls:'amber'  },
+      { label:'累計予算',     val: grandBudget.toLocaleString(), sub:'年間累計（単位：千円）',              cls:'blue'   },
+      { label:'予算達成顧客', val: achieved+'社',                sub:`全${customers.length}社中`,          cls:'green'  },
+      { label:'要注意顧客',   val: warning+'社',                 sub:'予算比85%未満',                      cls:'red'    },
+    ].forEach(m => {
+      mEl.innerHTML += `<div class="metric ${m.cls}"><div class="metric-label">${m.label}</div><div class="metric-value">${m.val}</div><div class="metric-sub">${m.sub}</div></div>`;
+    });
+
+    // 月別集計
+    const byMonth = {};
+    rows.forEach(r => {
+      const d = new Date(r['月']); if(isNaN(d)) return;
+      const lbl = (d.getMonth()+1)+'月';
+      if (!byMonth[lbl]) byMonth[lbl] = { budget:0, actual:0 };
+      byMonth[lbl].budget += +r['予算']||0;
+      byMonth[lbl].actual += +r['実績']||0;
+    });
+    const mLabels = MONTH_ORDER.filter(m=>byMonth[m]);
+
+    // 月別折れ線
+    new Chart(document.getElementById('lineChart'), {
+      type:'line',
+      data:{ labels:mLabels, datasets:[
+        { label:'実績', data:mLabels.map(m=>byMonth[m].actual||null), borderColor:'#f59e0b', backgroundColor:'rgba(245,158,11,0.08)', borderWidth:2, tension:0.4, fill:true, pointRadius:3, pointBackgroundColor:'#f59e0b' },
+        { label:'予算', data:mLabels.map(m=>byMonth[m].budget), borderColor:'rgba(255,255,255,0.15)', borderDash:[4,3], borderWidth:1.5, fill:false, pointRadius:0 }
+      ]},
+      options:{ responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{ labels:{ color:'#7f8fa8', font:{size:10}, boxWidth:10 } } },
+        scales:{ x:{ticks:{color:'#7f8fa8',font:{size:10}},grid:{display:false}}, y:{ticks:{color:'#7f8fa8',font:{size:10},callback:v=>v.toLocaleString()},grid:{color:'rgba(255,255,255,0.04)'},beginAtZero:false} } }
+    });
+
+    // 四半期
+    const quarters = [
+      { label:'1Q\n8〜10月', months:['8月','9月','10月'] },
+      { label:'2Q\n11〜1月', months:['11月','12月','1月'] },
+      { label:'3Q\n2〜4月',  months:['2月','3月','4月']  },
+      { label:'4Q\n5〜7月',  months:['5月','6月','7月']  },
+    ];
+    const qData = quarters.map(q=>({
+      label: q.label,
+      budget: q.months.reduce((s,m)=>s+(byMonth[m]?.budget||0),0),
+      actual: q.months.reduce((s,m)=>s+(byMonth[m]?.actual||0),0),
+    }));
+    new Chart(document.getElementById('qChart'), {
+      type:'bar',
+      data:{ labels:qData.map(q=>q.label), datasets:[
+        { label:'実績', data:qData.map(q=>q.actual||null), backgroundColor:['rgba(59,130,246,.7)','rgba(34,197,94,.7)','rgba(245,158,11,.7)','rgba(167,139,250,.5)'], borderRadius:4, borderSkipped:false },
+        { label:'予算', data:qData.map(q=>q.budget), type:'line', borderColor:'rgba(255,255,255,.2)', borderDash:[4,3], borderWidth:1.5, pointRadius:0, fill:false }
+      ]},
+      options:{ responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{ labels:{ color:'#7f8fa8', font:{size:10}, boxWidth:10 } } },
+        scales:{ x:{ticks:{color:'#7f8fa8',font:{size:10}},grid:{display:false}}, y:{ticks:{color:'#7f8fa8',font:{size:10},callback:v=>v.toLocaleString()},grid:{color:'rgba(255,255,255,0.04)'},beginAtZero:true} } }
+    });
+
+    // ヒートマップ
+    const hmEl = document.getElementById('heatmap');
+    const hmMonths = mLabels;
+    let hmHtml = `<table class="hm-table"><tr><th>顧客</th>${hmMonths.map(m=>`<th>${m}</th>`).join('')}</tr>`;
+    customers.forEach(c => {
+      const mMap = Object.fromEntries(c.months.map(m=>[m.monthLabel, m]));
+      hmHtml += `<tr><td style="text-align:left;font-weight:500;padding:5px 8px;white-space:nowrap;color:var(--text)">${c.name}</td>`;
+      hmMonths.forEach(m => {
+        const md = mMap[m];
+        const future = !md || md.actual === 0;
+        const rate = future ? null : Math.round(md.actual/md.budget*100);
+        const col = rateColor(rate, future);
+        hmHtml += `<td style="background:${col.bg};color:${col.text};padding:5px 6px">${future?'—':rate+'%'}</td>`;
+      });
+      hmHtml += '</tr>';
+    });
+    hmHtml += '</table>';
+    hmEl.innerHTML = hmHtml;
+
+    // 顧客別カード
+    const maxB = Math.max(...customers.map(c=>c.totalBudget));
+    const list = document.getElementById('custList');
+    customers.forEach((c,i) => {
+      const rate = c.totalBudget>0 ? Math.round(c.totalActual/c.totalBudget*100) : 0;
+      const rc = rateColor(rate, false);
+      const pct = Math.round(c.totalActual/maxB*100);
+      const chartId = `cc-${i}`;
+
+      let rows = '';
+      let totB = 0, totA = 0;
+      c.months.forEach(m => {
+        const future = m.actual === 0;
+        if (!future) { totB += m.budget; totA += m.actual; }
+        const mr = future ? null : Math.round(m.actual/m.budget*100);
+        const mc = rateColor(mr, future);
+        const bar = future ? '' : `<span style="display:inline-block;width:${Math.min(100,mr)}%;height:5px;background:${mc.text};border-radius:2px;vertical-align:middle;max-width:60px"></span>`;
+        rows += `<tr>
+          <td>${m.monthLabel}</td>
+          <td>${m.budget.toLocaleString()}</td>
+          <td>${future?'<span style="color:var(--text3)">—</span>':m.actual.toLocaleString()}</td>
+          <td>${bar}</td>
+          <td>${future?'<span style="color:var(--text3)">—</span>':`<span class="rate-pill" style="background:${mc.bg};color:${mc.text}">${mr}%</span>`}</td>
+        </tr>`;
+      });
+      const totRate = totB>0 ? Math.round(totA/totB*100) : 0;
+      const tc = rateColor(totRate, false);
+
+      const div = document.createElement('div');
+      div.className = 'cust-item';
+      div.innerHTML = `
+        <div class="cust-header" onclick="this.closest('.cust-item').classList.toggle('open');toggleChart(${i})">
+          <div class="cust-color-bar" style="background:${c.color}"></div>
+          <div class="cust-name-wrap">
+            <div class="cust-name">${c.name}</div>
+            <div class="cust-sub">累計予算 ${c.totalBudget.toLocaleString()}</div>
+          </div>
+          <div class="cust-bar-wrap"><div class="cust-bar" style="width:${pct}%;background:${c.color}"></div></div>
+          <div class="cust-val">${c.totalActual.toLocaleString()}</div>
+          <div class="cust-rate" style="color:${rc.text}">${rate}%</div>
+          <span class="chevron">›</span>
+        </div>
+        <div class="detail">
+          <div class="detail-kpi">
+            <div class="dkpi"><div class="dkpi-label">累計実績</div><div class="dkpi-value">${c.totalActual.toLocaleString()}</div></div>
+            <div class="dkpi"><div class="dkpi-label">年間予算</div><div class="dkpi-value">${c.totalBudget.toLocaleString()}</div></div>
+            <div class="dkpi"><div class="dkpi-label">達成率</div><div class="dkpi-value" style="color:${rc.text}">${rate}%</div></div>
+            <div class="dkpi"><div class="dkpi-label">残予算</div><div class="dkpi-value">${rate>=100?'達成済':(c.totalBudget-c.totalActual).toLocaleString()}</div></div>
+          </div>
+          <div style="position:relative;width:100%;height:150px;margin-top:1rem">
+            <canvas id="${chartId}" role="img" aria-label="${c.name}の月別売上推移">${c.name}の月別実績</canvas>
+          </div>
+          <table class="month-tbl" style="margin-top:1rem">
+            <thead><tr><th style="text-align:left">月</th><th>予算</th><th>実績</th><th>達成度</th><th>達成率</th></tr></thead>
+            <tbody>${rows}</tbody>
+            <tfoot><tr>
+              <td style="text-align:left;font-family:var(--font)">合計</td>
+              <td>${totB.toLocaleString()}</td><td>${totA.toLocaleString()}</td><td></td>
+              <td><span class="rate-pill" style="background:${tc.bg};color:${tc.text}">${totRate}%</span></td>
+            </tr></tfoot>
+          </table>
+        </div>`;
+      list.appendChild(div);
+    });
+
+    window.toggleChart = function(i) {
+      const item = document.querySelectorAll('.cust-item')[i];
+      if (item.classList.contains('open')) {
+        setTimeout(()=>buildCustChart(`cc-${i}`, customers[i].months, customers[i].color), 50);
+      }
+    };
+
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('app').classList.add('ready');
+  } catch(e) {
+    document.getElementById('loading').innerHTML = `<div style="color:var(--red);font-size:13px">⚠ データの読み込みに失敗しました<br><small style="color:var(--text3)">${e.message}</small></div>`;
+  }
+}
+init();
+</script>
+</body>
+</html>

@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>メンバー — 第1ライン FY2027</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+</head>
+<body>
+<nav class="nav" id="nav"></nav>
+<div id="loading"><div class="spinner"></div><span>メンバーデータを読み込んでいます...</span></div>
+<div id="app">
+<main class="main">
+  <div class="page-header">
+    <h1>メンバー</h1>
+    <p id="subtitle">—</p>
+  </div>
+  <div class="tabs" id="tabs"></div>
+  <div id="content"></div>
+</main>
+</div>
+
+<script src="nav.js"></script>
+<script>
+const IMG_BASE = 'data/members/';
+const LINE_COLORS = {
+  '第1ライン':   { c:'#3b82f6', bg:'rgba(59,130,246,0.12)' },
+  '第1-1ライン': { c:'#22c55e', bg:'rgba(34,197,94,0.12)'  },
+};
+const ROLE_COLORS = {
+  '課長':           { bg:'rgba(59,130,246,.15)',  c:'#3b82f6' },
+  'リーダー':       { bg:'rgba(245,158,11,.15)',  c:'#f59e0b' },
+  'サブリーダー':   { bg:'rgba(245,158,11,.15)',  c:'#f59e0b' },
+  'エキスパート':   { bg:'rgba(167,139,250,.15)', c:'#a78bfa' },
+  'エンジニア':     { bg:'rgba(167,139,250,.15)', c:'#a78bfa' },
+  'チーフエンジニア':{ bg:'rgba(167,139,250,.15)',c:'#a78bfa' },
+  '嘱託社員':       { bg:'rgba(100,100,120,.12)', c:'#7f8fa8' },
+  '—':              { bg:'rgba(100,100,120,.10)', c:'#3d4f6a' },
+};
+
+function lc(line) { return LINE_COLORS[line] || { c:'#7f8fa8', bg:'rgba(100,100,120,.1)' }; }
+function rc(role) { return ROLE_COLORS[role] || ROLE_COLORS['—']; }
+function initials(n) { return n.replace(/\s/g,'').slice(0,2); }
+function empFmt(n) { return n ? String(n).padStart(6,'0') : '—'; }
+function calcTenure(joinStr) {
+  const m = joinStr.match(/(\d+)年(\d+)月/);
+  if (!m) return '—';
+  const joinY = parseInt(m[1]), joinM = parseInt(m[2]);
+  const now = new Date(); let years = now.getFullYear()-joinY; let months = (now.getMonth()+1)-joinM;
+  if (months < 0) { years--; months += 12; }
+  return years + '年' + months + 'ヶ月';
+}
+function avatarHTML(m, sz=28) {
+  const col = lc(m.line); const fsz = Math.round(sz*.38);
+  const img = IMG_BASE + m.name + '.png';
+  return `<img src="${img}" width="${sz}" height="${sz}" style="border-radius:50%;object-fit:cover;vertical-align:middle"
+    onerror="this.outerHTML='<span style=\\'width:${sz}px;height:${sz}px;border-radius:50%;background:${col.bg};color:${col.c};display:inline-flex;align-items:center;justify-content:center;font-size:${fsz}px;font-weight:500;vertical-align:middle\\'>${initials(m.name)}</span>'"
+    alt="${m.name}">`;
+}
+function roleBadge(role) { const r=rc(role); return `<span class="badge" style="background:${r.bg};color:${r.c}">${role}</span>`; }
+function lineTag(line) { const l=lc(line); return `<span style="font-size:11px;padding:2px 7px;border-radius:3px;background:${l.bg};color:${l.c}">${line}</span>`; }
+
+const TABS = [
+  {id:'all',label:'ALL'},
+  {id:'line',label:'ライン別'},
+  {id:'role',label:'役職別'},
+  {id:'grade',label:'等級別'},
+  {id:'committee',label:'委員会別'},
+];
+
+let currentTab = 'all';
+let members = [];
+
+function renderAll(ms) {
+  return `<div class="card"><div class="tbl-wrap"><table class="tbl">
+    <thead><tr>
+      <th class="left" style="min-width:110px">氏名</th>
+      <th class="left">社員番号</th><th class="left">役職</th><th class="left">等級</th>
+      <th class="left">所属ライン</th><th class="left">入社年月日</th>
+      <th class="left">社歴</th><th class="left">委員会</th><th class="left">支援先</th>
+    </tr></thead>
+    <tbody>${ms.map(m=>`<tr>
+      <td class="left"><div style="display:flex;align-items:center;gap:8px">${avatarHTML(m)}<span style="font-weight:500">${m.name}</span></div></td>
+      <td class="left" style="font-family:var(--mono);font-size:11px;color:var(--text3)">${empFmt(m.empNo)}</td>
+      <td class="left">${m.role!=='—'?roleBadge(m.role):'<span style="color:var(--text3)">—</span>'}</td>
+      <td class="left" style="color:var(--text2)">${m.grade}</td>
+      <td class="left">${lineTag(m.line)}</td>
+      <td class="left" style="color:var(--text2);font-size:11px">${m.join}</td>
+      <td class="left" style="font-family:var(--mono);font-size:11px;color:var(--text2)">${m.tenure}</td>
+      <td class="left" style="font-size:11px">${m.committee}</td>
+      <td class="left" style="font-weight:500">${m.dest}</td>
+    </tr>`).join('')}</tbody>
+  </table></div></div>`;
+}
+
+function renderGroups(groups) {
+  return groups.filter(g=>g.members.length>0).map(g=>{
+    const chips = g.members.map(m=>`<div class="chip">${avatarHTML(m,22)}<div><div class="chip-name">${m.name}</div><div class="chip-sub">${g.subFn(m)}</div></div></div>`).join('');
+    return `<div class="group-section">
+      <div class="group-header" style="border-left-color:${g.color}">
+        <span class="group-title" style="color:${g.color}">${g.label}</span>
+        ${g.sub?`<span style="font-size:11px;color:var(--text3);margin-left:6px">${g.sub}</span>`:''}
+        <span class="group-count">${g.members.length}名</span>
+      </div>
+      <div class="chip-list">${chips}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderByLine(ms) {
+  const LINE_META = {
+    '第1ライン':   { manager: '米花 雅史' },
+    '第1-1ライン': { manager: '伊藤 良多' },
+  };
+  const lineOrder = ['第1ライン','第1-1ライン'];
+  return lineOrder.map(ln=>{
+    const lms = ms.filter(m=>m.line===ln);
+    const col = lc(ln); const meta = LINE_META[ln]||{};
+    const chips = lms.map(m=>`<div class="chip">${avatarHTML(m,22)}<div><div class="chip-name">${m.name}</div><div class="chip-sub">${m.role!=='—'?m.role:m.grade} · ${m.dest}</div></div></div>`).join('');
+    return `<div class="group-section">
+      <div class="group-header" style="border-left-color:${col.c}">
+        <span class="group-title" style="color:${col.c}">${ln}</span>
+        ${meta.manager?`<span style="font-size:11px;color:var(--text3);margin-left:6px">管理者: ${meta.manager}</span>`:''}
+        <span class="group-count">${lms.length}名</span>
+      </div>
+      <div class="chip-list">${chips}</div>
+    </div>`;
+  }).filter(Boolean).join('');
+}
+
+function renderByRole(ms) {
+  const roleOrder = ['課長','リーダー','サブリーダー','エキスパート','エンジニア','チーフエンジニア','嘱託社員','—'];
+  const groups = roleOrder.map(r=>({ label:r, color:rc(r).c, members:ms.filter(m=>m.role===r), subFn:m=>`${m.grade} · ${m.dest}` }));
+  return renderGroups(groups);
+}
+
+function renderByGrade(ms) {
+  const gradeOrder = ['10等級','8等級','6等級','5等級','4等級','3等級','2等級','1等級'];
+  const used = [...new Set(ms.map(m=>m.grade))];
+  const ordered = gradeOrder.filter(g=>used.includes(g));
+  const groups = ordered.map(g=>({ label:g, color:'var(--text2)', members:ms.filter(m=>m.grade===g), subFn:m=>`${m.role!=='—'?m.role:'—'} · ${m.dest}` }));
+  return renderGroups(groups);
+}
+
+function renderByCommittee(ms) {
+  const map = new Map();
+  ms.forEach(m=>{ m.committee.split(',').map(s=>s.trim()).forEach(c=>{ if(!map.has(c))map.set(c,[]); map.get(c).push(m); }); });
+  const sorted = [...map.entries()].sort((a,b)=>b[1].length-a[1].length);
+  const groups = sorted.map(([key,lms])=>({ label:key, color:'var(--blue)', members:lms, subFn:m=>`${m.role!=='—'?m.role:m.grade} · ${m.line}` }));
+  return renderGroups(groups);
+}
+
+function renderContent() {
+  const el = document.getElementById('content');
+  if      (currentTab==='all')       el.innerHTML = renderAll(members);
+  else if (currentTab==='line')      el.innerHTML = renderByLine(members);
+  else if (currentTab==='role')      el.innerHTML = renderByRole(members);
+  else if (currentTab==='grade')     el.innerHTML = renderByGrade(members);
+  else if (currentTab==='committee') el.innerHTML = renderByCommittee(members);
+}
+
+function switchTab(id) {
+  currentTab = id;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active', t.dataset.id===id));
+  renderContent();
+}
+window.switchTab = switchTab;
+
+async function init() {
+  try {
+    const res = await fetch('data/members/member_master.csv');
+    const buf = await res.arrayBuffer();
+    const text = new TextDecoder('utf-8').decode(buf).replace(/^\uFEFF/, '');
+    const rows = Papa.parse(text, { header:true, skipEmptyLines:true, dynamicTyping:false }).data;
+
+    members = rows.filter(r=>(r['ステータス']||'').trim()==='在籍').map(r=>({
+      name:      (r['氏名']||'').trim(),
+      empNo:     (r['社員番号']||'').toString().trim(),
+      role:      (r['役職']||'—').trim()||'—',
+      grade:     (r['等級']||'—').trim(),
+      line:      (r['所属ライン']||'—').trim(),
+      join:      (r['入社年月日']||'').trim(),
+      tenure:    calcTenure((r['入社年月日']||'').trim()),
+      committee: (r['委員会']||'—').trim()||'—',
+      dest:      (r['支援先']||'—').trim(),
+    }));
+
+    document.getElementById('subtitle').textContent = `在籍 ${members.length}名 ／ ${new Date().toLocaleDateString('ja-JP')} 更新`;
+
+    const tabEl = document.getElementById('tabs');
+    TABS.forEach(t => {
+      tabEl.innerHTML += `<button class="tab${t.id==='all'?' active':''}" data-id="${t.id}" onclick="switchTab('${t.id}')">${t.label}</button>`;
+    });
+    renderContent();
+
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('app').classList.add('ready');
+  } catch(e) {
+    document.getElementById('loading').innerHTML = `<div style="color:var(--red);font-size:13px">⚠ データの読み込みに失敗しました<br><small style="color:var(--text3)">${e.message}</small></div>`;
+  }
+}
+init();
+</script>
+</body>
+</html>

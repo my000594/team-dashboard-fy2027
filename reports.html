@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3SEレポート — 第1ライン FY2027</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+</head>
+<body>
+<nav class="nav" id="nav"></nav>
+<div id="loading"><div class="spinner"></div><span>CSVを読み込んでいます...</span></div>
+<div id="app">
+<main class="main">
+  <div class="page-header">
+    <h1>3SEレポート提出状況</h1>
+    <p id="subtitle">—</p>
+  </div>
+
+  <div class="metrics" id="metrics"></div>
+
+  <div class="grid2 gap-2">
+    <div class="card">
+      <div class="card-title">月別 課合計件数</div>
+      <div class="chart-wrap" style="height:200px"><canvas id="lineChart" role="img" aria-label="月別件数推移"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">四半期別集計</div>
+      <div class="chart-wrap" style="height:200px"><canvas id="qChart" role="img" aria-label="四半期別件数"></canvas></div>
+    </div>
+  </div>
+
+  <div class="grid2 gap-2">
+    <div class="card">
+      <div class="card-title">担当者別 累計件数（上位15名）</div>
+      <div style="display:flex;gap:12px;margin-bottom:10px;font-size:11px;color:var(--text2)">
+        <span><span style="display:inline-block;width:10px;height:10px;background:var(--blue);border-radius:2px;margin-right:5px;vertical-align:middle"></span>達成</span>
+        <span><span style="display:inline-block;width:10px;height:10px;background:var(--red);border-radius:2px;margin-right:5px;vertical-align:middle"></span>未達成</span>
+      </div>
+      <div class="chart-wrap" style="height:260px"><canvas id="barChart" role="img" aria-label="担当者別累計件数"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">目標提出件数達成状況</div>
+      <div style="display:flex;gap:10px;margin-bottom:1rem">
+        <div style="flex:1;background:var(--green-dim);border:1px solid rgba(34,197,94,0.2);border-radius:8px;padding:.75rem;text-align:center">
+          <div id="cnt-achieved" style="font-size:28px;font-weight:700;font-family:var(--mono);color:var(--green)">—</div>
+          <div style="font-size:11px;color:var(--text2);margin-top:3px">達成</div>
+        </div>
+        <div style="flex:1;background:var(--red-dim);border:1px solid rgba(248,113,113,0.2);border-radius:8px;padding:.75rem;text-align:center">
+          <div id="cnt-not" style="font-size:28px;font-weight:700;font-family:var(--mono);color:var(--red)">—</div>
+          <div style="font-size:11px;color:var(--text2);margin-top:3px">未達成</div>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:6px">達成率</div>
+      <div style="background:var(--bg3);border-radius:4px;height:10px;overflow:hidden;margin-bottom:1.25rem">
+        <div id="achieve-bar" style="height:100%;background:var(--green);border-radius:4px;transition:width .8s ease;width:0%"></div>
+      </div>
+      <div class="card-title" style="margin-top:0">件数別分布</div>
+      <div style="height:150px;position:relative"><canvas id="distCanvas" role="img" aria-label="件数分布"></canvas></div>
+    </div>
+  </div>
+
+  <div class="section-label">メンバー詳細</div>
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+      <div class="card-title" style="margin:0">全メンバー一覧（合計件数順）</div>
+      <div id="member-count" style="font-size:11px;color:var(--text3)"></div>
+    </div>
+    <div class="tbl-wrap">
+      <table class="tbl">
+        <thead>
+          <tr>
+            <th class="left" style="width:100px">名前</th>
+            <th class="left">達成</th><th class="left">合計</th>
+            <th>8月</th><th>9月</th><th>10月</th>
+            <th class="q-col">1Q</th>
+            <th>11月</th><th>12月</th><th>1月</th>
+            <th class="q-col">2Q</th>
+            <th>2月</th><th>3月</th><th>4月</th>
+            <th class="q-col">3Q</th>
+            <th>5月</th><th>6月</th><th>7月</th>
+            <th class="q-col">4Q</th>
+            <th class="left">備考</th>
+          </tr>
+        </thead>
+        <tbody id="memberBody"></tbody>
+        <tfoot id="memberFoot"></tfoot>
+      </table>
+    </div>
+  </div>
+</main>
+</div>
+
+<script src="nav.js"></script>
+<script>
+const MONTHS = ['8月','9月','10月','11月','12月','1月','2月','3月','4月','5月','6月','7月'];
+const Q_COLS  = ['1Q','2Q','3Q','4Q'];
+const fmt = n => (n===0||n==null) ? '' : n;
+
+async function init() {
+  try {
+    const res  = await fetch('data/3se_report.csv');
+    const buf  = await res.arrayBuffer();
+    const text = new TextDecoder('utf-8').decode(buf).replace(/^\uFEFF/, '');
+    const all  = Papa.parse(text, { header:true, skipEmptyLines:true, dynamicTyping:true }).data;
+
+    const MONTH_KEYS = ['8月','9月','10月','11月','12月','1月','2月','3月','4月','5月','6月','7月'];
+    const calcTotal  = r => MONTH_KEYS.reduce((s,m)=>s+(+r[m]||0), 0);
+    const total      = all.reduce((s,r)=>s+calcTotal(r), 0);
+    const monthTotals = MONTHS.map(m=>all.reduce((s,r)=>s+(+r[m]||0),0));
+    const qTotals     = Q_COLS.map(q=>all.reduce((s,r)=>s+(+r[q]||0),0));
+
+    const active   = all.filter(r=>!String(r['備考']||'').match(/異動|退職/));
+    const achieved = active.filter(r=>r['達成状況']==='達成').length;
+    const rate     = Math.round(achieved/active.length*100);
+    const isInactive = r => String(r['備考']||'').match(/異動|退職/);
+
+    document.getElementById('subtitle').textContent = `FY2027 ／ ${new Date().toLocaleDateString('ja-JP')} 更新 ／ 在籍 ${active.length}名`;
+    document.getElementById('member-count').textContent = `${all.length}名（退職・異動含む）`;
+    document.getElementById('cnt-achieved').textContent = achieved+'名';
+    document.getElementById('cnt-not').textContent = (active.length-achieved)+'名';
+    document.getElementById('achieve-bar').style.width = rate+'%';
+
+    const mEl = document.getElementById('metrics');
+    [
+      { label:'課合計件数',     val:total+'件',     sub:`在籍 ${active.length}名`, cls:'blue'  },
+      { label:'達成者数',       val:achieved+'名',  sub:`達成率 ${rate}%`,         cls:'green' },
+      { label:'1Q（8〜10月）', val:qTotals[0]+'件',sub:'第一四半期',              cls:'amber' },
+      { label:'2Q（11〜1月）', val:qTotals[1]+'件',sub:'第二四半期',              cls:'amber' },
+      { label:'3Q（2〜4月）',  val:qTotals[2]+'件',sub:'第三四半期',              cls:'amber' },
+      { label:'4Q（5〜7月）',  val:qTotals[3]+'件',sub:'第四四半期',              cls:'amber' },
+    ].forEach(m=>{
+      mEl.innerHTML+=`<div class="metric ${m.cls}"><div class="metric-label">${m.label}</div><div class="metric-value">${m.val}</div><div class="metric-sub">${m.sub}</div></div>`;
+    });
+
+    new Chart(document.getElementById('lineChart'),{type:'line',data:{labels:MONTHS,datasets:[{label:'件数',data:monthTotals,borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,0.08)',borderWidth:2,tension:0.4,fill:true,pointBackgroundColor:'#3b82f6',pointRadius:4,pointHoverRadius:6}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#7f8fa8',font:{size:11}},grid:{color:'rgba(255,255,255,0.04)'}},y:{ticks:{color:'#7f8fa8',font:{size:11},stepSize:5},grid:{color:'rgba(255,255,255,0.04)'},beginAtZero:true}}}});
+
+    new Chart(document.getElementById('qChart'),{type:'bar',data:{labels:['1Q\n8〜10月','2Q\n11〜1月','3Q\n2〜4月','4Q\n5〜7月'],datasets:[{data:qTotals,backgroundColor:['rgba(59,130,246,.7)','rgba(34,197,94,.7)','rgba(245,158,11,.7)','rgba(248,113,113,.7)'],borderRadius:5,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>ctx.parsed.y+'件'}}},scales:{x:{ticks:{color:'#7f8fa8',font:{size:11}},grid:{display:false}},y:{ticks:{color:'#7f8fa8',font:{size:11}},grid:{color:'rgba(255,255,255,0.04)'},beginAtZero:true}}}});
+
+    const sorted15=[...all].sort((a,b)=>calcTotal(b)-calcTotal(a)).slice(0,15);
+    new Chart(document.getElementById('barChart'),{type:'bar',data:{labels:sorted15.map(r=>r['名前']),datasets:[{data:sorted15.map(r=>calcTotal(r)),backgroundColor:sorted15.map(r=>r['達成状況']==='達成'?'rgba(59,130,246,.75)':'rgba(248,113,113,.6)'),borderRadius:3,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#7f8fa8',font:{size:10},maxRotation:40,autoSkip:false},grid:{display:false}},y:{ticks:{color:'#7f8fa8',font:{size:11},stepSize:2},grid:{color:'rgba(255,255,255,0.04)'},beginAtZero:true}}}});
+
+    const buckets=[0,1,2,3,4,5];
+    const dData=buckets.map((b,i)=>i===buckets.length-1?all.filter(r=>calcTotal(r)>=5).length:all.filter(r=>calcTotal(r)===b).length);
+    new Chart(document.getElementById('distCanvas'),{type:'doughnut',data:{labels:['0件','1件','2件','3件','4件','5件以上'],datasets:[{data:dData,backgroundColor:['#1a2235','#212d45','#3b82f6','#22c55e','#f59e0b','#f87171'],borderWidth:1,borderColor:'#111827'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{color:'#7f8fa8',font:{size:10},boxWidth:10,padding:8}}},cutout:'60%'}});
+
+    const tbody=document.getElementById('memberBody');
+    [...all].sort((a,b)=>{
+      const ai=isInactive(a)?1:0,bi=isInactive(b)?1:0;
+      if(ai!==bi) return ai-bi;
+      return calcTotal(b)-calcTotal(a);
+    }).forEach(r=>{
+      tbody.innerHTML+=`<tr>
+        <td class="left" style="font-weight:500">${r['名前']}</td>
+        <td class="left"><span class="badge badge-${r['達成状況']}">${r['達成状況']}</span></td>
+        <td class="left" style="font-family:var(--mono);font-weight:700">${calcTotal(r)}</td>
+        <td>${fmt(r['8月'])}</td><td>${fmt(r['9月'])}</td><td>${fmt(r['10月'])}</td>
+        <td class="q-col">${fmt(r['1Q'])}</td>
+        <td>${fmt(r['11月'])}</td><td>${fmt(r['12月'])}</td><td>${fmt(r['1月'])}</td>
+        <td class="q-col">${fmt(r['2Q'])}</td>
+        <td>${fmt(r['2月'])}</td><td>${fmt(r['3月'])}</td><td>${fmt(r['4月'])}</td>
+        <td class="q-col">${fmt(r['3Q'])}</td>
+        <td>${fmt(r['5月'])}</td><td>${fmt(r['6月'])}</td><td>${fmt(r['7月'])}</td>
+        <td class="q-col">${fmt(r['4Q'])}</td>
+        <td class="left" style="color:var(--text3);font-size:11px">${r['備考']||''}</td>
+      </tr>`;
+    });
+
+    const tfoot=document.getElementById('memberFoot');
+    const sumM=m=>all.reduce((s,r)=>s+(r[m]||0),0);
+    tfoot.innerHTML=`<tr>
+      <td class="left" style="color:var(--text2)">課合計</td><td></td>
+      <td class="left">${total}</td>
+      <td>${sumM('8月')||''}</td><td>${sumM('9月')||''}</td><td>${sumM('10月')||''}</td>
+      <td class="q-col">${qTotals[0]}</td>
+      <td>${sumM('11月')||''}</td><td>${sumM('12月')||''}</td><td>${sumM('1月')||''}</td>
+      <td class="q-col">${qTotals[1]}</td>
+      <td>${sumM('2月')||''}</td><td>${sumM('3月')||''}</td><td>${sumM('4月')||''}</td>
+      <td class="q-col">${qTotals[2]}</td>
+      <td>${sumM('5月')||''}</td><td>${sumM('6月')||''}</td><td>${sumM('7月')||''}</td>
+      <td class="q-col">${qTotals[3]}</td><td></td>
+    </tr>`;
+
+    document.getElementById('loading').style.display='none';
+    document.getElementById('app').classList.add('ready');
+  } catch(e) {
+    document.getElementById('loading').innerHTML=`<div style="color:var(--red);font-size:13px">⚠ data/3se_report.csv が読み込めませんでした<br><small style="color:var(--text3)">${e.message}</small></div>`;
+  }
+}
+init();
+</script>
+</body>
+</html>
