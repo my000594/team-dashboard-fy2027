@@ -7,43 +7,44 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <style>
-.search-wrap { position:relative; margin-bottom:1.25rem; }
-.search-input { width:100%; padding:.65rem 1rem .65rem 2.5rem; background:var(--bg2); border:1px solid var(--border2); border-radius:var(--radius); color:var(--text); font-size:14px; font-family:var(--font); outline:none; transition:border-color .2s; }
-.search-input:focus { border-color:var(--blue); }
-.search-input::placeholder { color:var(--text3); }
-.search-icon { position:absolute; left:.75rem; top:50%; transform:translateY(-50%); color:var(--text3); pointer-events:none; }
-.filter-btn { font-size:12px; font-weight:500; padding:4px 12px; border-radius:999px; cursor:pointer; border:.5px solid var(--border); background:transparent; color:var(--text2); font-family:var(--font); transition:.15s; }
-.filter-btn:hover { border-color:var(--border2); color:var(--text); }
-.filter-btn.active { background:var(--blue-dim); border-color:rgba(59,130,246,.4); color:var(--blue); }
-.faq-card { background:var(--bg2); border:1px solid var(--border); border-radius:var(--radius); padding:1rem 1.1rem; margin-bottom:8px; transition:border-color .15s; }
-.faq-card:hover { border-color:var(--border2); }
-.faq-q { font-weight:700; font-size:13px; margin-bottom:6px; display:flex; gap:8px; align-items:flex-start; }
-.faq-q::before { content:'Q'; font-family:var(--mono); font-size:11px; color:var(--blue); background:var(--blue-dim); padding:1px 6px; border-radius:4px; flex-shrink:0; margin-top:1px; }
-.faq-a { font-size:13px; color:var(--text2); line-height:1.7; display:flex; gap:8px; align-items:flex-start; white-space:pre-line; }
-.faq-a::before { content:'A'; font-family:var(--mono); font-size:11px; color:var(--green); background:var(--green-dim); padding:1px 6px; border-radius:4px; flex-shrink:0; margin-top:1px; }
-.faq-footer { display:flex; gap:8px; align-items:center; margin-top:.6rem; flex-wrap:wrap; }
-.tag { font-size:10px; padding:1px 7px; border-radius:3px; background:var(--bg3); color:var(--text3); }
-.article-card { background:var(--bg2); border:1px solid var(--border); border-radius:var(--radius-lg); margin-bottom:10px; overflow:hidden; transition:border-color .15s; }
-.article-card:hover { border-color:var(--border2); }
-.article-header { padding:.9rem 1.1rem; cursor:pointer; display:flex; justify-content:space-between; align-items:center; gap:12px; }
-.article-title { font-weight:700; font-size:14px; }
-.article-summary { font-size:12px; color:var(--text2); margin-top:3px; }
-.article-chevron { color:var(--text3); font-size:16px; flex-shrink:0; transition:transform .2s; }
-.article-card.open .article-chevron { transform:rotate(90deg); }
-.article-body { display:none; padding:0 1.25rem 1.25rem; }
-.article-card.open .article-body { display:block; }
-.md-body { font-size:13px; color:var(--text2); line-height:1.8; }
-.md-body h2 { font-size:15px; font-weight:700; color:var(--text); margin:1.25rem 0 .5rem; padding-bottom:.4rem; border-bottom:1px solid var(--border); }
-.md-body h3 { font-size:13px; font-weight:700; color:var(--text); margin:.9rem 0 .3rem; }
-.md-body p  { margin-bottom:.65rem; }
-.md-body ul, .md-body ol { padding-left:1.25rem; margin-bottom:.65rem; }
-.md-body li { margin-bottom:.25rem; }
-.md-body code { font-family:var(--mono); font-size:12px; background:var(--bg3); padding:1px 5px; border-radius:3px; color:var(--blue); }
-.md-body a { color:var(--blue); }
-.md-body strong { color:var(--text); font-weight:700; }
-.empty { text-align:center; padding:3rem 1rem; color:var(--text3); font-size:13px; }
-.result-count { font-size:12px; color:var(--text3); margin-bottom:1rem; font-family:var(--mono); }
+.search-wrap{position:relative;margin-bottom:1.25rem}
+.search-input{width:100%;padding:.65rem 1rem .65rem 2.5rem;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);font-size:14px;font-family:var(--font);outline:none;transition:border-color .2s}
+.search-input:focus{border-color:var(--blue)}
+.search-input::placeholder{color:var(--text3)}
+.search-icon{position:absolute;left:.75rem;top:50%;transform:translateY(-50%);color:var(--text3);pointer-events:none}
+.filter-btn{font-size:12px;font-weight:500;padding:4px 12px;border-radius:999px;cursor:pointer;border:.5px solid var(--border);background:transparent;color:var(--text2);font-family:var(--font);transition:.15s}
+.filter-btn:hover{border-color:var(--border2);color:var(--text)}
+.filter-btn.active{background:var(--blue-dim);border-color:rgba(59,130,246,.4);color:var(--blue)}
+.faq-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.1rem;margin-bottom:8px;transition:border-color .15s}
+.faq-card:hover{border-color:var(--border2)}
+.faq-q{font-weight:700;font-size:13px;margin-bottom:6px;display:flex;gap:8px;align-items:flex-start}
+.faq-q::before{content:'Q';font-family:var(--mono);font-size:11px;color:var(--blue);background:var(--blue-dim);padding:1px 6px;border-radius:4px;flex-shrink:0;margin-top:1px}
+.faq-a{font-size:13px;color:var(--text2);line-height:1.7;display:flex;gap:8px;align-items:flex-start;white-space:pre-line}
+.faq-a::before{content:'A';font-family:var(--mono);font-size:11px;color:var(--green);background:var(--green-dim);padding:1px 6px;border-radius:4px;flex-shrink:0;margin-top:1px}
+.faq-footer{display:flex;gap:8px;align-items:center;margin-top:.6rem;flex-wrap:wrap}
+.tag{font-size:10px;padding:1px 7px;border-radius:3px;background:var(--bg3);color:var(--text3)}
+.article-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:10px;overflow:hidden;transition:border-color .15s}
+.article-card:hover{border-color:var(--border2)}
+.article-header{padding:.9rem 1.1rem;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:12px}
+.article-title{font-weight:700;font-size:14px}
+.article-summary{font-size:12px;color:var(--text2);margin-top:3px}
+.article-chevron{color:var(--text3);font-size:16px;flex-shrink:0;transition:transform .2s}
+.article-card.open .article-chevron{transform:rotate(90deg)}
+.article-body{display:none;padding:0 1.25rem 1.25rem}
+.article-card.open .article-body{display:block}
+.md-body{font-size:13px;color:var(--text2);line-height:1.8}
+.md-body h2{font-size:15px;font-weight:700;color:var(--text);margin:1.25rem 0 .5rem;padding-bottom:.4rem;border-bottom:1px solid var(--border)}
+.md-body h3{font-size:13px;font-weight:700;color:var(--text);margin:.9rem 0 .3rem}
+.md-body p{margin-bottom:.65rem}
+.md-body ul,.md-body ol{padding-left:1.25rem;margin-bottom:.65rem}
+.md-body li{margin-bottom:.25rem}
+.md-body code{font-family:var(--mono);font-size:12px;background:var(--bg3);padding:1px 5px;border-radius:3px;color:var(--blue)}
+.md-body a{color:var(--blue)}
+.md-body strong{color:var(--text);font-weight:700}
+.empty{text-align:center;padding:3rem 1rem;color:var(--text3);font-size:13px}
+.result-count{font-size:12px;color:var(--text3);margin-bottom:1rem;font-family:var(--mono)}
 </style>
 </head>
 <body>
@@ -72,13 +73,18 @@ const CATEGORIES = ['すべて','社内ルール','技術・スキル','リン�
 let allItems = [], currentCat = 'すべて', currentQuery = '';
 
 function md2html(md) {
+  if (!md) return '';
   return md
-    .replace(/^## (.+)$/gm,'<h2>$1</h2>').replace(/^### (.+)$/gm,'<h3>$1</h3>')
-    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/`([^`]+)`/g,'<code>$1</code>')
-    .replace(/^- (.+)$/gm,'<li>$1</li>').replace(/^\d+\. (.+)$/gm,'<li>$1</li>')
+    .replace(/^## (.+)$/gm,'<h2>$1</h2>')
+    .replace(/^### (.+)$/gm,'<h3>$1</h3>')
+    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+    .replace(/`([^`]+)`/g,'<code>$1</code>')
+    .replace(/^- (.+)$/gm,'<li>$1</li>')
+    .replace(/^\d+\. (.+)$/gm,'<li>$1</li>')
     .replace(/(<li>[\s\S]+?<\/li>\n?)+/g,m=>`<ul>${m}</ul>`)
     .replace(/\[(.+?)\]\((.+?)\)/g,'<a href="$2" target="_blank">$1</a>')
-    .replace(/\n\n/g,'</p><p>').trim();
+    .replace(/\n\n/g,'</p><p>')
+    .trim();
 }
 
 function filterItems() {
@@ -88,8 +94,8 @@ function filterItems() {
     const matchQ = !q ||
       item.title.toLowerCase().includes(q) ||
       (item.q||'').toLowerCase().includes(q) ||
-      (item.a||'').toLowerCase().includes(q) ||
       (item.body||'').toLowerCase().includes(q) ||
+      (item.summary||'').toLowerCase().includes(q) ||
       (item.tags||[]).some(t=>t.toLowerCase().includes(q));
     return matchCat && matchQ;
   });
@@ -101,7 +107,7 @@ function catColor(cat) {
 
 function render() {
   const items = filterItems();
-  const faqs = items.filter(i=>i.type==='faq');
+  const faqs     = items.filter(i=>i.type==='faq');
   const articles = items.filter(i=>i.type==='article');
   document.getElementById('resultCount').textContent = `${items.length}件 表示中（全${allItems.length}件）`;
 
@@ -110,19 +116,19 @@ function render() {
   document.getElementById('faqList').innerHTML = faqs.map(item=>`
     <div class="faq-card">
       <div class="faq-q">${item.title}</div>
-      <div class="faq-a">${item.a}</div>
+      <div class="faq-a">${item.body||item.a||''}</div>
       <div class="faq-footer">
         <span class="badge badge-${catColor(item.category)}">${item.category}</span>
         ${(item.tags||[]).map(t=>`<span class="tag">${t}</span>`).join('')}
-        <span style="margin-left:auto;font-size:10px;color:var(--text3);font-family:var(--mono)">${item.updated}</span>
+        <span style="margin-left:auto;font-size:10px;color:var(--text3);font-family:var(--mono)">${item.updated||''}</span>
       </div>
     </div>`).join('') || '<div class="empty">該当するFAQがありません</div>';
 
   const artSec = document.getElementById('articleSection');
   artSec.style.display = articles.length?'':'none';
-  document.getElementById('articleList').innerHTML = articles.map(item=>`
-    <div class="article-card" id="art-${item.id}">
-      <div class="article-header" onclick="toggleArticle('${item.id}')">
+  document.getElementById('articleList').innerHTML = articles.map((item,i)=>`
+    <div class="article-card" id="art-${i}">
+      <div class="article-header" onclick="document.getElementById('art-${i}').classList.toggle('open')">
         <div>
           <div class="article-title">${item.title}</div>
           <div class="article-summary">${item.summary||''}</div>
@@ -133,7 +139,7 @@ function render() {
         <div style="display:flex;gap:8px;align-items:center;margin-bottom:.75rem;flex-wrap:wrap">
           <span class="badge badge-${catColor(item.category)}">${item.category}</span>
           ${(item.tags||[]).map(t=>`<span class="tag">${t}</span>`).join('')}
-          <span style="margin-left:auto;font-size:10px;color:var(--text3);font-family:var(--mono)">${item.updated}</span>
+          <span style="margin-left:auto;font-size:10px;color:var(--text3);font-family:var(--mono)">${item.updated||''}</span>
         </div>
         <div class="md-body">${md2html(item.body||'')}</div>
       </div>
@@ -146,16 +152,32 @@ function render() {
   }
 }
 
-window.toggleArticle = id => document.getElementById('art-'+id).classList.toggle('open');
-
 async function init() {
   try {
-    allItems = await fetch('data/knowledge.json').then(r=>r.json());
+    const res  = await fetch('data/knowledge.csv');
+    const buf  = await res.arrayBuffer();
+    const text = new TextDecoder('utf-8').decode(buf).replace(/^\uFEFF/, '');
+    const rows = Papa.parse(text, { header:true, skipEmptyLines:true }).data;
+
+    allItems = rows.map((r,i) => ({
+      id:       String(i).padStart(3,'0'),
+      title:    (r['タイトル']||'').trim(),
+      type:     (r['種別']||'faq').trim(),
+      category: (r['カテゴリ']||'社内ルール').trim(),
+      q:        (r['質問']||'').trim(),
+      body:     (r['回答・本文']||'').trim(),
+      summary:  (r['サマリー']||'').trim(),
+      tags:     (r['タグ']||'').split(',').map(t=>t.trim()).filter(Boolean),
+      updated:  (r['更新日']||'').trim(),
+    })).filter(r=>r.title);
+
     const fEl = document.getElementById('filters');
     CATEGORIES.forEach(cat => {
       const btn = document.createElement('button');
       btn.className = 'filter-btn'+(cat==='すべて'?' active':'');
-      btn.textContent = cat==='すべて'?`すべて (${allItems.length})`:`${cat} (${allItems.filter(i=>i.category===cat).length})`;
+      btn.textContent = cat==='すべて'
+        ? `すべて (${allItems.length})`
+        : `${cat} (${allItems.filter(i=>i.category===cat).length})`;
       btn.onclick = () => {
         currentCat = cat;
         document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
@@ -164,12 +186,14 @@ async function init() {
       };
       fEl.appendChild(btn);
     });
+
     document.getElementById('searchInput').addEventListener('input', e=>{ currentQuery=e.target.value; render(); });
     render();
+
     document.getElementById('loading').style.display = 'none';
     document.getElementById('app').classList.add('ready');
   } catch(e) {
-    document.getElementById('loading').innerHTML = `<div style="color:var(--red);font-size:13px">⚠ data/knowledge.json が読み込めませんでした</div>`;
+    document.getElementById('loading').innerHTML = `<div style="color:var(--red);font-size:13px">⚠ data/knowledge.csv が読み込めませんでした<br><small style="color:var(--text3)">${e.message}</small></div>`;
   }
 }
 init();

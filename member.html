@@ -27,8 +27,8 @@
 <script>
 const IMG_BASE = 'data/members/';
 const LINE_COLORS = {
-  '第1ライン':   { c:'#3b82f6', bg:'rgba(59,130,246,0.12)' },
-  '第1-1ライン': { c:'#22c55e', bg:'rgba(34,197,94,0.12)'  },
+  '米花雅史Ｋライン': { c:'#3b82f6', bg:'rgba(59,130,246,0.12)' },
+  '第1-1ライン':     { c:'#22c55e', bg:'rgba(34,197,94,0.12)'  },
 };
 const ROLE_COLORS = {
   '課長':           { bg:'rgba(59,130,246,.15)',  c:'#3b82f6' },
@@ -55,10 +55,9 @@ function calcTenure(joinStr) {
 }
 function avatarHTML(m, sz=28) {
   const col = lc(m.line); const fsz = Math.round(sz*.38);
-  const img = IMG_BASE + m.name + '.png';
-  return `<img src="${img}" width="${sz}" height="${sz}" style="border-radius:50%;object-fit:cover;vertical-align:middle"
-    onerror="this.outerHTML='<span style=\\'width:${sz}px;height:${sz}px;border-radius:50%;background:${col.bg};color:${col.c};display:inline-flex;align-items:center;justify-content:center;font-size:${fsz}px;font-weight:500;vertical-align:middle\\'>${initials(m.name)}</span>'"
-    alt="${m.name}">`;
+  const fb = `<span style="width:${sz}px;height:${sz}px;border-radius:50%;background:${col.bg};color:${col.c};display:inline-flex;align-items:center;justify-content:center;font-size:${fsz}px;font-weight:500;vertical-align:middle">${initials(m.name)}</span>`;
+  if (!m.image) return fb;
+  return `<img src="${IMG_BASE}${m.image}" width="${sz}" height="${sz}" style="border-radius:50%;object-fit:cover;vertical-align:middle" onerror="this.outerHTML=\'${initials(m.name)}\'" alt="${m.name}">`;
 }
 function roleBadge(role) { const r=rc(role); return `<span class="badge" style="background:${r.bg};color:${r.c}">${role}</span>`; }
 function lineTag(line) { const l=lc(line); return `<span style="font-size:11px;padding:2px 7px;border-radius:3px;background:${l.bg};color:${l.c}">${line}</span>`; }
@@ -111,24 +110,35 @@ function renderGroups(groups) {
 }
 
 function renderByLine(ms) {
-  const LINE_META = {
-    '第1ライン':   { manager: '米花 雅史' },
-    '第1-1ライン': { manager: '伊藤 良多' },
-  };
-  const lineOrder = ['第1ライン','第1-1ライン'];
-  return lineOrder.map(ln=>{
-    const lms = ms.filter(m=>m.line===ln);
-    const col = lc(ln); const meta = LINE_META[ln]||{};
-    const chips = lms.map(m=>`<div class="chip">${avatarHTML(m,22)}<div><div class="chip-name">${m.name}</div><div class="chip-sub">${m.role!=='—'?m.role:m.grade} · ${m.dest}</div></div></div>`).join('');
+  // 課長は米花雅史Ｋライン、それ以外は第1-1ラインとして自動振り分け
+  const groups = [
+    {
+      label: '米花雅史Ｋライン',
+      role: '課長',
+      manager: '米花 雅史',
+      members: ms.filter(m => m.role === '課長'),
+      subFn: m => `${m.role} · ${m.dest}`,
+    },
+    {
+      label: '第1-1ライン',
+      role: 'リーダー',
+      manager: '伊藤 良多',
+      members: ms.filter(m => m.role !== '課長'),
+      subFn: m => `${m.role !== '—' ? m.role : m.grade} · ${m.dest}`,
+    },
+  ];
+  return groups.filter(g=>g.members.length>0).map(g=>{
+    const col = lc(g.label);
+    const chips = g.members.map(m=>`<div class="chip">${avatarHTML(m,22)}<div><div class="chip-name">${m.name}</div><div class="chip-sub">${g.subFn(m)}</div></div></div>`).join('');
     return `<div class="group-section">
       <div class="group-header" style="border-left-color:${col.c}">
-        <span class="group-title" style="color:${col.c}">${ln}</span>
-        ${meta.manager?`<span style="font-size:11px;color:var(--text3);margin-left:6px">管理者: ${meta.manager}</span>`:''}
-        <span class="group-count">${lms.length}名</span>
+        <span class="group-title" style="color:${col.c}">${g.label}</span>
+        <span style="font-size:11px;color:var(--text3);margin-left:6px">${g.role}: ${g.manager}</span>
+        <span class="group-count">${g.members.length}名</span>
       </div>
       <div class="chip-list">${chips}</div>
     </div>`;
-  }).filter(Boolean).join('');
+  }).join('');
 }
 
 function renderByRole(ms) {
@@ -186,6 +196,7 @@ async function init() {
       tenure:    calcTenure((r['入社年月日']||'').trim()),
       committee: (r['委員会']||'—').trim()||'—',
       dest:      (r['支援先']||'—').trim(),
+      image:     decodeURIComponent((r['画像']||'').trim()),
     }));
 
     document.getElementById('subtitle').textContent = `在籍 ${members.length}名 ／ ${new Date().toLocaleDateString('ja-JP')} 更新`;

@@ -141,7 +141,7 @@ async function init() {
     new Chart(document.getElementById('qChart'),{type:'bar',data:{labels:['1Q\n8〜10月','2Q\n11〜1月','3Q\n2〜4月','4Q\n5〜7月'],datasets:[{data:qTotals,backgroundColor:['rgba(59,130,246,.7)','rgba(34,197,94,.7)','rgba(245,158,11,.7)','rgba(248,113,113,.7)'],borderRadius:5,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>ctx.parsed.y+'件'}}},scales:{x:{ticks:{color:'#7f8fa8',font:{size:11}},grid:{display:false}},y:{ticks:{color:'#7f8fa8',font:{size:11}},grid:{color:'rgba(255,255,255,0.04)'},beginAtZero:true}}}});
 
     const sorted15=[...all].sort((a,b)=>calcTotal(b)-calcTotal(a)).slice(0,15);
-    new Chart(document.getElementById('barChart'),{type:'bar',data:{labels:sorted15.map(r=>r['名前']),datasets:[{data:sorted15.map(r=>calcTotal(r)),backgroundColor:sorted15.map(r=>r['達成状況']==='達成'?'rgba(59,130,246,.75)':'rgba(248,113,113,.6)'),borderRadius:3,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#7f8fa8',font:{size:10},maxRotation:40,autoSkip:false},grid:{display:false}},y:{ticks:{color:'#7f8fa8',font:{size:11},stepSize:2},grid:{color:'rgba(255,255,255,0.04)'},beginAtZero:true}}}});
+    new Chart(document.getElementById('barChart'),{type:'bar',data:{labels:sorted15.map(r=>r['社員番号']),datasets:[{data:sorted15.map(r=>calcTotal(r)),backgroundColor:sorted15.map(r=>r['達成状況']==='達成'?'rgba(59,130,246,.75)':'rgba(248,113,113,.6)'),borderRadius:3,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#7f8fa8',font:{size:10},maxRotation:40,autoSkip:false},grid:{display:false}},y:{ticks:{color:'#7f8fa8',font:{size:11},stepSize:2},grid:{color:'rgba(255,255,255,0.04)'},beginAtZero:true}}}});
 
     const buckets=[0,1,2,3,4,5];
     const dData=buckets.map((b,i)=>i===buckets.length-1?all.filter(r=>calcTotal(r)>=5).length:all.filter(r=>calcTotal(r)===b).length);
@@ -154,7 +154,7 @@ async function init() {
       return calcTotal(b)-calcTotal(a);
     }).forEach(r=>{
       tbody.innerHTML+=`<tr>
-        <td class="left" style="font-weight:500">${r['名前']}</td>
+        <td class="left" style="font-weight:500">${r['社員番号']}</td>
         <td class="left"><span class="badge badge-${r['達成状況']}">${r['達成状況']}</span></td>
         <td class="left" style="font-family:var(--mono);font-weight:700">${calcTotal(r)}</td>
         <td>${fmt(r['8月'])}</td><td>${fmt(r['9月'])}</td><td>${fmt(r['10月'])}</td>

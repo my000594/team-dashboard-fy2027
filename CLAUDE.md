@@ -64,13 +64,14 @@ team-dashboard-fy2027/
 ├── update_master.bat   メンバーマスタCSV更新バッチ
 ├── update_sales.bat    売上CSV更新バッチ
 ├── update_info.bat     インフォメーションCSV更新バッチ
+├── update_knowledge.bat ナレッジCSV更新バッチ
 ├── CLAUDE.md           このファイル
 └── data/
     ├── maintenance.json    メンテナンス制御
     ├── 3se_report.csv      3SEレポート（Notionエクスポート）
     ├── sales.csv           売上データ（Notionエクスポート・縦持ち）
     ├── info.csv            インフォメーション（Notionエクスポート）
-    ├── knowledge.json      ナレッジ・FAQ（GitHub直接編集）
+    ├── knowledge.csv       ナレッジ・FAQ（Notionエクスポート）
     └── members/
         ├── member_master.csv   メンバーマスタ（Notionエクスポート）
         └── 氏名.png            顔写真（個人名でリネーム・手動管理）
@@ -153,9 +154,9 @@ LINE_COLORSとLINE_META定数はmember.html内に定義。
 - 実績=0の月は「未確定」として「—」表示
 
 ### knowledge.html（ナレッジ・FAQ）
-- `data/knowledge.json` をfetch
-- type: "faq" → Q&Aカード、type: "article" → アコーディオン展開
-- カテゴリフィルター＋キーワード検索
+- `data/knowledge.csv` をfetchしてPapaParseで解析
+- 種別「faq」→ Q&Aカード、「article」→ アコーディオン展開（Markdown対応）
+- カテゴリフィルター＋キーワード検索（タイトル・本文・タグ対象）
 
 ---
 
@@ -198,15 +199,19 @@ CTC,2026/08/01,3000,3240
 - 合計列は使わない（月別直接合算）
 - 備考に「異動」「退職」→ 達成判定から除外（集計には含める）
 
-### data/knowledge.json
-```json
-[{
-  "id": "001", "category": "社内ルール", "type": "faq",
-  "title": "...", "q": "...", "a": "...",
-  "tags": ["タグ"], "updated": "2026-08-01"
-}]
+### data/knowledge.csv（Notionエクスポート）
 ```
-カテゴリ：`社内ルール` / `技術・スキル` / `リンク・連絡先`
+タイトル,種別,カテゴリ,質問,回答・本文,サマリー,タグ,更新日
+質問タイトル,faq,社内ルール,質問文,回答文,,タグ1,タグ2,2026-08-01
+記事タイトル,article,技術・スキル,,## 見出し
+
+本文（Markdown）,一行説明,タグ,2026-08-01
+```
+- 種別：`faq`（Q&Aカード）/ `article`（アコーディオン展開）
+- カテゴリ：`社内ルール` / `技術・スキル` / `リンク・連絡先`
+- タグ：カンマ区切りで複数指定可
+- article本文はMarkdown記法で入力（Notionでも同様）
+- バッチ判定キー：ヘッダーに「種別」「カテゴリ」「タグ」が含まれる
 
 ---
 
@@ -222,6 +227,7 @@ CSVのヘッダーで対象ファイルを自動判定して処理。
 | update_master.bat | 「社員番号」 |
 | update_sales.bat | 「予算」「実績」「顧客」 |
 | update_info.bat | 「開始日」「終了日」「種別」 |
+| update_knowledge.bat | 「種別」「カテゴリ」「タグ」 |
 
 ### 各データ更新手順
 ```
