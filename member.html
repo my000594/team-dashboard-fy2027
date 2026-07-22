@@ -55,9 +55,11 @@ function calcTenure(joinStr) {
 }
 function avatarHTML(m, sz=28) {
   const col = lc(m.line); const fsz = Math.round(sz*.38);
-  const fb = `<span style="width:${sz}px;height:${sz}px;border-radius:50%;background:${col.bg};color:${col.c};display:inline-flex;align-items:center;justify-content:center;font-size:${fsz}px;font-weight:500;vertical-align:middle">${initials(m.name)}</span>`;
+  const fb = '<span style="width:'+sz+'px;height:'+sz+'px;border-radius:50%;background:'+col.bg+';color:'+col.c+';display:inline-flex;align-items:center;justify-content:center;font-size:'+fsz+'px;font-weight:500;vertical-align:middle">'+initials(m.name)+'</span>';
   if (!m.image) return fb;
-  return `<img src="${IMG_BASE}${m.image}" width="${sz}" height="${sz}" style="border-radius:50%;object-fit:cover;vertical-align:middle" onerror="this.outerHTML=\'${initials(m.name)}\'" alt="${m.name}">`;
+  const imgL = IMG_BASE + m.image.replace(/\.[^.]+$/, e => e.toLowerCase());
+  const imgU = IMG_BASE + m.image.replace(/\.[^.]+$/, e => e.toUpperCase());
+  return '<img src="'+imgL+'" data-upper="'+imgU+'" width="'+sz+'" height="'+sz+'" style="border-radius:50%;object-fit:cover;vertical-align:middle" onerror="var u=this.getAttribute(\'data-upper\');if(this.src!==u){this.src=u}else{this.outerHTML=\''+initials(m.name)+'\'}" alt="'+m.name+'">';
 }
 function roleBadge(role) { const r=rc(role); return `<span class="badge" style="background:${r.bg};color:${r.c}">${role}</span>`; }
 function lineTag(line) { const l=lc(line); return `<span style="font-size:11px;padding:2px 7px;border-radius:3px;background:${l.bg};color:${l.c}">${line}</span>`; }
