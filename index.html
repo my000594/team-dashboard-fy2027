@@ -100,9 +100,19 @@ async function init() {
 
     // 売上集計
     const today = new Date();
-    const salesActual = salesRows.filter(r => r['実績'] > 0);
-    const salesTotal  = salesActual.reduce((s,r)=>s+(+r['実績']||0), 0);
-    const salesBudget = salesActual.reduce((s,r)=>s+(+r['予算']||0), 0);
+    function parseMonth(str) {
+      if (!str) return null;
+      const m1 = String(str).match(/(\d{4})[年](\d{1,2})[月]/);
+      if (m1) return new Date(parseInt(m1[1]), parseInt(m1[2])-1, 1);
+      const m2 = String(str).match(/(\d{4})[\/\-](\d{1,2})/);
+      if (m2) return new Date(parseInt(m2[1]), parseInt(m2[2])-1, 1);
+      return null;
+    }
+    function toNum(v) { return parseFloat(String(v||'0').replace(/,/g,''))||0; }
+
+    const salesActual = salesRows.filter(r => toNum(r['実績']) > 0);
+    const salesTotal  = salesActual.reduce((s,r)=>s+toNum(r['実績']), 0);
+    const salesBudget = salesActual.reduce((s,r)=>s+toNum(r['予算']), 0);
     const salesRate   = salesBudget > 0 ? Math.round(salesTotal/salesBudget*100) : 0;
 
     document.getElementById('subtitle').textContent =
