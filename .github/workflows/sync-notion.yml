@@ -8,6 +8,11 @@ on:
 permissions:
   contents: write
 
+# 手動実行と定期実行が重なった場合、同時実行せず順番に実行する（git pushの競合を防ぐ）
+concurrency:
+  group: sync-notion
+  cancel-in-progress: false
+
 jobs:
   sync:
     runs-on: ubuntu-latest
@@ -32,5 +37,6 @@ jobs:
           else
             git add data
             git commit -m "Notionデータを同期"
+            git pull --rebase origin "${GITHUB_REF_NAME}"
             git push
           fi

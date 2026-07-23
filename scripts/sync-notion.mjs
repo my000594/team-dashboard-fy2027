@@ -73,6 +73,32 @@ function isoToJaDate(iso) {
   return `${y}年${m}月${d}日`;
 }
 
+// --- 既存CSVの読み込み（RFC4180準拠。引用符で囲まれたカンマ・改行を含むフィールドに対応） ---
+function parseCsv(text) {
+  const rows = [];
+  let row = [], field = '', inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (text[i + 1] === '"') { field += '"'; i++; }
+        else inQuotes = false;
+      } else field += c;
+    } else if (c === '"') {
+      inQuotes = true;
+    } else if (c === ',') {
+      row.push(field); field = '';
+    } else if (c === '\n' || c === '\r') {
+      if (c === '\r' && text[i + 1] === '\n') i++;
+      row.push(field); field = '';
+      if (row.length > 1 || row[0] !== '') rows.push(row);
+      row = [];
+    } else field += c;
+  }
+  if (field !== '' || row.length) { row.push(field); rows.push(row); }
+  return rows;
+}
+
 // --- CSV出力 ---
 function csvField(v) {
   const s = v === null || v === undefined ? '' : String(v);
@@ -84,7 +110,23 @@ function toCsv(headers, rows) {
   for (const row of rows) lines.push(headers.map(h => csvField(row[h])).join(','));
   return '﻿' + lines.join('\r\n') + '\r\n';
 }
+async function countExistingDataRows(relPath) {
+  try {
+    const text = await fs.readFile(path.join(DATA_DIR, relPath), 'utf8');
+    return Math.max(0, parseCsv(text.replace(/^﻿/, '')).length - 1); // ヘッダー行を除く
+  } catch { return 0; }
+}
+
+let hadEmptyRegression = false;
+// Notion側の共有解除・トークン失効・一時的なAPI不調などで0件しか取れなかった場合、
+// 既存の正常なCSVを空データで上書きしないようにするガード
 async function writeCsv(relPath, headers, rows) {
+  const prevCount = await countExistingDataRows(relPath);
+  if (rows.length === 0 && prevCount > 0) {
+    console.error(`  [WARN] ${relPath}: Notionから0件しか取得できませんでした（既存${prevCount}件）。上書きをスキップします。`);
+    hadEmptyRegression = true;
+    return;
+  }
   const filePath = path.join(DATA_DIR, relPath);
   await fs.writeFile(filePath, toCsv(headers, rows), 'utf8');
   console.log(`  wrote ${relPath} (${rows.length} rows)`);
@@ -98,13 +140,11 @@ async function main() {
   const existingImageByName = new Map();
   try {
     const existing = await fs.readFile(path.join(DATA_DIR, 'members', 'member_master.csv'), 'utf8');
-    const [headerLine, ...lines] = existing.replace(/^﻿/, '').split(/\r?\n/).filter(Boolean);
-    const headers = headerLine.split(',');
+    const [headers, ...rows] = parseCsv(existing.replace(/^﻿/, ''));
     const nameIdx = headers.indexOf('氏名');
     const imgIdx = headers.indexOf('画像');
     if (nameIdx >= 0 && imgIdx >= 0) {
-      for (const line of lines) {
-        const cols = line.split(','); // 単純split。既存ファイルに引用符付きフィールドがない前提
+      for (const cols of rows) {
         if (cols[nameIdx]) existingImageByName.set(cols[nameIdx], cols[imgIdx] || '');
       }
     }
@@ -218,6 +258,10 @@ async function main() {
     knowledgeRows);
 
   console.log('done.');
+  if (hadEmptyRegression) {
+    console.error('[ERROR] 一部データが0件だったためファイル更新をスキップしました。Notion Integrationの共有設定・トークンの有効期限を確認してください。');
+    process.exit(1);
+  }
 }
 
 main().catch(e => { console.error(e); process.exit(1); });
