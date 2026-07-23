@@ -164,7 +164,7 @@ async function init() {
     const warning     = customers.filter(c=>{ const r=Math.round(c.totalActual/c.totalBudget*100); return r>0&&r<85; }).length;
 
     document.getElementById('subtitle').textContent =
-      `FY2027 ／ ${new Date().toLocaleDateString('ja-JP')} 更新 ／ 顧客 ${customers.length}社`;
+      `${new Date().toLocaleDateString('ja-JP')} 時点 ／ 顧客 ${customers.length}社`;
 
     // Metrics
     const mEl = document.getElementById('metrics');

@@ -201,7 +201,7 @@ async function init() {
       image:     decodeURIComponent((r['画像']||'').trim()),
     }));
 
-    document.getElementById('subtitle').textContent = `在籍 ${members.length}名 ／ ${new Date().toLocaleDateString('ja-JP')} 更新`;
+    document.getElementById('subtitle').textContent = `${new Date().toLocaleDateString('ja-JP')} 時点 在籍 ${members.length}名`;
 
     const tabEl = document.getElementById('tabs');
     TABS.forEach(t => {

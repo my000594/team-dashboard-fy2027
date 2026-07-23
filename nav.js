@@ -26,7 +26,7 @@ function buildNav() {
     <div class="nav-logo">
       <div class="nav-logo-icon">📊</div>
       <div>
-        <div class="nav-logo-text">第1ライン</div>
+        <div class="nav-logo-text">SI部 第1ライン</div>
         <div class="nav-logo-sub">FY2027 Dashboard</div>
       </div>
     </div>

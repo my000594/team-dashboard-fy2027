@@ -118,7 +118,7 @@ async function init() {
     const rate     = Math.round(achieved/active.length*100);
     const isInactive = r => String(r['備考']||'').match(/異動|退職/);
 
-    document.getElementById('subtitle').textContent = `FY2027 ／ ${new Date().toLocaleDateString('ja-JP')} 更新 ／ 在籍 ${active.length}名`;
+    document.getElementById('subtitle').textContent = `${new Date().toLocaleDateString('ja-JP')} 時点`;
     document.getElementById('member-count').textContent = `${all.length}名（退職・異動含む）`;
     document.getElementById('cnt-achieved').textContent = achieved+'名';
     document.getElementById('cnt-not').textContent = (active.length-achieved)+'名';

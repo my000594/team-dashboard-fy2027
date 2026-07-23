@@ -33,7 +33,7 @@
 <main class="main">
 
   <div class="page-header">
-    <h1>第1ライン ダッシュボード</h1>
+    <h1>社会情報インフラ部 第1ライン ダッシュボード</h1>
     <p id="subtitle">FY2027</p>
   </div>
 
@@ -134,7 +134,7 @@ async function init() {
     const salesRate   = salesBudget > 0 ? Math.round(salesTotal/salesBudget*100) : 0;
 
     document.getElementById('subtitle').textContent =
-      `${today.toLocaleDateString('ja-JP')} 時点 — ライン員 ${memberCount}名`;
+      `${today.toLocaleDateString('ja-JP')} 時点 — 在籍 ${memberCount}名`;
 
     // インフォメーション
     // 開始日・終了日は「2026/08/01」「2026年8月1日」「2026-08-01」いずれの表記でも比較できるようDate化する
@@ -184,7 +184,7 @@ async function init() {
     // Metrics
     const mEl = document.getElementById('metrics');
     [
-      { label:'ライン員数',        val: memberCount+'名',  sub:'在籍',           cls:'blue'   },
+      { label:'ライン人数',        val: memberCount+'名',  sub:'在籍',           cls:'blue'   },
       { label:'3SEレポート累計',   val: seTotal+'件',      sub:`達成 ${seAchieved}名`, cls:'green'  },
       { label:'累計売上（実績月）', val: salesTotal.toLocaleString(), sub:`予算比 ${salesRate}%（単位：千円）`, cls:'amber'  },
       { label:'顧客数',            val: [...new Set(salesRows.map(r=>r['顧客名']))].length+'社', sub:'取引先', cls:'cyan' },
