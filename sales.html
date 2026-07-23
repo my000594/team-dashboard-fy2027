@@ -155,7 +155,7 @@ async function init() {
       months,
       totalBudget: months.reduce((s,m)=>s+m.budget, 0),
       totalActual: months.reduce((s,m)=>s+m.actual, 0),
-    })).sort((a,b)=>b.totalActual-a.totalActual);
+    })).sort((a,b)=>b.totalBudget-a.totalBudget);
 
     const grandBudget = customers.reduce((s,c)=>s+c.totalBudget, 0);
     const grandActual = customers.reduce((s,c)=>s+c.totalActual, 0);
