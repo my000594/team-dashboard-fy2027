@@ -1,6 +1,7 @@
 /* nav.js — navigation + maintenance control */
 const NAV_ITEMS = [
   { href: 'index.html',    icon: 'home',        label: 'トップ' },
+  { href: 'info.html',     icon: 'bell',        label: 'インフォメーション' },
   { href: 'member.html',   icon: 'users',       label: 'メンバー' },
   { href: 'reports.html',  icon: 'file-text',   label: '3SEレポート' },
   { href: 'sales.html',    icon: 'trending-up', label: '売上・数字' },
@@ -9,6 +10,7 @@ const NAV_ITEMS = [
 
 const ICONS = {
   home:         `<polyline points="3 9 12 2 21 9"/><polyline points="9 22 9 12 15 12 15 22"/><rect x="3" y="9" width="18" height="13" rx="1"/>`,
+  bell:         `<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>`,
   users:        `<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>`,
   'file-text':  `<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>`,
   'trending-up':`<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>`,

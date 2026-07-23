@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>インフォメーション — 第1ライン FY2027</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+</head>
+<body>
+<nav class="nav" id="nav"></nav>
+<div id="loading"><div class="spinner"></div><span>インフォメーションを読み込んでいます...</span></div>
+<div id="app">
+<main class="main">
+  <div class="page-header">
+    <h1>インフォメーション</h1>
+    <p id="subtitle">—</p>
+  </div>
+
+  <div class="card">
+    <div class="info-card-header">
+      <div class="card-title">📢 現在の表示</div>
+      <button type="button" class="info-archive-btn" id="archiveToggleBtn" onclick="toggleArchive()">アーカイブ</button>
+    </div>
+    <div id="infoList"></div>
+    <div id="archiveList" style="display:none"></div>
+  </div>
+
+</main>
+</div>
+
+<script src="nav.js"></script>
+<script>
+function md2html(md) {
+  if (!md) return '';
+  return String(md)
+    .replace(/^## (.+)$/gm,'<h2>$1</h2>')
+    .replace(/^### (.+)$/gm,'<h3>$1</h3>')
+    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+    .replace(/`([^`]+)`/g,'<code>$1</code>')
+    .replace(/^- (.+)$/gm,'<li>$1</li>')
+    .replace(/^\d+\. (.+)$/gm,'<li>$1</li>')
+    .replace(/(<li>[\s\S]+?<\/li>\n?)+/g,m=>`<ul>${m}</ul>`)
+    .replace(/\[(.+?)\]\((.+?)\)/g,'<a href="$2" target="_blank">$1</a>')
+    .replace(/\n\n/g,'</p><p>')
+    .trim();
+}
+// 開始日・終了日は「2026/08/01」「2026年8月1日」「2026-08-01」いずれの表記でも比較できるようDate化する
+function parseDateFlexible(str) {
+  if (!str) return null;
+  const s = String(str).trim();
+  let m = s.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+  if (m) return new Date(+m[1], +m[2]-1, +m[3]);
+  m = s.match(/(\d{4})年(\d{1,2})月(\d{1,2})日/);
+  if (m) return new Date(+m[1], +m[2]-1, +m[3]);
+  return null;
+}
+
+async function init() {
+  try {
+    const res = await fetch('data/info.csv');
+    const buf = await res.arrayBuffer();
+    const text = new TextDecoder('utf-8').decode(buf).replace(/^﻿/, '');
+    const infoRows = Papa.parse(text, { header: true, skipEmptyLines: true, dynamicTyping: true }).data;
+
+    const today = new Date();
+    const today0 = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const parsedInfo = infoRows
+      .map(r => ({ r, start: parseDateFlexible(r['開始日']), end: parseDateFlexible(r['終了日']) }))
+      .filter(x => x.start && x.end);
+    const activeInfo   = parsedInfo.filter(x => today0 >= x.start && today0 <= x.end).sort((a,b) => a.end - b.end);
+    const archivedInfo = parsedInfo.filter(x => x.end < today0).sort((a,b) => b.end - a.end);
+
+    document.getElementById('subtitle').textContent =
+      `${today.toLocaleDateString('ja-JP')} 時点 — 表示中 ${activeInfo.length}件 ／ アーカイブ ${archivedInfo.length}件`;
+
+    function infoItemHTML({ r, end }, archived) {
+      const type = r['種別'] || 'info';
+      const dotClass = type === 'deadline' ? 'info-deadline' : type === 'event' ? 'info-event' : 'info-info';
+      let dueText, dueClass;
+      if (archived) {
+        dueText = `終了 〜${end.getFullYear()}/${end.getMonth()+1}/${end.getDate()}`;
+        dueClass = 'info-due-archived';
+      } else {
+        const diff = Math.ceil((end - today0) / (1000*60*60*24));
+        dueClass = diff <= 7 ? 'info-due-urgent' : 'info-due-normal';
+        dueText = diff <= 7 ? `残${diff}日（〜${end.getFullYear()}/${end.getMonth()+1}/${end.getDate()}）` : `〜${end.getFullYear()}/${end.getMonth()+1}/${end.getDate()}`;
+      }
+      return `<div class="info-item" onclick="this.classList.toggle('open')">
+        <span class="info-dot ${dotClass}"></span>
+        <div class="info-main">
+          <div class="info-title-row">
+            <span class="info-title">${r['タイトル']}</span>
+            <span class="info-due-badge ${dueClass}">${dueText}</span>
+            <span class="info-chevron">›</span>
+          </div>
+          <div class="info-body md-body">${md2html(r['本文'])}</div>
+        </div>
+      </div>`;
+    }
+
+    const infoList = document.getElementById('infoList');
+    const archiveList = document.getElementById('archiveList');
+    infoList.innerHTML = activeInfo.length > 0
+      ? activeInfo.map(x => infoItemHTML(x, false)).join('')
+      : '<div style="font-size:12px;color:var(--text3);padding:8px 0">現在表示中のインフォメーションはありません</div>';
+    archiveList.innerHTML = archivedInfo.length > 0
+      ? archivedInfo.map(x => infoItemHTML(x, true)).join('')
+      : '<div style="font-size:12px;color:var(--text3);padding:8px 0">アーカイブはありません</div>';
+
+    window.toggleArchive = function() {
+      const showingArchive = archiveList.style.display !== 'none';
+      archiveList.style.display = showingArchive ? 'none' : '';
+      infoList.style.display = showingArchive ? '' : 'none';
+      const btn = document.getElementById('archiveToggleBtn');
+      btn.classList.toggle('active', !showingArchive);
+      btn.textContent = showingArchive ? 'アーカイブ' : '現在の表示に戻る';
+    };
+
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('app').classList.add('ready');
+  } catch(e) {
+    document.getElementById('loading').innerHTML = `<div style="color:var(--red);font-size:13px">⚠ データの読み込みに失敗しました<br><small style="color:var(--text3)">${e.message}</small></div>`;
+  }
+}
+init();
+</script>
+</body>
+</html>

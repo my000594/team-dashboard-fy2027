@@ -41,10 +41,9 @@
   <div class="card" id="infoCard" style="margin-bottom:1.5rem;display:none">
     <div class="info-card-header">
       <div class="card-title">📢 インフォメーション</div>
-      <button type="button" class="info-archive-btn" id="archiveToggleBtn" onclick="toggleArchive()">アーカイブ</button>
+      <a href="info.html" class="info-archive-btn">すべて見る</a>
     </div>
     <div id="infoList"></div>
-    <div id="archiveList" style="display:none"></div>
   </div>
 
   <div class="metrics" id="metrics"></div>
@@ -148,58 +147,39 @@ async function init() {
       if (m) return new Date(+m[1], +m[2]-1, +m[3]);
       return null;
     }
+    const INFO_TOP_LIMIT = 5;
     const infoCard = document.getElementById('infoCard');
     const infoList = document.getElementById('infoList');
-    const archiveList = document.getElementById('archiveList');
     const today0 = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    const parsedInfo = infoRows
+    const activeInfo = infoRows
       .map(r => ({ r, start: parseDateFlexible(r['開始日']), end: parseDateFlexible(r['終了日']) }))
-      .filter(x => x.start && x.end);
-    const activeInfo   = parsedInfo.filter(x => today0 >= x.start && today0 <= x.end).sort((a,b) => a.end - b.end);
-    const archivedInfo = parsedInfo.filter(x => x.end < today0).sort((a,b) => b.end - a.end);
+      .filter(x => x.start && x.end && today0 >= x.start && today0 <= x.end)
+      .sort((a,b) => a.end - b.end);
 
-    function infoItemHTML({ r, end }, archived) {
-      const type = r['種別'] || 'info';
-      const dotClass = type === 'deadline' ? 'info-deadline' : type === 'event' ? 'info-event' : 'info-info';
-      let dueText, dueClass;
-      if (archived) {
-        dueText = `終了 〜${end.getFullYear()}/${end.getMonth()+1}/${end.getDate()}`;
-        dueClass = 'info-due-archived';
-      } else {
-        const diff = Math.ceil((end - today0) / (1000*60*60*24));
-        dueClass = diff <= 7 ? 'info-due-urgent' : 'info-due-normal';
-        dueText = diff <= 7 ? `残${diff}日（〜${end.getFullYear()}/${end.getMonth()+1}/${end.getDate()}）` : `〜${end.getFullYear()}/${end.getMonth()+1}/${end.getDate()}`;
-      }
-      return `<div class="info-item" onclick="this.classList.toggle('open')">
-        <span class="info-dot ${dotClass}"></span>
-        <div class="info-main">
-          <div class="info-title-row">
-            <span class="info-title">${r['タイトル']}</span>
-            <span class="info-due-badge ${dueClass}">${dueText}</span>
-            <span class="info-chevron">›</span>
-          </div>
-          <div class="info-body md-body">${md2html(r['本文'])}</div>
-        </div>
-      </div>`;
-    }
-
-    if (activeInfo.length > 0 || archivedInfo.length > 0) {
+    if (activeInfo.length > 0) {
       infoCard.style.display = '';
-      infoList.innerHTML = activeInfo.length > 0
-        ? activeInfo.map(x => infoItemHTML(x, false)).join('')
-        : '<div style="font-size:12px;color:var(--text3);padding:8px 0">現在表示中のインフォメーションはありません</div>';
-      archiveList.innerHTML = archivedInfo.length > 0
-        ? archivedInfo.map(x => infoItemHTML(x, true)).join('')
-        : '<div style="font-size:12px;color:var(--text3);padding:8px 0">アーカイブはありません</div>';
-      document.getElementById('archiveToggleBtn').style.display = archivedInfo.length > 0 || activeInfo.length > 0 ? '' : 'none';
+      infoList.innerHTML = activeInfo.slice(0, INFO_TOP_LIMIT).map(({ r, end }) => {
+        const type = r['種別'] || 'info';
+        const dotClass = type === 'deadline' ? 'info-deadline' : type === 'event' ? 'info-event' : 'info-info';
+        const diff = Math.ceil((end - today0) / (1000*60*60*24));
+        const dueClass = diff <= 7 ? 'info-due-urgent' : 'info-due-normal';
+        const dueText = diff <= 7 ? `残${diff}日（〜${end.getFullYear()}/${end.getMonth()+1}/${end.getDate()}）` : `〜${end.getFullYear()}/${end.getMonth()+1}/${end.getDate()}`;
+        return `<div class="info-item" onclick="this.classList.toggle('open')">
+          <span class="info-dot ${dotClass}"></span>
+          <div class="info-main">
+            <div class="info-title-row">
+              <span class="info-title">${r['タイトル']}</span>
+              <span class="info-due-badge ${dueClass}">${dueText}</span>
+              <span class="info-chevron">›</span>
+            </div>
+            <div class="info-body md-body">${md2html(r['本文'])}</div>
+          </div>
+        </div>`;
+      }).join('');
+      if (activeInfo.length > INFO_TOP_LIMIT) {
+        infoList.innerHTML += `<a href="info.html" style="display:block;text-align:center;font-size:12px;color:var(--text3);padding:10px 0 2px">他 ${activeInfo.length - INFO_TOP_LIMIT}件 → インフォメーションですべて見る</a>`;
+      }
     }
-    window.toggleArchive = function() {
-      const showingArchive = archiveList.style.display !== 'none';
-      archiveList.style.display = showingArchive ? 'none' : '';
-      infoList.style.display = showingArchive ? '' : 'none';
-      document.getElementById('archiveToggleBtn').classList.toggle('active', !showingArchive);
-      document.getElementById('archiveToggleBtn').textContent = showingArchive ? 'アーカイブ' : '現在の表示に戻る';
-    };
 
     // Metrics
     const mEl = document.getElementById('metrics');

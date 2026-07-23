@@ -55,7 +55,8 @@ URLは部下に共有するだけでアクセス可能。
 
 ```
 team-dashboard-fy2027/
-├── index.html          トップページ（KPI＋インフォメーション＋サマリー）
+├── index.html          トップページ（KPI＋インフォメーション最大5件＋サマリー）
+├── info.html           インフォメーション一覧（全件＋アーカイブ）
 ├── member.html         メンバー（第1ライン・第1-1ライン）
 ├── reports.html        3SEレポート提出状況
 ├── sales.html          売上・数字（予算vs実績・顧客別展開）
@@ -125,10 +126,16 @@ team-dashboard-fy2027/
 
 ### index.html（トップ）
 - 4ファイルを並行fetch：3se_report.csv / sales.csv / member_master.csv / info.csv
-- インフォメーション：期間内のものだけ表示、期限近い順、残7日以内は赤強調
+- インフォメーション：期間内のものだけ、期限近い順に**最大5件**表示（残7日以内は赤バッジ）。6件目以降がある場合は「他N件 → インフォメーションですべて見る」リンクをinfo.htmlへ表示
 - 課員数は member_master.csv の在籍者数から取得
 - 3SE件数は月別列を直接合算（calcTotal関数）
 - 売上は sales.csv の実績>0の行を集計
+
+### info.html（インフォメーション）
+- `data/info.csv`をfetchし、index.htmlと同じロジックで期間内の全件を表示（件数制限なし）
+- 右上の「アーカイブ」ボタンで、終了日を過ぎた項目一覧（新しい順）に切り替え表示。もう一度押すと現在の表示に戻る
+- 本文はMarkdown対応（`md2html`関数。index.html・knowledge.htmlと同じロジックを個別に保持）
+- ナビゲーションの並びは トップ → インフォメーション → メンバー → ... の順
 
 ### member.html（メンバー）
 - ステータスが「在籍」の行のみ表示、CSV行順固定
@@ -181,7 +188,7 @@ LINE_COLORS・LINE_META・LINE_LABEL_MAP定数はmember.html内に定義。
 社内規定検定,説明文,2026/08/01,2026/09/30,deadline
 ```
 - 種別セレクト：`deadline`（赤）/ `event`（青）/ `info`（緑）
-- 今日が開始日〜終了日の範囲内のものだけ表示
+- 今日が開始日〜終了日の範囲内のものだけ表示。index.htmlは最大5件、info.htmlは全件＋期限切れのアーカイブ表示
 
 ### data/sales.csv（Notionエクスポート・縦持ち）
 ```
