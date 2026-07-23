@@ -26,9 +26,20 @@
 <script src="nav.js"></script>
 <script>
 const IMG_BASE = 'data/members/';
+// Notionの「所属ライン」列は上司名ベースの表記（誰の配下か）。会社組織上の名称に変換する。
+const LINE_LABEL_MAP = {
+  '百瀬 陽一Bライン': '第1ライン',
+  '米花雅史Ｋライン': '第1-1ライン',
+};
+function mapLine(raw) { return LINE_LABEL_MAP[raw] || raw; }
+const LINE_META = {
+  '第1ライン':   { manager: '米花 雅史' },
+  '第1-1ライン': { manager: '伊藤 良多' },
+};
+const LINE_ORDER = ['第1ライン', '第1-1ライン'];
 const LINE_COLORS = {
-  '米花雅史Ｋライン': { c:'#3b82f6', bg:'rgba(59,130,246,0.12)' },
-  '第1-1ライン':     { c:'#22c55e', bg:'rgba(34,197,94,0.12)'  },
+  '第1ライン':   { c:'#3b82f6', bg:'rgba(59,130,246,0.12)' },
+  '第1-1ライン': { c:'#22c55e', bg:'rgba(34,197,94,0.12)'  },
 };
 const ROLE_COLORS = {
   '課長':           { bg:'rgba(59,130,246,.15)',  c:'#3b82f6' },
@@ -112,30 +123,19 @@ function renderGroups(groups) {
 }
 
 function renderByLine(ms) {
-  // 課長は米花雅史Ｋライン、それ以外は第1-1ラインとして自動振り分け
-  const groups = [
-    {
-      label: '米花雅史Ｋライン',
-      role: '課長',
-      manager: '米花 雅史',
-      members: ms.filter(m => m.role === '課長'),
-      subFn: m => `${m.role} · ${m.dest}`,
-    },
-    {
-      label: '第1-1ライン',
-      role: 'リーダー',
-      manager: '伊藤 良多',
-      members: ms.filter(m => m.role !== '課長'),
-      subFn: m => `${m.role !== '—' ? m.role : m.grade} · ${m.dest}`,
-    },
-  ];
+  const groups = LINE_ORDER.map(label => ({
+    label,
+    manager: (LINE_META[label]||{}).manager || '—',
+    members: ms.filter(m => m.line === label),
+    subFn: m => `${m.role !== '—' ? m.role : m.grade} · ${m.dest}`,
+  }));
   return groups.filter(g=>g.members.length>0).map(g=>{
     const col = lc(g.label);
     const chips = g.members.map(m=>`<div class="chip">${avatarHTML(m,22)}<div><div class="chip-name">${m.name}</div><div class="chip-sub">${g.subFn(m)}</div></div></div>`).join('');
     return `<div class="group-section">
       <div class="group-header" style="border-left-color:${col.c}">
         <span class="group-title" style="color:${col.c}">${g.label}</span>
-        <span style="font-size:11px;color:var(--text3);margin-left:6px">${g.role}: ${g.manager}</span>
+        <span style="font-size:11px;color:var(--text3);margin-left:6px">ライン責任者: ${g.manager}</span>
         <span class="group-count">${g.members.length}名</span>
       </div>
       <div class="chip-list">${chips}</div>
@@ -193,7 +193,7 @@ async function init() {
       empNo:     (r['社員番号']||'').toString().trim(),
       role:      (r['役職']||'—').trim()||'—',
       grade:     (r['等級']||'—').trim(),
-      line:      (r['所属ライン']||'—').trim(),
+      line:      mapLine((r['所属ライン']||'—').trim()),
       join:      (r['入社年月日']||'').trim(),
       tenure:    calcTenure((r['入社年月日']||'').trim()),
       committee: (r['委員会']||'—').trim()||'—',

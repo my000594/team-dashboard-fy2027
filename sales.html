@@ -255,7 +255,7 @@ async function init() {
       let totB = 0, totA = 0;
       c.months.forEach(m => {
         const future = m.actual === 0;
-        if (!future) { totB += m.budget; totA += m.actual; }
+        totB += m.budget; totA += m.actual;
         const mr = future ? null : Math.round(m.actual/m.budget*100);
         const mc = rateColor(mr, future);
         const bar = future ? '' : `<span style="display:inline-block;width:${Math.min(100,mr)}%;height:5px;background:${mc.text};border-radius:2px;vertical-align:middle;max-width:60px"></span>`;
