@@ -72,6 +72,21 @@ async function fetchCSV(path) {
   return Papa.parse(text, { header: true, skipEmptyLines: true, dynamicTyping: true }).data;
 }
 
+function md2html(md) {
+  if (!md) return '';
+  return String(md)
+    .replace(/^## (.+)$/gm,'<h2>$1</h2>')
+    .replace(/^### (.+)$/gm,'<h3>$1</h3>')
+    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+    .replace(/`([^`]+)`/g,'<code>$1</code>')
+    .replace(/^- (.+)$/gm,'<li>$1</li>')
+    .replace(/^\d+\. (.+)$/gm,'<li>$1</li>')
+    .replace(/(<li>[\s\S]+?<\/li>\n?)+/g,m=>`<ul>${m}</ul>`)
+    .replace(/\[(.+?)\]\((.+?)\)/g,'<a href="$2" target="_blank">$1</a>')
+    .replace(/\n\n/g,'</p><p>')
+    .trim();
+}
+
 function calcTenure(joinStr) {
   const m = joinStr.match(/(\d+)年(\d+)月/);
   if (!m) return '';
@@ -145,12 +160,15 @@ async function init() {
         const dotClass = type === 'deadline' ? 'info-deadline' : type === 'event' ? 'info-event' : 'info-info';
         const urgentClass = diff <= 7 ? 'info-urgent' : 'info-normal';
         const dueText = diff <= 7 ? `残${diff}日` : `〜${end.getFullYear()}/${end.getMonth()+1}/${end.getDate()}`;
-        infoList.innerHTML += `<div class="info-item">
+        infoList.innerHTML += `<div class="info-item" onclick="this.classList.toggle('open')">
           <span class="info-dot ${dotClass}"></span>
-          <div>
-            <div style="font-weight:500">${r['タイトル']}</div>
-            <div class="info-body">${r['本文']||''}</div>
-            <div class="info-due ${urgentClass}">${dueText}</div>
+          <div class="info-main">
+            <div class="info-title-row">
+              <span class="info-title">${r['タイトル']}</span>
+              <span class="info-due ${urgentClass}">${dueText}</span>
+              <span class="info-chevron">›</span>
+            </div>
+            <div class="info-body md-body">${md2html(r['本文'])}</div>
           </div>
         </div>`;
       });

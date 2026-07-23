@@ -213,17 +213,34 @@ body {
 .info-item {
   display: flex; align-items: flex-start; gap: 10px;
   padding: 10px 0; border-bottom: .5px solid var(--border);
-  font-size: 13px;
+  font-size: 13px; cursor: pointer;
 }
 .info-item:last-child { border-bottom: none; }
-.info-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; flex-shrink: 0; }
+.info-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 6px; flex-shrink: 0; }
 .info-deadline { background: var(--red); }
 .info-event    { background: var(--blue); }
 .info-info     { background: var(--green); }
-.info-body { color: var(--text2); font-size: 12px; margin-top: 2px; }
-.info-due { font-size: 11px; font-family: var(--mono); margin-top: 3px; }
+.info-main { flex: 1; min-width: 0; }
+.info-title-row { display: flex; align-items: center; gap: 8px; }
+.info-title { font-weight: 500; }
+.info-chevron { color: var(--text3); font-size: 14px; flex-shrink: 0; margin-left: auto; transition: transform .2s; }
+.info-item.open .info-chevron { transform: rotate(90deg); }
+.info-body { display: none; color: var(--text2); font-size: 12px; margin-top: 6px; }
+.info-item.open .info-body { display: block; }
+.info-due { font-size: 11px; font-family: var(--mono); flex-shrink: 0; }
 .info-urgent { color: var(--red); font-weight: 700; }
 .info-normal { color: var(--text3); }
+
+/* ── Markdown本文（インフォメーション本文・ナレッジ記事で共通使用） ── */
+.md-body{font-size:13px;color:var(--text2);line-height:1.8}
+.md-body h2{font-size:15px;font-weight:700;color:var(--text);margin:1.25rem 0 .5rem;padding-bottom:.4rem;border-bottom:1px solid var(--border)}
+.md-body h3{font-size:13px;font-weight:700;color:var(--text);margin:.9rem 0 .3rem}
+.md-body p{margin-bottom:.65rem}
+.md-body ul,.md-body ol{padding-left:1.25rem;margin-bottom:.65rem}
+.md-body li{margin-bottom:.25rem}
+.md-body code{font-family:var(--mono);font-size:12px;background:var(--bg3);padding:1px 5px;border-radius:3px;color:var(--blue)}
+.md-body a{color:var(--blue)}
+.md-body strong{color:var(--text);font-weight:700}
 
 /* ── Loading ── */
 #loading {
