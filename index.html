@@ -119,22 +119,32 @@ async function init() {
       `${today.toLocaleDateString('ja-JP')} 時点 — ライン員 ${memberCount}名`;
 
     // インフォメーション
+    // 開始日・終了日は「2026/08/01」「2026年8月1日」「2026-08-01」いずれの表記でも比較できるようDate化する
+    function parseDateFlexible(str) {
+      if (!str) return null;
+      const s = String(str).trim();
+      let m = s.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+      if (m) return new Date(+m[1], +m[2]-1, +m[3]);
+      m = s.match(/(\d{4})年(\d{1,2})月(\d{1,2})日/);
+      if (m) return new Date(+m[1], +m[2]-1, +m[3]);
+      return null;
+    }
     const infoCard = document.getElementById('infoCard');
     const infoList = document.getElementById('infoList');
-    const todayStr = today.toISOString().slice(0,10);
+    const today0 = new Date(today.getFullYear(), today.getMonth(), today.getDate());
     const activeInfo = infoRows
-      .filter(r => r['開始日'] && r['終了日'] && todayStr >= String(r['開始日']).slice(0,10) && todayStr <= String(r['終了日']).slice(0,10))
-      .sort((a,b) => String(a['終了日']).localeCompare(String(b['終了日'])));
+      .map(r => ({ r, start: parseDateFlexible(r['開始日']), end: parseDateFlexible(r['終了日']) }))
+      .filter(x => x.start && x.end && today0 >= x.start && today0 <= x.end)
+      .sort((a,b) => a.end - b.end);
 
     if (activeInfo.length > 0) {
       infoCard.style.display = '';
-      activeInfo.forEach(r => {
-        const end = new Date(r['終了日']);
-        const diff = Math.ceil((end - today) / (1000*60*60*24));
+      activeInfo.forEach(({r, end}) => {
+        const diff = Math.ceil((end - today0) / (1000*60*60*24));
         const type = r['種別'] || 'info';
         const dotClass = type === 'deadline' ? 'info-deadline' : type === 'event' ? 'info-event' : 'info-info';
         const urgentClass = diff <= 7 ? 'info-urgent' : 'info-normal';
-        const dueText = diff <= 7 ? `残${diff}日` : `〜${String(r['終了日']).slice(0,10)}`;
+        const dueText = diff <= 7 ? `残${diff}日` : `〜${end.getFullYear()}/${end.getMonth()+1}/${end.getDate()}`;
         infoList.innerHTML += `<div class="info-item">
           <span class="info-dot ${dotClass}"></span>
           <div>

@@ -24,8 +24,9 @@
 
 社会情報インフラ部 第1ライン（9名）向けの社内情報共有ダッシュボード。
 FY2027（2026年8月〜2027年7月）用。team-dashboardの来期版として新規作成。
-Cloudflare Pagesで公開。URLは部下に共有するだけでアクセス可能。
-GitHubとは連携していない（Cloudflare Pagesへの手動ドロップ運用）。
+Cloudflare PagesとGitHub（`my000594/team-dashboard-fy2027`）を連携済み。
+`main`ブランチにpushすると自動でビルド・デプロイされる（手動ドロップ運用ではない）。
+URLは部下に共有するだけでアクセス可能。
 公開URL: （Cloudflare Pagesデプロイ後に記載）
 
 ---
@@ -61,11 +62,15 @@ team-dashboard-fy2027/
 ├── knowledge.html      ナレッジ・FAQ
 ├── style.css           全ページ共通スタイル（ダークテーマ）
 ├── nav.js              左サイドバーナビ＋メンテナンス制御
-├── update_csv.bat      3SEレポートCSV更新バッチ
-├── update_master.bat   メンバーマスタCSV更新バッチ
-├── update_sales.bat    売上CSV更新バッチ
-├── update_info.bat     インフォメーションCSV更新バッチ
-├── update_knowledge.bat ナレッジCSV更新バッチ
+├── scripts/
+│   └── sync-notion.mjs Notion APIからdata/配下のCSVを自動生成するスクリプト
+├── .github/workflows/
+│   └── sync-notion.yml 上記スクリプトを実行するGitHub Actions（手動実行＋毎日自動実行）
+├── update_csv.bat      3SEレポートCSV更新バッチ（手動運用時のフォールバック）
+├── update_master.bat   メンバーマスタCSV更新バッチ（同上）
+├── update_sales.bat    売上CSV更新バッチ（同上）
+├── update_info.bat     インフォメーションCSV更新バッチ（同上）
+├── update_knowledge.bat ナレッジCSV更新バッチ（同上）
 ├── CLAUDE.md           このファイル
 └── data/
     ├── maintenance.json    メンテナンス制御
@@ -222,9 +227,32 @@ CTC,2026/08/01,3000,3240
 
 ## データ更新フロー
 
-### バッチ共通の仕組み
-PowerShellでDownloads内の全 `*ExportBlock*.zip` をスキャン。
-CSVのヘッダーで対象ファイルを自動判定して処理。
+### 標準：Notion API自動同期（scripts/sync-notion.mjs）
+Notionを手動エクスポートせず、GitHub ActionsからNotion APIを直接叩いてdata/配下のCSVを再生成する。
+
+```
+① Notion上の各データベースを更新
+② GitHub Actions「Notionからデータ同期」を手動実行（Actionsタブ→Run workflow）
+   　または毎日21:00 UTC（6:00 JST）の定期実行を待つ
+③ scripts/sync-notion.mjs がNotion APIから最新データを取得しdata/配下のCSVを再生成
+④ 変更があれば自動でcommit・push → Cloudflare Pagesが自動デプロイ
+```
+
+- 対象データベースID（`scripts/sync-notion.mjs`内`DB`定数）：
+  - member: 社会情報インフラ部_第1ライン
+  - threeSE: 3SEレポート提出状況サマリ
+  - sales: 売上データ
+  - info: インフォメーション
+  - knowledge: ナレッジ・FAQ
+- 認証：NotionのInternal Integrationトークンを GitHub Secrets の `NOTION_TOKEN` に設定して使用
+- `member_master.csv`の「画像」列は自動取得せず、既存CSVの値を氏名突き合わせで引き継ぐ（顔写真は引き続き手動管理）
+- `3se_report.csv`の「備考」列は、メンバーマスタの「ステータス」が異動/退職の人を自動判定して埋める（手動記入不要になった）
+- データベースIDや列構成を変更した場合は`scripts/sync-notion.mjs`と本セクションを更新すること
+
+### フォールバック：手動バッチ運用
+Notion APIが使えない場合のみ、従来の手動エクスポート＋バッチ運用を使う。
+
+PowerShellでDownloads内の全 `*ExportBlock*.zip` をスキャンし、CSVのヘッダーで対象ファイルを自動判定して処理。
 
 | バッチ | 判定キー |
 |--------|---------|
@@ -234,44 +262,31 @@ CSVのヘッダーで対象ファイルを自動判定して処理。
 | update_info.bat | 「開始日」「終了日」「種別」 |
 | update_knowledge.bat | 「種別」「カテゴリ」「タグ」 |
 
-### 各データ更新手順
 ```
 ① Notionからエクスポート → Downloads に *ExportBlock*.zip が保存
 ② 対応するバッチをダブルクリック
 ③ data/ 以下のCSVが自動更新
-④ team-dashboard-fy2027フォルダをCloudflare PagesにドロップID
-```
-
-### インフォメーション更新
-```
-Notionのインフォメーションデータベースを更新
-→ update_info.bat 実行
-→ data/info.csv 更新
-→ Cloudflare Pagesにドロップ
+④ git commit・push（pushでCloudflare Pagesが自動デプロイ）
 ```
 
 ### メンテナンス切り替え
 ```
-開始：data/maintenance.json の active を true → デプロイ
-復旧：data/maintenance.json の active を false → デプロイ
+開始：data/maintenance.json の active を true → git push
+復旧：data/maintenance.json の active を false → git push
 ```
 
 ---
 
 ## デプロイフロー
 
-```
-Cloudflare Pages（team-dashboard-fy2027プロジェクト）
-→ Deployments タブ右上の「Upload assets」アイコン
-→ team-dashboard-fy2027フォルダをドロップ
-→ 数秒で反映
-```
+Cloudflare PagesとGitHub（`my000594/team-dashboard-fy2027`）を連携済み。
+`main`ブランチにpushすると自動でビルド・デプロイされる（手動でのUpload assets操作は不要）。
 
 ---
 
 ## 今後の課題・未実装
 - Cloudflare Pages公開URLの確定・記載
-- 実際のNotionデータベースからのCSVエクスポート確認
+- NotionのInternal Integration作成・各データベースへの共有・GitHub Secrets（`NOTION_TOKEN`）登録（scripts/sync-notion.mjs運用開始のため）
 - 顔写真（氏名.png）の準備・配置
 - 実売上データへの置き換え（現在サンプル値）
 - デザインのさらなる洗練
