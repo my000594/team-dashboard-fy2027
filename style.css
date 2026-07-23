@@ -210,6 +210,16 @@ body {
 .section-label::after { content:''; flex:1; height:1px; background: var(--border); }
 
 /* ── Info Banner ── */
+.info-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+.info-card-header .card-title { margin-bottom: 0; }
+.info-archive-btn {
+  font-size: 11px; font-weight: 500; color: var(--text3); background: transparent;
+  border: .5px solid var(--border); border-radius: 999px; padding: 3px 12px; cursor: pointer;
+  font-family: var(--font); transition: .15s;
+}
+.info-archive-btn:hover { color: var(--text); border-color: var(--border2); }
+.info-archive-btn.active { background: var(--blue-dim); border-color: rgba(59,130,246,.4); color: var(--blue); }
+
 .info-item {
   display: flex; align-items: flex-start; gap: 10px;
   padding: 10px 0; border-bottom: .5px solid var(--border);
@@ -221,15 +231,19 @@ body {
 .info-event    { background: var(--blue); }
 .info-info     { background: var(--green); }
 .info-main { flex: 1; min-width: 0; }
-.info-title-row { display: flex; align-items: center; gap: 8px; }
+.info-title-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .info-title { font-weight: 500; }
 .info-chevron { color: var(--text3); font-size: 14px; flex-shrink: 0; margin-left: auto; transition: transform .2s; }
 .info-item.open .info-chevron { transform: rotate(90deg); }
 .info-body { display: none; color: var(--text2); font-size: 12px; margin-top: 6px; }
 .info-item.open .info-body { display: block; }
-.info-due { font-size: 11px; font-family: var(--mono); flex-shrink: 0; }
-.info-urgent { color: var(--red); font-weight: 700; }
-.info-normal { color: var(--text3); }
+.info-due-badge {
+  display: inline-block; font-size: 10px; font-weight: 700;
+  padding: 2px 9px; border-radius: 999px; font-family: var(--mono); flex-shrink: 0;
+}
+.info-due-urgent   { background: var(--red-dim);  color: var(--red); }
+.info-due-normal   { background: var(--blue-dim); color: var(--blue); }
+.info-due-archived { background: var(--bg3); color: var(--text3); font-weight: 500; }
 
 /* ── Markdown本文（インフォメーション本文・ナレッジ記事で共通使用） ── */
 .md-body{font-size:13px;color:var(--text2);line-height:1.8}
