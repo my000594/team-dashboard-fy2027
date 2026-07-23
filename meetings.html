@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ライン別会議実施計画 — 第1ライン FY2027</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+.policy-list { font-size: 13px; color: var(--text2); line-height: 1.9; padding-left: 1.25rem; }
+.policy-list li { margin-bottom: .3rem; }
+.unit-badge { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 4px; }
+.unit-単独 { background: var(--blue-dim); color: var(--blue); }
+.unit-合同 { background: var(--purple-dim); color: var(--purple); }
+.format-chip { font-size: 10px; padding: 1px 7px; border-radius: 3px; background: var(--bg3); color: var(--text3); margin-right: 4px; display: inline-block; }
+.doc-link { color: var(--blue); font-size: 12px; text-decoration: none; }
+.doc-link:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<nav class="nav" id="nav"></nav>
+<div id="loading"><div class="spinner"></div><span>会議予定を読み込んでいます...</span></div>
+<div id="app">
+<main class="main">
+  <div class="page-header">
+    <h1>ライン別会議実施計画</h1>
+    <p id="subtitle">—</p>
+  </div>
+
+  <div class="card" style="margin-bottom:1.5rem">
+    <div class="card-title">📋 方針</div>
+    <ul class="policy-list">
+      <li>基本的には毎月第1金曜日＝全体会議日の定時後に実施する</li>
+      <li>対面での実施を基本とする（事業所で落とし込み等を行った上で、懇親の場を設けるなど）</li>
+      <li>終日版全体会議の日は職場別会議を代用とする</li>
+      <li>皆で作る会議にする</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <div class="card-title">🗓️ 実施計画</div>
+    <div id="tableWrap"></div>
+  </div>
+
+</main>
+</div>
+
+<script src="nav.js"></script>
+<script>
+async function init() {
+  try {
+    const res = await fetch('data/meeting_plan.csv');
+    const buf = await res.arrayBuffer();
+    const text = new TextDecoder('utf-8').decode(buf).replace(/^﻿/, '');
+    const rows = Papa.parse(text, { header: true, skipEmptyLines: true }).data;
+
+    document.getElementById('subtitle').textContent =
+      `${new Date().toLocaleDateString('ja-JP')} 時点 ／ 全${rows.length}回`;
+
+    const today = new Date();
+    const today0 = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
+    function parseJaDate(str) {
+      const m = String(str||'').match(/(\d{4})年(\d{1,2})月(\d{1,2})日/);
+      return m ? new Date(+m[1], +m[2]-1, +m[3]) : null;
+    }
+
+    const tableWrap = document.getElementById('tableWrap');
+    tableWrap.innerHTML = `<div class="tbl-wrap"><table class="tbl">
+      <thead><tr>
+        <th class="left">実施月</th><th class="left">実施日</th><th>開催単位</th>
+        <th class="left">実施形式</th><th class="left">備考</th><th class="left">資料</th>
+      </tr></thead>
+      <tbody>${rows.map(r => {
+        const d = parseJaDate(r['実施日']);
+        const isPast = d && d < today0;
+        const links = (r['資料リンク']||'').split(',').map(s=>s.trim()).filter(Boolean);
+        return `<tr style="${isPast?'opacity:.5':''}">
+          <td class="left" style="font-weight:500">${r['実施月']}</td>
+          <td class="left">${r['実施日']}</td>
+          <td>${r['開催単位']?`<span class="unit-badge unit-${r['開催単位']}">${r['開催単位']}</span>`:''}</td>
+          <td class="left">${(r['実施形式']||'').split(',').map(s=>s.trim()).filter(Boolean).map(f=>`<span class="format-chip">${f}</span>`).join('')}</td>
+          <td class="left" style="color:var(--text3)">${r['備考']||''}</td>
+          <td class="left">${links.length ? links.map((l,i)=>`<a class="doc-link" href="${l}" target="_blank" rel="noopener">資料${links.length>1?i+1:''}</a>`).join(' ') : '<span style="color:var(--text3)">—</span>'}</td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table></div>`;
+
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('app').classList.add('ready');
+  } catch(e) {
+    document.getElementById('loading').innerHTML = `<div style="color:var(--red);font-size:13px">⚠ データの読み込みに失敗しました<br><small style="color:var(--text3)">${e.message}</small></div>`;
+  }
+}
+init();
+</script>
+</body>
+</html>

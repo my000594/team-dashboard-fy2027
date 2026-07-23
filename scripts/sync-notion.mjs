@@ -16,11 +16,12 @@ if (!TOKEN) {
 }
 
 const DB = {
-  member:    '80e29672-672f-82c6-abfb-81b84155105c', // 社会情報インフラ部_第1ライン
-  threeSE:   '39029672-672f-8008-b635-cd4ca873123c', // 3SEレポート提出状況サマリ
-  sales:     '3a529672-672f-803b-b5d0-e70feac72ed5', // 売上データ
-  info:      '3a529672-672f-80bb-9dc1-e33637e02fb1', // インフォメーション
-  knowledge: '3a529672-672f-80ab-bd6e-c045e34a326a', // ナレッジ・FAQ
+  member:      '80e29672-672f-82c6-abfb-81b84155105c', // 社会情報インフラ部_第1ライン
+  threeSE:     '39029672-672f-8008-b635-cd4ca873123c', // 3SEレポート提出状況サマリ
+  sales:       '3a529672-672f-803b-b5d0-e70feac72ed5', // 売上データ
+  info:        '3a529672-672f-80bb-9dc1-e33637e02fb1', // インフォメーション
+  knowledge:   '3a529672-672f-80ab-bd6e-c045e34a326a', // ナレッジ・FAQ
+  meetingPlan: '3a629672-672f-80a0-8ad7-ce53a48198df', // 実施計画（ライン別会議実施計画）
 };
 
 async function notionQuery(databaseId) {
@@ -55,6 +56,8 @@ const getStatus      = (p) => p?.status?.name || '';
 const getMultiSelect = (p) => (p?.multi_select || []).map(o => o.name);
 const getNumber      = (p) => p?.number ?? 0;
 const getDateStart   = (p) => p?.date?.start || '';
+// files型プロパティからリンクだけを取り出す（Notionアップロードのfile.urlは期限付きプリサインURLである点に注意）
+const getFileLinks   = (p) => (p?.files || []).map(f => f.type === 'external' ? f.external?.url : f.file?.url).filter(Boolean);
 function getFormula(p) {
   const f = p?.formula;
   if (!f) return null;
@@ -166,9 +169,14 @@ async function main() {
       image:    existingImageByName.get(name) || '',
       status:   getStatus(props['ステータス']),
       note:     getRichText(props['備考']),
+      dispOrder: props['表示順']?.number ?? null,
     };
   });
+  // 表示順（Notion手動並び替えの代替。数値が入っている人を優先）が未設定の場合は入社日順にフォールバック
   members.sort((a, b) => {
+    if (a.dispOrder != null && b.dispOrder != null) return a.dispOrder - b.dispOrder;
+    if (a.dispOrder != null) return -1;
+    if (b.dispOrder != null) return 1;
     if (!a.joinIso && !b.joinIso) return 0;
     if (!a.joinIso) return 1;
     if (!b.joinIso) return -1;
@@ -256,6 +264,26 @@ async function main() {
   await writeCsv('knowledge.csv',
     ['タイトル','種別','カテゴリ','質問','回答・本文','サマリー','タグ','更新日'],
     knowledgeRows);
+
+  console.log('== meeting_plan.csv ==');
+  const meetingPages = await notionQuery(DB.meetingPlan);
+  const meetingRows = meetingPages.map(page => {
+    const props = page.properties;
+    const dateIso = getDateStart(props['実施日']);
+    return {
+      dateIso,
+      '実施月':   getTitle(props['実施月']),
+      '実施日':   isoToJaDate(dateIso),
+      '開催単位': getSelect(props['開催単位']),
+      '実施形式': getMultiSelect(props['実施形式']).join(','),
+      '備考':     getRichText(props['備考']),
+      '資料リンク': getFileLinks(props['落とし込み内容']).join(','),
+    };
+  });
+  meetingRows.sort((a, b) => a.dateIso.localeCompare(b.dateIso));
+  await writeCsv('meeting_plan.csv',
+    ['実施月','実施日','開催単位','実施形式','備考','資料リンク'],
+    meetingRows);
 
   console.log('done.');
   if (hadEmptyRegression) {
