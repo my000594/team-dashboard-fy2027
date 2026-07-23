@@ -265,7 +265,7 @@ body {
 }
 .spinner { width: 28px; height: 28px; border: 2px solid var(--border2); border-top-color: var(--blue); border-radius: 50%; animation: spin .7s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
-#app { opacity: 0; transition: opacity .4s; }
+#app { opacity: 0; transition: opacity .4s; flex: 1; min-width: 0; }
 #app.ready { opacity: 1; }
 
 /* ── Chart wrap ── */
