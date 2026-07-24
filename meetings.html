@@ -14,7 +14,9 @@
 .unit-badge { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 4px; }
 .unit-単独 { background: var(--blue-dim); color: var(--blue); }
 .unit-合同 { background: var(--purple-dim); color: var(--purple); }
-.format-chip { font-size: 10px; padding: 1px 7px; border-radius: 3px; background: var(--bg3); color: var(--text3); margin-right: 4px; display: inline-block; }
+.format-chip { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 4px; margin-right: 4px; display: inline-block; background: var(--bg3); color: var(--text2); }
+.format-職場別 { background: var(--cyan-dim); color: var(--cyan); }
+.format-懇親会 { background: var(--amber-dim); color: var(--amber); }
 .doc-link { color: var(--blue); font-size: 12px; text-decoration: none; }
 .doc-link:hover { text-decoration: underline; }
 </style>
@@ -81,7 +83,7 @@ async function init() {
           <td class="left" style="font-weight:500">${r['実施月']}</td>
           <td class="left">${r['実施日']}</td>
           <td>${r['開催単位']?`<span class="unit-badge unit-${r['開催単位']}">${r['開催単位']}</span>`:''}</td>
-          <td class="left">${(r['実施形式']||'').split(',').map(s=>s.trim()).filter(Boolean).map(f=>`<span class="format-chip">${f}</span>`).join('')}</td>
+          <td class="left">${(r['実施形式']||'').split(',').map(s=>s.trim()).filter(Boolean).map(f=>`<span class="format-chip format-${f}">${f}</span>`).join('')}</td>
           <td class="left" style="color:var(--text3)">${r['備考']||''}</td>
           <td class="left">${links.length ? links.map((l,i)=>`<a class="doc-link" href="${l}" target="_blank" rel="noopener">資料${links.length>1?i+1:''}</a>`).join(' ') : '<span style="color:var(--text3)">—</span>'}</td>
         </tr>`;
