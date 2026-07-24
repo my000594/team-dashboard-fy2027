@@ -171,6 +171,7 @@ body {
 .badge-amber  { background: var(--amber-dim); color: var(--amber); }
 .badge-red    { background: var(--red-dim);   color: var(--red); }
 .badge-purple { background: var(--purple-dim);color: var(--purple); }
+.badge-cyan   { background: var(--cyan-dim);  color: var(--cyan); }
 
 /* ── Table ── */
 .tbl-wrap { overflow-x: auto; }
