@@ -53,15 +53,16 @@
   </div>
   <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:1.25rem" id="filters"></div>
   <div class="result-count" id="resultCount"></div>
-  <div id="faqSection"><div class="section-label">FAQ</div><div id="faqList"></div></div>
+  <div id="qaSection"><div class="section-label">Q&amp;A</div><div id="qaList"></div></div>
   <div id="articleSection"><div class="section-label">記事・ガイド</div><div id="articleList"></div></div>
 </main>
 </div>
 
 <script src="nav.js"></script>
 <script>
-const CATEGORIES = ['すべて','社内ルール','技術・スキル','リンク・連絡先'];
+const CAT_PALETTE = ['blue','green','amber','purple','cyan','red'];
 let allItems = [], currentCat = 'すべて', currentQuery = '';
+let catColorMap = {};
 
 function md2html(md) {
   if (!md) return '';
@@ -93,31 +94,35 @@ function filterItems() {
 }
 
 function catColor(cat) {
-  return {'社内ルール':'blue','技術・スキル':'green','リンク・連絡先':'amber'}[cat]||'blue';
+  return catColorMap[cat] || 'blue';
 }
 
+// 種別の文字列（Notionの選択肢名）ではなく、質問(質問列)の有無でカード形式を判定する。
+// これによりNotion側で種別の選択肢が増えても、質問欄の入力有無に応じて
+// 自動的にQ&Aカード／記事アコーディオンのどちらかに表示され、コード修正が不要になる。
 function render() {
   const items = filterItems();
-  const faqs     = items.filter(i=>i.type==='faq');
-  const articles = items.filter(i=>i.type==='article');
+  const qaItems      = items.filter(i=>i.q);
+  const articleItems = items.filter(i=>!i.q);
   document.getElementById('resultCount').textContent = `${items.length}件 表示中（全${allItems.length}件）`;
 
-  const faqSec = document.getElementById('faqSection');
-  faqSec.style.display = faqs.length?'':'none';
-  document.getElementById('faqList').innerHTML = faqs.map(item=>`
+  const qaSec = document.getElementById('qaSection');
+  qaSec.style.display = qaItems.length?'':'none';
+  document.getElementById('qaList').innerHTML = qaItems.map(item=>`
     <div class="faq-card">
       <div class="faq-q">${item.title}</div>
-      <div class="faq-a">${item.body||item.a||''}</div>
+      <div class="faq-a">${item.body||''}</div>
       <div class="faq-footer">
         <span class="badge badge-${catColor(item.category)}">${item.category}</span>
+        <span class="tag">${item.type}</span>
         ${(item.tags||[]).map(t=>`<span class="tag">${t}</span>`).join('')}
         <span style="margin-left:auto;font-size:10px;color:var(--text3);font-family:var(--mono)">${item.updated||''}</span>
       </div>
-    </div>`).join('') || '<div class="empty">該当するFAQがありません</div>';
+    </div>`).join('') || '<div class="empty">該当するQ&amp;Aがありません</div>';
 
   const artSec = document.getElementById('articleSection');
-  artSec.style.display = articles.length?'':'none';
-  document.getElementById('articleList').innerHTML = articles.map((item,i)=>`
+  artSec.style.display = articleItems.length?'':'none';
+  document.getElementById('articleList').innerHTML = articleItems.map((item,i)=>`
     <div class="article-card" id="art-${i}">
       <div class="article-header" onclick="document.getElementById('art-${i}').classList.toggle('open')">
         <div>
@@ -129,6 +134,7 @@ function render() {
       <div class="article-body">
         <div style="display:flex;gap:8px;align-items:center;margin-bottom:.75rem;flex-wrap:wrap">
           <span class="badge badge-${catColor(item.category)}">${item.category}</span>
+          <span class="tag">${item.type}</span>
           ${(item.tags||[]).map(t=>`<span class="tag">${t}</span>`).join('')}
           <span style="margin-left:auto;font-size:10px;color:var(--text3);font-family:var(--mono)">${item.updated||''}</span>
         </div>
@@ -137,8 +143,8 @@ function render() {
     </div>`).join('') || '<div class="empty">該当する記事がありません</div>';
 
   if (items.length===0) {
-    faqSec.style.display='';
-    document.getElementById('faqList').innerHTML = `<div class="empty">「${currentQuery}」に一致するナレッジが見つかりませんでした</div>`;
+    qaSec.style.display='';
+    document.getElementById('qaList').innerHTML = `<div class="empty">「${currentQuery}」に一致するナレッジが見つかりませんでした</div>`;
     artSec.style.display='none';
   }
 }
@@ -161,6 +167,11 @@ async function init() {
       tags:     (r['タグ']||'').split(',').map(t=>t.trim()).filter(Boolean),
       updated:  (r['更新日']||'').trim(),
     })).filter(r=>r.title);
+
+    // カテゴリもNotion側の選択肢をそのまま採用し、出現順に色を自動割り当てする。
+    const categories = [...new Set(allItems.map(i=>i.category))];
+    categories.forEach((cat,i) => { catColorMap[cat] = CAT_PALETTE[i % CAT_PALETTE.length]; });
+    const CATEGORIES = ['すべて', ...categories];
 
     const fEl = document.getElementById('filters');
     CATEGORIES.forEach(cat => {
