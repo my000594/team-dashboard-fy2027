@@ -67,6 +67,17 @@
       <div id="matrixLegend" style="display:flex;gap:14px;font-size:11px;color:var(--text2);margin-bottom:10px;flex-wrap:wrap"></div>
       <div style="overflow-x:auto"><table class="matrix-tbl" id="matrixTable"></table></div>
     </div>
+
+    <div class="card" style="margin-top:1.25rem">
+      <div class="card-title">🎓 保有資格</div>
+      <div style="display:flex;gap:14px;font-size:11px;color:var(--text2);margin-bottom:10px;flex-wrap:wrap">
+        <span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--green);margin-right:5px;vertical-align:middle"></span>保有</span>
+        <span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--amber);margin-right:5px;vertical-align:middle"></span>更新目安（期限まで90日以内）</span>
+        <span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--red);margin-right:5px;vertical-align:middle"></span>期限切れ</span>
+        <span style="color:var(--text3)">✓下の年月＝取得日</span>
+      </div>
+      <div style="overflow-x:auto"><table class="matrix-tbl" id="certTable"></table></div>
+    </div>
   </div>
 
   <div id="sec-radar" class="tab-section" style="display:none">
@@ -107,6 +118,7 @@ const OVERALL_GROUP = '__overall__'; // 「総合」タブ：分野（サブカ�
 
 let members = [], skillList = [], dataByPeriod = {}, noteMap = {}, catColorMap = {}, categories = [], skillNameCounts = {};
 let groups = [];
+let certNames = [], certByMember = {};
 let currentPeriod = PERIODS[0];
 let currentGroup = null;
 let selectedMember = null;
@@ -174,6 +186,50 @@ function renderMatrix() {
         const col = catColor(s.cat);
         const note = noteMap[m]?.[s.key];
         html += `<td><span class="skill-dot" style="background:var(--${col}-dim);color:var(--${col})"${note ? ` title="${note}"` : ''}>${v}</span>${note ? `<div class="skill-note">${note}</div>` : ''}</td>`;
+      } else {
+        html += `<td><span class="skill-dot-empty">・</span></td>`;
+      }
+    });
+    html += '</tr>';
+  });
+  table.innerHTML = html + '</tbody>';
+}
+
+// 取得日(ISO)を「YYYY/MM」表記に整形
+function fmtCertDate(iso) {
+  if (!iso) return '';
+  const [y, m] = iso.split('-');
+  return y && m ? `${y}/${m}` : '';
+}
+
+// 有効期限との関係で状態を判定（無期限資格はexpiryが空なので常にok）
+function certStatus(rec) {
+  if (!rec.expiry) return 'ok';
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const exp = new Date(rec.expiry);
+  const diffDays = (exp - today) / 86400000;
+  if (diffDays < 0) return 'expired';
+  if (diffDays <= 90) return 'expiring';
+  return 'ok';
+}
+
+function renderCertMatrix() {
+  const table = document.getElementById('certTable');
+  if (!table) return;
+  let html = '<thead><tr><th class="name-col">資格</th>' +
+    members.map(m => `<th>${m}</th>`).join('') +
+    '</tr></thead><tbody>';
+  certNames.forEach(cert => {
+    html += `<tr><td class="name-col">${cert}</td>`;
+    members.forEach(m => {
+      const rec = certByMember[m]?.[cert];
+      if (rec) {
+        const status = certStatus(rec);
+        const col = status === 'expired' ? 'red' : status === 'expiring' ? 'amber' : 'green';
+        const statusLabel = status === 'expired' ? '期限切れ' : status === 'expiring' ? '更新目安' : '';
+        const dateText = fmtCertDate(rec.acquired);
+        const titleParts = [rec.acquired ? `取得日: ${rec.acquired}` : '', rec.expiry ? `有効期限: ${rec.expiry}` : '', rec.note || ''].filter(Boolean);
+        html += `<td><span class="skill-dot" style="background:var(--${col}-dim);color:var(--${col})"${titleParts.length ? ` title="${titleParts.join(' / ')}"` : ''}>✓</span>${dateText ? `<div class="skill-note">${dateText}</div>` : ''}${statusLabel ? `<div class="skill-note" style="color:var(--${col})">${statusLabel}</div>` : ''}</td>`;
       } else {
         html += `<td><span class="skill-dot-empty">・</span></td>`;
       }
@@ -269,9 +325,10 @@ window.filterSkills = filterSkills;
 
 async function init() {
   try {
-    const [skillRes, memberRes] = await Promise.all([
+    const [skillRes, memberRes, certRes] = await Promise.all([
       fetch('data/skill.csv'),
       fetch('data/members/member_master.csv'),
+      fetch('data/certifications.csv'),
     ]);
     const skillText = new TextDecoder('utf-8').decode(await skillRes.arrayBuffer()).replace(/^﻿/, '');
     const rows = Papa.parse(skillText, { header: true, skipEmptyLines: true }).data
@@ -301,6 +358,24 @@ async function init() {
     members = masterOrder.filter(n => namesInSkillData.includes(n));
     // メンバーマスタに見当たらない名前（表記ゆれ等）は末尾に出現順で残す
     members = members.concat(namesInSkillData.filter(n => !members.includes(n)));
+
+    // 保有資格（任意データ。data/certifications.csvがまだ無い/空でもスキルマップ本体は表示できるようにする）
+    certNames = [];
+    certByMember = {};
+    if (certRes.ok) {
+      const certText = new TextDecoder('utf-8').decode(await certRes.arrayBuffer()).replace(/^﻿/, '');
+      const certRows = Papa.parse(certText, { header: true, skipEmptyLines: true }).data
+        .map(r => ({
+          name: (r['氏名']||'').trim(),
+          cert: (r['資格名']||'').trim(),
+          acquired: (r['取得日']||'').trim(),
+          expiry: (r['有効期限']||'').trim(),
+          note: (r['備考']||'').trim(),
+        }))
+        .filter(r => r.name && r.cert);
+      certNames = [...new Set(certRows.map(r => r.cert))];
+      certRows.forEach(r => { (certByMember[r.name] ??= {})[r.cert] = { acquired: r.acquired, expiry: r.expiry, note: r.note }; });
+    }
 
     const skillMap = new Map();
     rows.forEach(r => { if (!skillMap.has(r.key)) skillMap.set(r.key, { key: r.key, name: r.skill, cat: r.cat, sub: r.sub }); });
@@ -355,6 +430,7 @@ async function init() {
     });
 
     renderMatrix();
+    renderCertMatrix();
     renderMemberChips();
 
     document.getElementById('loading').style.display = 'none';

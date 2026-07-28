@@ -23,6 +23,7 @@ const DB = {
   knowledge:   '3a529672-672f-80ab-bd6e-c045e34a326a', // ナレッジ・FAQ
   meetingPlan: '3a629672-672f-80a0-8ad7-ce53a48198df', // 実施計画（ライン別会議実施計画）
   skill:       'd94ebc91-0300-4476-b244-2da697341c25', // 📍 スキルマップ
+  certification: 'b88a98ca-3014-4f63-9d23-95cafbea9048', // 🎓 保有資格
 };
 
 async function notionQuery(databaseId) {
@@ -315,6 +316,31 @@ async function main() {
   await writeCsv('skill.csv',
     ['タイトル','氏名','スキル名','カテゴリ','サブカテゴリ', ...SKILL_PERIODS, '備考','更新日'],
     skillRows);
+
+  console.log('== certifications.csv ==');
+  const certPages = await notionQuery(DB.certification);
+  const certRows = certPages.map(page => {
+    const props = page.properties;
+    return {
+      __order: props['表示順']?.number ?? null,
+      'タイトル': getTitle(props['タイトル']),
+      '氏名': getSelect(props['氏名']),
+      '資格名': getSelect(props['資格名']),
+      '取得日': getDateStart(props['取得日']),
+      '有効期限': getDateStart(props['有効期限']),
+      '備考': getRichText(props['備考']),
+    };
+  });
+  // 表示順（資格カタログの並び）が設定されている行を優先し、未設定の行は末尾に回す
+  certRows.sort((a, b) => {
+    if (a.__order != null && b.__order != null) return a.__order - b.__order;
+    if (a.__order != null) return -1;
+    if (b.__order != null) return 1;
+    return 0;
+  });
+  await writeCsv('certifications.csv',
+    ['タイトル','氏名','資格名','取得日','有効期限','備考'],
+    certRows);
 
   console.log('done.');
   if (hadEmptyRegression) {
