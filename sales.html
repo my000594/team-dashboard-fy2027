@@ -15,7 +15,7 @@
 .cust-item.open{border-color:var(--border2)}
 .cust-header{display:flex;align-items:center;gap:10px;padding:.85rem 1rem;cursor:pointer;user-select:none}
 .cust-color-bar{width:4px;height:36px;border-radius:2px;flex-shrink:0}
-.cust-name-wrap{flex:1}
+.cust-name-wrap{flex:1;min-width:0}
 .cust-name{font-size:13px;font-weight:500;color:var(--text)}
 .cust-sub{font-size:11px;color:var(--text3);margin-top:1px;font-family:var(--mono)}
 .cust-bar-wrap{width:100px;background:var(--bg3);border-radius:3px;height:6px;overflow:hidden;flex-shrink:0}
@@ -42,6 +42,16 @@
 .hm-table th{font-size:10px;font-weight:500;color:var(--text3);padding:5px 6px;text-align:center;white-space:nowrap}
 .hm-table th:first-child{text-align:left;min-width:120px}
 .hm-table td{padding:4px 5px;text-align:center;font-family:var(--mono);font-size:10px;border-radius:4px}
+@media (max-width: 560px) {
+  .cust-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .cust-bar-wrap{display:none}
+  .cust-header{gap:8px}
+  .cust-val{min-width:0;font-size:11px}
+  .cust-rate{min-width:34px}
+}
+@media (max-width: 700px) {
+  .detail-kpi{grid-template-columns:repeat(2,1fr)}
+}
 </style>
 </head>
 <body>
