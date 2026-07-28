@@ -206,7 +206,7 @@ LINE_COLORS・LINE_META・LINE_LABEL_MAP定数はmember.html内に定義。
 - 中身はGitHub REST APIを直接ブラウザから呼び出し、`.github/workflows/maintenance.yml`をworkflow_dispatchでトリガーするだけの単一ページ。バックエンドは持たない
 - 認証は**GitHubのPersonal Access Token（PAT）をこのページ内で入力し、ブラウザのlocalStorageに保存する方式**。トークンはリポジトリのソースコード・git履歴には一切含まれない。ページ自体は誰でもURLを知っていれば開けるが、トークンを持っていない限り操作はできない
 - 想定するトークン：このリポジトリ（`my000594/team-dashboard-fy2027`）のみに絞ったfine-grained PATで、権限は「Actions: Read and write」のみ（Contents権限は付与しない）。漏洩してもコードの読み書き・削除はできず、ワークフローのトリガーのみ可能な設計
-- ボタンは1つ：現在の状態（`data/maintenance.json`をfetchして判定）に応じて「メンテナンスを開始」／「メンテナンスを解除」のどちらかを表示し、タップするとGitHub Actionsにdispatchし、`data/maintenance.json`が実際に切り替わるまで数秒間隔でポーリングして反映を確認する
+- ボタンは1つ：現在の状態（`data/maintenance.json`をfetchして判定）に応じて「メンテナンスを開始」／「メンテナンスを解除」のどちらかを表示する。タップ即実行ではなく、誤操作防止のため必ず確認画面（開始／解除どちらも）を挟んでから実行し、GitHub Actionsにdispatchした後は`data/maintenance.json`が実際に切り替わるまで数秒間隔でポーリングして反映を確認する
 - 詳細設定（開始時のメッセージ・復旧見込み）は折りたたみ式。空欄なら`.github/workflows/maintenance.yml`側で前回の内容を維持する仕様と対応している
 - GitHub REST APIはトークン認証リクエストに対してCORSを許可しているため、ブラウザから直接`fetch`で呼び出せる
 

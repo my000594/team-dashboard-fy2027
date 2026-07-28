@@ -80,6 +80,23 @@ body{
 .settings-row button.primary{background:var(--blue);color:#fff;border-color:var(--blue)}
 .spinner{width:16px;height:16px;border:2px solid rgba(255,255,255,.2);border-top-color:currentColor;border-radius:50%;animation:spin .7s linear infinite;display:inline-block}
 @keyframes spin{to{transform:rotate(360deg)}}
+.confirm-overlay{
+  display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(2px);
+  z-index:100;align-items:center;justify-content:center;padding:1.5rem;
+}
+.confirm-overlay.open{display:flex}
+.confirm-card{
+  width:100%;max-width:340px;background:var(--bg2);border:1px solid var(--border2);
+  border-radius:18px;padding:1.5rem;text-align:center;display:flex;flex-direction:column;align-items:center;gap:8px;
+}
+.confirm-icon{font-size:34px}
+.confirm-title{font-size:16px;font-weight:700}
+.confirm-body{font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:.5rem}
+.confirm-row{display:flex;gap:10px;width:100%;margin-top:.25rem}
+.confirm-btn{flex:1;padding:.75rem;border-radius:10px;border:none;font-size:14px;font-weight:600;font-family:var(--font);cursor:pointer}
+.confirm-btn.cancel{background:var(--bg3);color:var(--text2);border:.5px solid var(--border2)}
+.confirm-btn.ok.start{background:var(--amber);color:#1a1206}
+.confirm-btn.ok.stop{background:var(--green);color:#08160e}
 </style>
 </head>
 <body>
@@ -110,6 +127,18 @@ body{
     <div class="settings-row">
       <button id="saveBtn" class="primary">保存</button>
       <button id="clearBtn">トークン削除</button>
+    </div>
+  </div>
+</div>
+
+<div id="confirmOverlay" class="confirm-overlay">
+  <div class="confirm-card">
+    <div id="confirmIcon" class="confirm-icon"></div>
+    <div id="confirmTitle" class="confirm-title"></div>
+    <div id="confirmBody" class="confirm-body"></div>
+    <div class="confirm-row">
+      <button id="confirmCancel" class="confirm-btn cancel">キャンセル</button>
+      <button id="confirmOk" class="confirm-btn ok"></button>
     </div>
   </div>
 </div>
@@ -163,7 +192,34 @@ function renderStatus(active, message) {
     btn.innerHTML = `<span class="toggle-icon">🔧</span><span class="toggle-text start">メンテナンスを開始</span><span class="toggle-sub">タップして一時停止</span>`;
   }
   btn.disabled = false;
-  btn.onclick = () => toggle(!active);
+  btn.onclick = () => confirmToggle(!active);
+}
+
+// 誤タップで即座に切り替わらないよう、実行前に必ず確認画面を挟む（開始・解除どちらも）
+function confirmToggle(nextActive) {
+  const overlay = el('confirmOverlay');
+  const okBtn = el('confirmOk');
+
+  if (nextActive) {
+    el('confirmIcon').textContent = '🔧';
+    el('confirmTitle').textContent = 'メンテナンスを開始しますか？';
+    el('confirmBody').textContent = '部下からダッシュボードが見えなくなり、メンテナンス画面に切り替わります。';
+    okBtn.className = 'confirm-btn ok start';
+    okBtn.textContent = '開始する';
+  } else {
+    el('confirmIcon').textContent = '✅';
+    el('confirmTitle').textContent = 'メンテナンスを解除しますか？';
+    el('confirmBody').textContent = 'ダッシュボードが再び部下に公開されます。';
+    okBtn.className = 'confirm-btn ok stop';
+    okBtn.textContent = '解除する';
+  }
+
+  overlay.classList.add('open');
+  el('confirmCancel').onclick = () => overlay.classList.remove('open');
+  okBtn.onclick = () => {
+    overlay.classList.remove('open');
+    toggle(nextActive);
+  };
 }
 
 async function fetchStatus() {
@@ -211,10 +267,14 @@ async function toggle(nextActive) {
       body: JSON.stringify({ ref: 'main', inputs }),
     });
 
-    if (res.status === 401) throw new Error('トークンが無効です（⚙から再設定してください）');
-    if (res.status === 403) throw new Error('権限不足です（このリポジトリのActions:write権限があるか確認してください）');
-    if (res.status === 404) throw new Error('ワークフローが見つかりません（リポジトリ名・ファイル名を確認）');
-    if (!res.ok) throw new Error(`GitHub API エラー（HTTP ${res.status}）`);
+    if (!res.ok) {
+      let detail = '';
+      try { detail = (await res.json()).message || ''; } catch (e) { /* ignore */ }
+      if (res.status === 401) throw new Error(`トークンが無効です（⚙から再設定してください）${detail ? ' / ' + detail : ''}`);
+      if (res.status === 403) throw new Error(`権限不足です（Actions:write権限・対象リポジトリの選択を確認）${detail ? ' / ' + detail : ''}`);
+      if (res.status === 404) throw new Error(`ワークフローが見つかりません（リポジトリ名・ファイル名を確認）${detail ? ' / ' + detail : ''}`);
+      throw new Error(`GitHub API エラー（HTTP ${res.status}）${detail ? ' / ' + detail : ''}`);
+    }
 
     showMsg('送信しました。反映まで数十秒お待ちください...', 'info');
     await waitForReflect(nextActive);
