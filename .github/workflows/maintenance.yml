@@ -1,0 +1,65 @@
+name: メンテナンスモード切り替え
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'on=メンテナンス画面に切り替え / off=復旧'
+        required: true
+        type: choice
+        options:
+          - 'on'
+          - 'off'
+        default: 'off'
+      message:
+        description: '表示メッセージ（空欄なら前回の内容を維持）'
+        required: false
+        type: string
+      estimated:
+        description: '復旧見込み（例：本日中に復旧予定。空欄なら前回の内容を維持）'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: maintenance-toggle
+  cancel-in-progress: false
+
+jobs:
+  toggle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: data/maintenance.jsonを更新
+        env:
+          MODE: ${{ inputs.mode }}
+          MSG: ${{ inputs.message }}
+          ESTIMATED: ${{ inputs.estimated }}
+        run: |
+          node -e "
+          const fs = require('fs');
+          const path = 'data/maintenance.json';
+          let current = { active: false, message: 'データ更新のため一時停止しています', estimated: '' };
+          try { current = JSON.parse(fs.readFileSync(path, 'utf8')); } catch {}
+          const active = process.env.MODE === 'on';
+          const message = process.env.MSG || current.message;
+          const estimated = process.env.ESTIMATED || current.estimated;
+          fs.writeFileSync(path, JSON.stringify({ active, message, estimated }, null, 2) + '\n');
+          console.log(JSON.stringify({ active, message, estimated }, null, 2));
+          "
+
+      - name: コミット・push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet -- data/maintenance.json; then
+            echo "No changes."
+          else
+            git add data/maintenance.json
+            git commit -m "メンテナンスモード: ${{ inputs.mode }}"
+            git pull --rebase origin "${GITHUB_REF_NAME}"
+            git push
+          fi

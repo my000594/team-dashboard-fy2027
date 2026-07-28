@@ -68,7 +68,8 @@ team-dashboard-fy2027/
 ├── scripts/
 │   └── sync-notion.mjs Notion APIからdata/配下のCSVを自動生成するスクリプト
 ├── .github/workflows/
-│   └── sync-notion.yml 上記スクリプトを実行するGitHub Actions（手動実行＋毎日自動実行）
+│   ├── sync-notion.yml  上記スクリプトを実行するGitHub Actions（手動実行＋毎日自動実行）
+│   └── maintenance.yml  メンテナンスモードのON/OFFを手動実行（workflow_dispatch）で切り替えるGitHub Actions
 ├── update_csv.bat      3SEレポートCSV更新バッチ（手動運用時のフォールバック）
 ├── update_master.bat   メンバーマスタCSV更新バッチ（同上）
 ├── update_sales.bat    売上CSV更新バッチ（同上）
@@ -355,10 +356,12 @@ PowerShellでDownloads内の全 `*ExportBlock*.zip` をスキャンし、CSVの�
 ```
 
 ### メンテナンス切り替え
+標準：GitHub Actions「メンテナンスモード切り替え」（`.github/workflows/maintenance.yml`）をGitHubのActionsタブから手動実行（workflow_dispatch）。gitコマンド不要、ブラウザから`mode`（on/off）を選んでRun workflowを押すだけ。`message`・`estimated`は空欄なら前回の内容を維持するので、offにするだけなら他の入力は不要
 ```
-開始：data/maintenance.json の active を true → git push
-復旧：data/maintenance.json の active を false → git push
+開始：Actionsタブ → メンテナンスモード切り替え → Run workflow → mode: on
+復旧：Actionsタブ → メンテナンスモード切り替え → Run workflow → mode: off
 ```
+フォールバック：手動でdata/maintenance.jsonのactiveを直接編集してgit push（従来通りの方法。ローカルにリポジトリがある場合はこちらでも可）
 
 ---
 
