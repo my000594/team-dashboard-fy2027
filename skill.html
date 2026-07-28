@@ -88,7 +88,7 @@ const PERIODS = ['2026年8月','2026年11月','2027年2月','2027年5月'];
 const CAT_PALETTE = ['blue','green','amber','purple','cyan','red'];
 
 let members = [], skillList = [], dataByPeriod = {}, noteMap = {}, catColorMap = {}, categories = [], skillNameCounts = {};
-let currentPeriod = PERIODS[PERIODS.length - 1];
+let currentPeriod = PERIODS[0];
 let selectedMember = null;
 let radarChart = null;
 
@@ -264,6 +264,10 @@ async function init() {
     // カテゴリはNotion側の選択肢をそのまま採用し、出現順に色を自動割り当てする。
     categories = [...new Set(rows.map(r => r.cat).filter(Boolean))];
     categories.forEach((c, i) => { catColorMap[c] = CAT_PALETTE[i % CAT_PALETTE.length]; });
+
+    // デフォルト表示は「評価データが1件以上入っている時期」のうち最新のもの。全期未入力なら先頭の時期。
+    const periodsWithData = PERIODS.filter(p => rows.some(r => r.levels[p] > 0));
+    currentPeriod = periodsWithData.length ? periodsWithData[periodsWithData.length - 1] : PERIODS[0];
 
     document.getElementById('subtitle').textContent =
       `${new Date().toLocaleDateString('ja-JP')} 時点 ／ 対象 ${members.length}名 ／ 記録スキル ${skillList.length}種`;

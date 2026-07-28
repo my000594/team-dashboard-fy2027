@@ -22,6 +22,7 @@ const DB = {
   info:        '3a529672-672f-80bb-9dc1-e33637e02fb1', // インフォメーション
   knowledge:   '3a529672-672f-80ab-bd6e-c045e34a326a', // ナレッジ・FAQ
   meetingPlan: '3a629672-672f-80a0-8ad7-ce53a48198df', // 実施計画（ライン別会議実施計画）
+  skill:       'd94ebc91-0300-4476-b244-2da697341c25', // 🎯 スキル評価
 };
 
 async function notionQuery(databaseId) {
@@ -284,6 +285,36 @@ async function main() {
   await writeCsv('meeting_plan.csv',
     ['実施月','実施日','開催単位','実施形式','備考','資料リンク'],
     meetingRows);
+
+  console.log('== skill.csv ==');
+  const skillPages = await notionQuery(DB.skill);
+  // ヒアリング実施時期ごとの評価列。新しい時期が追加されたらここに追記し、CLAUDE.mdのデータフォーマット節も更新すること
+  const SKILL_PERIODS = ['2026年8月','2026年11月','2027年2月','2027年5月'];
+  const skillRows = skillPages.map(page => {
+    const props = page.properties;
+    const row = {
+      __order: props['表示順']?.number ?? null,
+      'タイトル': getTitle(props['タイトル']),
+      '氏名': getSelect(props['氏名']),
+      'スキル名': getSelect(props['スキル名']),
+      'カテゴリ': getSelect(props['カテゴリ']),
+      'サブカテゴリ': getSelect(props['サブカテゴリ']),
+    };
+    for (const period of SKILL_PERIODS) row[period] = getNumber(props[period]);
+    row['備考'] = getRichText(props['備考']);
+    row['更新日'] = getDateStart(props['更新日']);
+    return row;
+  });
+  // 表示順（ヒアリングシートの通し番号）が設定されている行を優先し、未設定の行は末尾に回す
+  skillRows.sort((a, b) => {
+    if (a.__order != null && b.__order != null) return a.__order - b.__order;
+    if (a.__order != null) return -1;
+    if (b.__order != null) return 1;
+    return 0;
+  });
+  await writeCsv('skill.csv',
+    ['タイトル','氏名','スキル名','カテゴリ','サブカテゴリ', ...SKILL_PERIODS, '備考','更新日'],
+    skillRows);
 
   console.log('done.');
   if (hadEmptyRegression) {
