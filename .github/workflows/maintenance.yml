@@ -1,6 +1,6 @@
 name: メンテナンスモード切り替え
 
-on:
+"on":
   workflow_dispatch:
     inputs:
       mode:

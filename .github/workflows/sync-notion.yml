@@ -1,6 +1,6 @@
 name: Notionからデータ同期
 
-on:
+"on":
   workflow_dispatch: {}
   schedule:
     - cron: '0 21 * * *'  # 毎日 21:00 UTC = 6:00 JST
