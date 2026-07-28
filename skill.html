@@ -49,6 +49,18 @@
     <div class="tabs" id="periodTabs" style="margin-bottom:0"></div>
   </div>
 
+  <details class="card" style="margin-bottom:1.25rem">
+    <summary style="cursor:pointer;font-size:12px;font-weight:600;color:var(--text2)">📊 レベル基準を見る</summary>
+    <div style="margin-top:.75rem;font-size:12px;color:var(--text2);line-height:1.8">
+      <div><b style="color:var(--text);font-family:var(--mono)">Lv.1</b>　知っている（概念・用語を理解している）</div>
+      <div><b style="color:var(--text);font-family:var(--mono)">Lv.2</b>　触ったことがある（学習・演習経験あり）</div>
+      <div><b style="color:var(--text);font-family:var(--mono)">Lv.3</b>　業務で使える（実務経験あり・自力で対応可）</div>
+      <div><b style="color:var(--text);font-family:var(--mono)">Lv.4</b>　得意（応用・改善ができる・他者に教えられる）</div>
+      <div><b style="color:var(--text);font-family:var(--mono)">Lv.5</b>　エキスパート（高度な設計・問題解決・社内外で評価）</div>
+      <div style="margin-top:.5rem;color:var(--text3)">※資格については、取得済みであることを表します。保有資格の詳細は各スキルの補足に記載しています。</div>
+    </div>
+  </details>
+
   <div id="sec-matrix" class="tab-section">
     <div class="card">
       <div class="card-title">👤 メンバー × スキル一覧</div>
@@ -224,10 +236,12 @@ window.filterSkills = filterSkills;
 
 async function init() {
   try {
-    const res = await fetch('data/skill.csv');
-    const buf = await res.arrayBuffer();
-    const text = new TextDecoder('utf-8').decode(buf).replace(/^﻿/, '');
-    const rows = Papa.parse(text, { header: true, skipEmptyLines: true }).data
+    const [skillRes, memberRes] = await Promise.all([
+      fetch('data/skill.csv'),
+      fetch('data/members/member_master.csv'),
+    ]);
+    const skillText = new TextDecoder('utf-8').decode(await skillRes.arrayBuffer()).replace(/^﻿/, '');
+    const rows = Papa.parse(skillText, { header: true, skipEmptyLines: true }).data
       .map(r => {
         const skill = (r['スキル名']||'').trim();
         const sub = (r['サブカテゴリ']||'').trim();
@@ -244,7 +258,16 @@ async function init() {
       })
       .filter(r => r.name && r.skill);
 
-    members = [...new Set(rows.map(r => r.name))];
+    // メンバーの並びはmember_master.csv（＝メンバー一覧の表示順）に固定し、スキルデータの入力状況に左右されない
+    const memberText = new TextDecoder('utf-8').decode(await memberRes.arrayBuffer()).replace(/^﻿/, '');
+    const masterOrder = Papa.parse(memberText, { header: true, skipEmptyLines: true }).data
+      .filter(r => (r['ステータス']||'').trim() === '在籍')
+      .map(r => (r['氏名']||'').trim());
+
+    const namesInSkillData = [...new Set(rows.map(r => r.name))];
+    members = masterOrder.filter(n => namesInSkillData.includes(n));
+    // メンバーマスタに見当たらない名前（表記ゆれ等）は末尾に出現順で残す
+    members = members.concat(namesInSkillData.filter(n => !members.includes(n)));
 
     const skillMap = new Map();
     rows.forEach(r => { if (!skillMap.has(r.key)) skillMap.set(r.key, { key: r.key, name: r.skill, cat: r.cat, sub: r.sub }); });
