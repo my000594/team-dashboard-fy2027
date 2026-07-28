@@ -18,6 +18,7 @@
 .matrix-tbl tbody tr:hover td{background:var(--bg3)}
 .skill-dot{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;font-size:10px;font-weight:700}
 .skill-dot-empty{color:var(--text3);font-size:15px}
+.skill-note{font-size:9px;color:var(--text3);margin-top:2px;line-height:1.2;word-break:break-word}
 .member-chip{padding:6px 12px;border-radius:999px;border:.5px solid var(--border);cursor:pointer;font-size:12px;color:var(--text2);background:transparent;font-family:var(--font);transition:.15s}
 .member-chip:hover{border-color:var(--border2);color:var(--text)}
 .member-chip.sel{background:var(--blue-dim);color:var(--blue);border-color:rgba(59,130,246,.4)}
@@ -73,6 +74,10 @@
     <div class="card">
       <div class="card-title">🎯 メンバーを選択してスキルレーダーを表示</div>
       <div id="memberChips" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:1rem"></div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:1rem;flex-wrap:wrap">
+        <span style="font-size:11px;color:var(--text3)">分野</span>
+        <div class="tabs" id="radarGroupTabs" style="margin-bottom:0"></div>
+      </div>
       <div class="chart-wrap" style="height:320px"><canvas id="radarChart" role="img" aria-label="選択したメンバーのスキルレーダーチャート"></canvas></div>
     </div>
   </div>
@@ -100,7 +105,9 @@ const PERIODS = ['2026年8月','2026年11月','2027年2月','2027年5月'];
 const CAT_PALETTE = ['blue','green','amber','purple','cyan','red'];
 
 let members = [], skillList = [], dataByPeriod = {}, noteMap = {}, catColorMap = {}, categories = [], skillNameCounts = {};
+let groups = [];
 let currentPeriod = PERIODS[0];
+let currentGroup = null;
 let selectedMember = null;
 let radarChart = null;
 
@@ -137,6 +144,14 @@ function switchPeriod(period) {
 }
 window.switchPeriod = switchPeriod;
 
+// レーダーチャートは全42項目を一度に表示すると軸が密集して読めないため、サブカテゴリ単位（「分野」）で絞り込んで表示する
+function switchRadarGroup(key) {
+  currentGroup = key;
+  document.querySelectorAll('#radarGroupTabs .tab').forEach(t => t.classList.toggle('active', t.dataset.group === key));
+  if (selectedMember) showRadar(selectedMember);
+}
+window.switchRadarGroup = switchRadarGroup;
+
 function renderMatrix() {
   const legend = document.getElementById('matrixLegend');
   legend.innerHTML = categories.map(c => {
@@ -156,7 +171,7 @@ function renderMatrix() {
       if (v > 0) {
         const col = catColor(s.cat);
         const note = noteMap[m]?.[s.key];
-        html += `<td><span class="skill-dot" style="background:var(--${col}-dim);color:var(--${col})"${note ? ` title="${note}"` : ''}>${v}</span></td>`;
+        html += `<td><span class="skill-dot" style="background:var(--${col}-dim);color:var(--${col})"${note ? ` title="${note}"` : ''}>${v}</span>${note ? `<div class="skill-note">${note}</div>` : ''}</td>`;
       } else {
         html += `<td><span class="skill-dot-empty">・</span></td>`;
       }
@@ -169,8 +184,9 @@ function renderMatrix() {
 function showRadar(m) {
   selectedMember = m;
   const data = dataMap();
-  const labels = skillList.map(s => skillLabel(s));
-  const vals = skillList.map(s => data[m]?.[s.key] || 0);
+  const items = (groups.find(g => g.key === currentGroup) || {}).items || skillList;
+  const labels = items.map(s => skillLabel(s));
+  const vals = items.map(s => data[m]?.[s.key] || 0);
   if (radarChart) radarChart.destroy();
   radarChart = new Chart(document.getElementById('radarChart'), {
     type: 'radar',
@@ -276,6 +292,16 @@ async function init() {
     skillNameCounts = {};
     skillList.forEach(s => { skillNameCounts[s.name] = (skillNameCounts[s.name] || 0) + 1; });
 
+    // レーダーチャート用の「分野」グルーピング（サブカテゴリ単位。サブカテゴリが無い場合はカテゴリ単位）
+    groups = [];
+    const groupMap = new Map();
+    skillList.forEach(s => {
+      const gKey = s.sub || s.cat;
+      if (!groupMap.has(gKey)) { const g = { key: gKey, items: [] }; groupMap.set(gKey, g); groups.push(g); }
+      groupMap.get(gKey).items.push(s);
+    });
+    currentGroup = groups.length ? groups[0].key : null;
+
     dataByPeriod = {};
     noteMap = {};
     PERIODS.forEach(p => { dataByPeriod[p] = {}; });
@@ -303,6 +329,11 @@ async function init() {
     const periodTabEl = document.getElementById('periodTabs');
     PERIODS.forEach(p => {
       periodTabEl.innerHTML += `<button class="tab${p === currentPeriod ? ' active' : ''}" data-period="${p}" onclick="switchPeriod('${p}')">${p}</button>`;
+    });
+
+    const radarGroupEl = document.getElementById('radarGroupTabs');
+    groups.forEach(g => {
+      radarGroupEl.innerHTML += `<button class="tab${g.key === currentGroup ? ' active' : ''}" data-group="${g.key}" onclick="switchRadarGroup('${g.key}')">${g.key}</button>`;
     });
 
     renderMatrix();
