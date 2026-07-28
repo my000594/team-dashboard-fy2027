@@ -22,7 +22,7 @@ const DB = {
   info:        '3a529672-672f-80bb-9dc1-e33637e02fb1', // インフォメーション
   knowledge:   '3a529672-672f-80ab-bd6e-c045e34a326a', // ナレッジ・FAQ
   meetingPlan: '3a629672-672f-80a0-8ad7-ce53a48198df', // 実施計画（ライン別会議実施計画）
-  skill:       'd94ebc91-0300-4476-b244-2da697341c25', // 🎯 スキル評価
+  skill:       'd94ebc91-0300-4476-b244-2da697341c25', // 📍 スキルマップ
 };
 
 async function notionQuery(databaseId) {
