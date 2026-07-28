@@ -18,7 +18,7 @@
 .matrix-tbl tbody tr:hover td{background:var(--bg3)}
 .skill-dot{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;font-size:10px;font-weight:700}
 .skill-dot-empty{color:var(--text3);font-size:15px}
-.skill-note{font-size:9px;color:var(--text3);margin-top:2px;line-height:1.2;word-break:break-word}
+.skill-note{font-size:10px;color:var(--text2);margin-top:2px;line-height:1.2;word-break:break-word}
 .member-chip{padding:6px 12px;border-radius:999px;border:.5px solid var(--border);cursor:pointer;font-size:12px;color:var(--text2);background:transparent;font-family:var(--font);transition:.15s}
 .member-chip:hover{border-color:var(--border2);color:var(--text)}
 .member-chip.sel{background:var(--blue-dim);color:var(--blue);border-color:rgba(59,130,246,.4)}
@@ -70,13 +70,14 @@
 
     <div class="card" style="margin-top:1.25rem">
       <div class="card-title">💯 保有資格</div>
+      <div class="tabs" id="certViewTabs" style="margin-bottom:10px"></div>
       <div style="display:flex;gap:14px;font-size:11px;color:var(--text2);margin-bottom:10px;flex-wrap:wrap">
         <span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--green);margin-right:5px;vertical-align:middle"></span>保有</span>
         <span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--amber);margin-right:5px;vertical-align:middle"></span>更新目安（期限まで90日以内）</span>
         <span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--red);margin-right:5px;vertical-align:middle"></span>期限切れ</span>
-        <span style="color:var(--text3)">✓下の年月＝取得日／🏅バッジ＝デジタルバッジのリンク</span>
+        <span style="color:var(--text2)">✓下の年月＝取得日／🏅バッジ＝デジタルバッジのリンク</span>
       </div>
-      <div style="overflow-x:auto"><table class="matrix-tbl" id="certTable"></table></div>
+      <div id="certContainer"></div>
     </div>
   </div>
 
@@ -88,7 +89,7 @@
         <span style="font-size:11px;color:var(--text3)">分野</span>
         <div class="tabs" id="radarGroupTabs" style="margin-bottom:0"></div>
       </div>
-      <div id="radarNote" style="font-size:11px;color:var(--text3);margin-bottom:.75rem"></div>
+      <div id="radarNote" style="font-size:11px;color:var(--text2);margin-bottom:.75rem"></div>
       <div class="chart-wrap" style="height:320px"><canvas id="radarChart" role="img" aria-label="選択したメンバーのスキルレーダーチャート"></canvas></div>
     </div>
   </div>
@@ -118,7 +119,13 @@ const OVERALL_GROUP = '__overall__'; // 「総合」タブ：分野（サブカ�
 
 let members = [], skillList = [], dataByPeriod = {}, noteMap = {}, catColorMap = {}, categories = [], skillNameCounts = {};
 let groups = [];
-let certNames = [], certByMember = {};
+let certNames = [], certByMember = {}, certMeta = {};
+const CERT_VIEWS = [
+  { id: 'all',      label: '全体' },
+  { id: 'category', label: '区分別' },
+  { id: 'field',    label: '分野別' },
+];
+let currentCertView = 'all';
 let currentPeriod = PERIODS[0];
 let currentGroup = null;
 let selectedMember = null;
@@ -171,7 +178,7 @@ function renderMatrix() {
   legend.innerHTML = categories.map(c => {
     const col = catColor(c);
     return `<span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--${col});margin-right:5px;vertical-align:middle"></span>${c}</span>`;
-  }).join('') + `<span style="color:var(--text3)">●数字 = レベル（1〜5）／ ・ = 未評価</span>`;
+  }).join('') + `<span style="color:var(--text2)">●数字 = レベル（1〜5）／ ・ = 未評価</span>`;
 
   const table = document.getElementById('matrixTable');
   let html = '<thead><tr><th class="name-col">スキル</th>' +
@@ -213,13 +220,19 @@ function certStatus(rec) {
   return 'ok';
 }
 
-function renderCertMatrix() {
-  const table = document.getElementById('certTable');
-  if (!table) return;
+function switchCertView(id) {
+  currentCertView = id;
+  document.querySelectorAll('#certViewTabs .tab').forEach(t => t.classList.toggle('active', t.dataset.view === id));
+  renderCertMatrix();
+}
+window.switchCertView = switchCertView;
+
+// 資格名のリストから1つのマトリクステーブル（資格×メンバー）のHTMLを組み立てる
+function certTableHTML(certList) {
   let html = '<thead><tr><th class="name-col">資格</th>' +
     members.map(m => `<th>${m}</th>`).join('') +
     '</tr></thead><tbody>';
-  certNames.forEach(cert => {
+  certList.forEach(cert => {
     html += `<tr><td class="name-col">${cert}</td>`;
     members.forEach(m => {
       const rec = certByMember[m]?.[cert];
@@ -237,7 +250,33 @@ function renderCertMatrix() {
     });
     html += '</tr>';
   });
-  table.innerHTML = html + '</tbody>';
+  return html + '</tbody>';
+}
+
+// 「全体」は資格を1つのマトリクスにまとめて表示。「区分別」「分野別」はNotionで管理している
+// 資格区分／資格分野ごとにgroup-sectionへ分けて表示する（区分・分野の値が変わってもコード修正不要）
+function renderCertMatrix() {
+  const container = document.getElementById('certContainer');
+  if (!container) return;
+
+  if (currentCertView === 'all') {
+    container.innerHTML = `<div style="overflow-x:auto"><table class="matrix-tbl">${certTableHTML(certNames)}</table></div>`;
+    return;
+  }
+
+  const metaKey = currentCertView === 'category' ? 'category' : 'field';
+  const groupOrder = [...new Set(certNames.map(c => certMeta[c]?.[metaKey] || '未分類'))];
+  container.innerHTML = groupOrder.map((g, i) => {
+    const certsInGroup = certNames.filter(c => (certMeta[c]?.[metaKey] || '未分類') === g);
+    const col = CAT_PALETTE[i % CAT_PALETTE.length];
+    return `<div class="group-section">
+      <div class="group-header" style="border-left-color:var(--${col})">
+        <span class="group-title" style="color:var(--${col})">${g}</span>
+        <span class="group-count">${certsInGroup.length}件</span>
+      </div>
+      <div style="overflow-x:auto"><table class="matrix-tbl">${certTableHTML(certsInGroup)}</table></div>
+    </div>`;
+  }).join('');
 }
 
 function showRadar(m) {
@@ -307,7 +346,7 @@ function filterSkills(q) {
       .sort((a, b) => b.v - a.v);
     if (!results.length) return '';
     return `<div style="margin-bottom:1.25rem">
-      <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:.5rem">${s.name} <span style="font-size:10px;font-weight:500;color:var(--text3)">(${s.cat}${s.sub ? ' / ' + s.sub : ''})</span></div>
+      <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:.5rem">${s.name} <span style="font-size:10px;font-weight:500;color:var(--text2)">(${s.cat}${s.sub ? ' / ' + s.sub : ''})</span></div>
       ${results.map(r => {
         const c = levelColor(r.v);
         const note = noteMap[r.m]?.[s.key];
@@ -315,7 +354,7 @@ function filterSkills(q) {
           <div class="sr-name">${r.m}</div>
           <div class="sr-bar-wrap"><div class="sr-bar" style="width:${r.v / 5 * 100}%;background:${c.text}"></div></div>
           <div class="sr-lv">Lv.${r.v}</div>
-          ${note ? `<div style="flex-basis:100%;font-size:11px;color:var(--text3);margin-top:2px">${note}</div>` : ''}
+          ${note ? `<div style="flex-basis:100%;font-size:11px;color:var(--text2);margin-top:2px">${note}</div>` : ''}
         </div>`;
       }).join('')}
     </div>`;
@@ -363,12 +402,15 @@ async function init() {
     // 保有資格（任意データ。data/certifications.csvがまだ無い/空でもスキルマップ本体は表示できるようにする）
     certNames = [];
     certByMember = {};
+    certMeta = {};
     if (certRes.ok) {
       const certText = new TextDecoder('utf-8').decode(await certRes.arrayBuffer()).replace(/^﻿/, '');
       const certRows = Papa.parse(certText, { header: true, skipEmptyLines: true }).data
         .map(r => ({
           name: (r['氏名']||'').trim(),
           cert: (r['資格名']||'').trim(),
+          category: (r['資格区分']||'').trim(),
+          field: (r['資格分野']||'').trim(),
           acquired: (r['資格取得日']||'').trim(),
           expiry: (r['有効期限']||'').trim(),
           badge: (r['デジタルバッジ']||'').split(',').map(s => s.trim()).filter(Boolean)[0] || '',
@@ -376,7 +418,10 @@ async function init() {
         }))
         .filter(r => r.name && r.cert);
       certNames = [...new Set(certRows.map(r => r.cert))];
-      certRows.forEach(r => { (certByMember[r.name] ??= {})[r.cert] = { acquired: r.acquired, expiry: r.expiry, badge: r.badge, note: r.note }; });
+      certRows.forEach(r => {
+        (certByMember[r.name] ??= {})[r.cert] = { acquired: r.acquired, expiry: r.expiry, badge: r.badge, note: r.note };
+        if (!certMeta[r.cert]) certMeta[r.cert] = { category: r.category, field: r.field };
+      });
     }
 
     const skillMap = new Map();
@@ -429,6 +474,11 @@ async function init() {
     radarGroupEl.innerHTML += `<button class="tab${OVERALL_GROUP === currentGroup ? ' active' : ''}" data-group="${OVERALL_GROUP}" onclick="switchRadarGroup('${OVERALL_GROUP}')">総合</button>`;
     groups.forEach(g => {
       radarGroupEl.innerHTML += `<button class="tab${g.key === currentGroup ? ' active' : ''}" data-group="${g.key}" onclick="switchRadarGroup('${g.key}')">${g.key}</button>`;
+    });
+
+    const certViewTabEl = document.getElementById('certViewTabs');
+    CERT_VIEWS.forEach(v => {
+      certViewTabEl.innerHTML += `<button class="tab${v.id === currentCertView ? ' active' : ''}" data-view="${v.id}" onclick="switchCertView('${v.id}')">${v.label}</button>`;
     });
 
     renderMatrix();
