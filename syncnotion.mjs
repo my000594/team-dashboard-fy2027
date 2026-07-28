@@ -288,20 +288,32 @@ async function main() {
 
   console.log('== skill.csv ==');
   const skillPages = await notionQuery(DB.skill);
+  // ヒアリング実施時期ごとの評価列。新しい時期が追加されたらここに追記し、このCLAUDE.mdのデータフォーマット節も更新すること
+  const SKILL_PERIODS = ['2026年8月','2026年11月','2027年2月','2027年5月'];
   const skillRows = skillPages.map(page => {
     const props = page.properties;
-    return {
+    const row = {
+      __order: props['表示順']?.number ?? null,
       'タイトル': getTitle(props['タイトル']),
       '氏名': getSelect(props['氏名']),
       'スキル名': getSelect(props['スキル名']),
       'カテゴリ': getSelect(props['カテゴリ']),
       'サブカテゴリ': getSelect(props['サブカテゴリ']),
-      'レベル': getNumber(props['レベル']),
-      '更新日': getDateStart(props['更新日']),
     };
+    for (const period of SKILL_PERIODS) row[period] = getNumber(props[period]);
+    row['備考'] = getRichText(props['備考']);
+    row['更新日'] = getDateStart(props['更新日']);
+    return row;
+  });
+  // 表示順（ヒアリングシートの通し番号）が設定されている行を優先し、未設定の行は末尾に回す
+  skillRows.sort((a, b) => {
+    if (a.__order != null && b.__order != null) return a.__order - b.__order;
+    if (a.__order != null) return -1;
+    if (b.__order != null) return 1;
+    return 0;
   });
   await writeCsv('skill.csv',
-    ['タイトル','氏名','スキル名','カテゴリ','サブカテゴリ','レベル','更新日'],
+    ['タイトル','氏名','スキル名','カテゴリ','サブカテゴリ', ...SKILL_PERIODS, '備考','更新日'],
     skillRows);
 
   console.log('done.');
