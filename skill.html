@@ -131,6 +131,12 @@ let currentGroup = null;
 let selectedMember = null;
 let radarChart = null;
 
+// Notion由来の自由記述テキストをHTML/属性値として安全に埋め込むためのエスケープ。
+// 資格名が2026-07-28にselectから自由記述（title）に変わり、備考等と合わせて引用符を含む入力があり得るため
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+}
+
 function dataMap() { return dataByPeriod[currentPeriod] || {}; }
 
 function catColor(cat) { return catColorMap[cat] || 'blue'; }
@@ -177,22 +183,22 @@ function renderMatrix() {
   const legend = document.getElementById('matrixLegend');
   legend.innerHTML = categories.map(c => {
     const col = catColor(c);
-    return `<span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--${col});margin-right:5px;vertical-align:middle"></span>${c}</span>`;
+    return `<span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--${col});margin-right:5px;vertical-align:middle"></span>${esc(c)}</span>`;
   }).join('') + `<span style="color:var(--text2)">●数字 = レベル（1〜5）／ ・ = 未評価</span>`;
 
   const table = document.getElementById('matrixTable');
   let html = '<thead><tr><th class="name-col">スキル</th>' +
-    members.map(m => `<th>${m}</th>`).join('') +
+    members.map(m => `<th>${esc(m)}</th>`).join('') +
     '</tr></thead><tbody>';
   const data = dataMap();
   skillList.forEach(s => {
-    html += `<tr><td class="name-col">${skillLabel(s)}</td>`;
+    html += `<tr><td class="name-col">${esc(skillLabel(s))}</td>`;
     members.forEach(m => {
       const v = data[m]?.[s.key] || 0;
       if (v > 0) {
         const col = catColor(s.cat);
         const note = noteMap[m]?.[s.key];
-        html += `<td><span class="skill-dot" style="background:var(--${col}-dim);color:var(--${col})"${note ? ` title="${note}"` : ''}>${v}</span>${note ? `<div class="skill-note">${note}</div>` : ''}</td>`;
+        html += `<td><span class="skill-dot" style="background:var(--${col}-dim);color:var(--${col})"${note ? ` title="${esc(note)}"` : ''}>${v}</span>${note ? `<div class="skill-note">${esc(note)}</div>` : ''}</td>`;
       } else {
         html += `<td><span class="skill-dot-empty">・</span></td>`;
       }
@@ -230,10 +236,10 @@ window.switchCertView = switchCertView;
 // 資格名のリストから1つのマトリクステーブル（資格×メンバー）のHTMLを組み立てる
 function certTableHTML(certList) {
   let html = '<thead><tr><th class="name-col">資格</th>' +
-    members.map(m => `<th>${m}</th>`).join('') +
+    members.map(m => `<th>${esc(m)}</th>`).join('') +
     '</tr></thead><tbody>';
   certList.forEach(cert => {
-    html += `<tr><td class="name-col">${cert}</td>`;
+    html += `<tr><td class="name-col">${esc(cert)}</td>`;
     members.forEach(m => {
       const rec = certByMember[m]?.[cert];
       if (rec) {
@@ -242,8 +248,11 @@ function certTableHTML(certList) {
         const statusLabel = status === 'expired' ? '期限切れ' : status === 'expiring' ? '更新目安' : '';
         const dateText = fmtCertDate(rec.acquired);
         const titleParts = [rec.acquired ? `取得日: ${rec.acquired}` : '', rec.expiry ? `有効期限: ${rec.expiry}` : '', rec.note || ''].filter(Boolean);
-        const badgeLink = rec.badge ? `<div class="skill-note"><a href="${rec.badge}" target="_blank" rel="noopener" title="デジタルバッジを開く">🏅バッジ</a></div>` : '';
-        html += `<td><span class="skill-dot" style="background:var(--${col}-dim);color:var(--${col})"${titleParts.length ? ` title="${titleParts.join(' / ')}"` : ''}>✓</span>${dateText ? `<div class="skill-note">${dateText}</div>` : ''}${statusLabel ? `<div class="skill-note" style="color:var(--${col})">${statusLabel}</div>` : ''}${badgeLink}</td>`;
+        const badgeLinks = (rec.badges || []).map((url, i) => {
+          const label = rec.badges.length > 1 ? `🏅バッジ${i + 1}` : '🏅バッジ';
+          return `<div class="skill-note"><a href="${esc(url)}" target="_blank" rel="noopener" title="デジタルバッジを開く">${label}</a></div>`;
+        }).join('');
+        html += `<td><span class="skill-dot" style="background:var(--${col}-dim);color:var(--${col})"${titleParts.length ? ` title="${esc(titleParts.join(' / '))}"` : ''}>✓</span>${dateText ? `<div class="skill-note">${dateText}</div>` : ''}${statusLabel ? `<div class="skill-note" style="color:var(--${col})">${statusLabel}</div>` : ''}${badgeLinks}</td>`;
       } else {
         html += `<td><span class="skill-dot-empty">・</span></td>`;
       }
@@ -259,6 +268,11 @@ function renderCertMatrix() {
   const container = document.getElementById('certContainer');
   if (!container) return;
 
+  if (!certNames.length) {
+    container.innerHTML = `<div style="color:var(--text2);font-size:13px;padding:1rem 0">登録されている資格がありません</div>`;
+    return;
+  }
+
   if (currentCertView === 'all') {
     container.innerHTML = `<div style="overflow-x:auto"><table class="matrix-tbl">${certTableHTML(certNames)}</table></div>`;
     return;
@@ -271,7 +285,7 @@ function renderCertMatrix() {
     const col = CAT_PALETTE[i % CAT_PALETTE.length];
     return `<div class="group-section">
       <div class="group-header" style="border-left-color:var(--${col})">
-        <span class="group-title" style="color:var(--${col})">${g}</span>
+        <span class="group-title" style="color:var(--${col})">${esc(g)}</span>
         <span class="group-count">${certsInGroup.length}件</span>
       </div>
       <div style="overflow-x:auto"><table class="matrix-tbl">${certTableHTML(certsInGroup)}</table></div>
@@ -335,7 +349,7 @@ function filterSkills(q) {
   if (!q) { el.innerHTML = ''; return; }
   const matched = skillList.filter(s => s.name.toLowerCase().includes(q.toLowerCase()));
   if (!matched.length) {
-    el.innerHTML = `<div style="color:var(--text3);font-size:13px;padding:1rem 0">「${q}」に一致するスキルが見つかりませんでした</div>`;
+    el.innerHTML = `<div style="color:var(--text3);font-size:13px;padding:1rem 0">「${esc(q)}」に一致するスキルが見つかりませんでした</div>`;
     return;
   }
   const data = dataMap();
@@ -346,15 +360,15 @@ function filterSkills(q) {
       .sort((a, b) => b.v - a.v);
     if (!results.length) return '';
     return `<div style="margin-bottom:1.25rem">
-      <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:.5rem">${s.name} <span style="font-size:10px;font-weight:500;color:var(--text2)">(${s.cat}${s.sub ? ' / ' + s.sub : ''})</span></div>
+      <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:.5rem">${esc(s.name)} <span style="font-size:10px;font-weight:500;color:var(--text2)">(${esc(s.cat)}${s.sub ? ' / ' + esc(s.sub) : ''})</span></div>
       ${results.map(r => {
         const c = levelColor(r.v);
         const note = noteMap[r.m]?.[s.key];
         return `<div class="skill-result">
-          <div class="sr-name">${r.m}</div>
+          <div class="sr-name">${esc(r.m)}</div>
           <div class="sr-bar-wrap"><div class="sr-bar" style="width:${r.v / 5 * 100}%;background:${c.text}"></div></div>
           <div class="sr-lv">Lv.${r.v}</div>
-          ${note ? `<div style="flex-basis:100%;font-size:11px;color:var(--text2);margin-top:2px">${note}</div>` : ''}
+          ${note ? `<div style="flex-basis:100%;font-size:11px;color:var(--text2);margin-top:2px">${esc(note)}</div>` : ''}
         </div>`;
       }).join('')}
     </div>`;
@@ -370,6 +384,8 @@ async function init() {
       fetch('data/members/member_master.csv'),
       fetch('data/certifications.csv'),
     ]);
+    if (!skillRes.ok) throw new Error(`data/skill.csv が見つかりません（HTTP ${skillRes.status}）`);
+    if (!memberRes.ok) throw new Error(`data/members/member_master.csv が見つかりません（HTTP ${memberRes.status}）`);
     const skillText = new TextDecoder('utf-8').decode(await skillRes.arrayBuffer()).replace(/^﻿/, '');
     const rows = Papa.parse(skillText, { header: true, skipEmptyLines: true }).data
       .map(r => {
@@ -413,13 +429,13 @@ async function init() {
           field: (r['資格分野']||'').trim(),
           acquired: (r['資格取得日']||'').trim(),
           expiry: (r['有効期限']||'').trim(),
-          badge: (r['デジタルバッジ']||'').split(',').map(s => s.trim()).filter(Boolean)[0] || '',
+          badges: (r['デジタルバッジ']||'').split(',').map(s => s.trim()).filter(Boolean),
           note: (r['備考']||'').trim(),
         }))
         .filter(r => r.name && r.cert);
       certNames = [...new Set(certRows.map(r => r.cert))];
       certRows.forEach(r => {
-        (certByMember[r.name] ??= {})[r.cert] = { acquired: r.acquired, expiry: r.expiry, badge: r.badge, note: r.note };
+        (certByMember[r.name] ??= {})[r.cert] = { acquired: r.acquired, expiry: r.expiry, badges: r.badges, note: r.note };
         if (!certMeta[r.cert]) certMeta[r.cert] = { category: r.category, field: r.field };
       });
     }
@@ -435,7 +451,7 @@ async function init() {
     groups = [];
     const groupMap = new Map();
     skillList.forEach(s => {
-      const gKey = s.sub || s.cat;
+      const gKey = s.sub || s.cat || '未分類';
       if (!groupMap.has(gKey)) { const g = { key: gKey, items: [] }; groupMap.set(gKey, g); groups.push(g); }
       groupMap.get(gKey).items.push(s);
     });
@@ -470,10 +486,16 @@ async function init() {
       periodTabEl.innerHTML += `<button class="tab${p === currentPeriod ? ' active' : ''}" data-period="${p}" onclick="switchPeriod('${p}')">${p}</button>`;
     });
 
+    // g.keyはNotion側のサブカテゴリ/カテゴリの自由記述値のため、onclick文字列への埋め込み（引用符で壊れる恐れ）を避けて
+    // data属性＋イベント委譲で処理する
     const radarGroupEl = document.getElementById('radarGroupTabs');
-    radarGroupEl.innerHTML += `<button class="tab${OVERALL_GROUP === currentGroup ? ' active' : ''}" data-group="${OVERALL_GROUP}" onclick="switchRadarGroup('${OVERALL_GROUP}')">総合</button>`;
+    radarGroupEl.innerHTML += `<button class="tab${OVERALL_GROUP === currentGroup ? ' active' : ''}" data-group="${OVERALL_GROUP}">総合</button>`;
     groups.forEach(g => {
-      radarGroupEl.innerHTML += `<button class="tab${g.key === currentGroup ? ' active' : ''}" data-group="${g.key}" onclick="switchRadarGroup('${g.key}')">${g.key}</button>`;
+      radarGroupEl.innerHTML += `<button class="tab${g.key === currentGroup ? ' active' : ''}" data-group="${esc(g.key)}">${esc(g.key)}</button>`;
+    });
+    radarGroupEl.addEventListener('click', e => {
+      const btn = e.target.closest('.tab');
+      if (btn) switchRadarGroup(btn.dataset.group);
     });
 
     const certViewTabEl = document.getElementById('certViewTabs');

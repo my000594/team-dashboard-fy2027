@@ -137,217 +137,268 @@ async function writeCsv(relPath, headers, rows) {
   console.log(`  wrote ${relPath} (${rows.length} rows)`);
 }
 
-async function main() {
-  console.log('== member_master.csv ==');
-  const memberPages = await notionQuery(DB.member);
-
-  // 既存CSVから「画像」列だけ引き継ぐ（顔写真ファイルの手動管理はCLAUDE.md参照。Notionからは自動取得しない）
-  const existingImageByName = new Map();
+let hadSectionErrors = false;
+// 1つのDB取得・書き込みが失敗しても他のDBの同期を止めないようにするラッパー。
+// GitHub Actions側もコミットステップにif: !cancelled()を設定し、一部失敗時でも成功分は反映されるようにしている
+async function section(label, fn) {
   try {
-    const existing = await fs.readFile(path.join(DATA_DIR, 'members', 'member_master.csv'), 'utf8');
-    const [headers, ...rows] = parseCsv(existing.replace(/^﻿/, ''));
-    const nameIdx = headers.indexOf('氏名');
-    const imgIdx = headers.indexOf('画像');
-    if (nameIdx >= 0 && imgIdx >= 0) {
-      for (const cols of rows) {
-        if (cols[nameIdx]) existingImageByName.set(cols[nameIdx], cols[imgIdx] || '');
+    await fn();
+  } catch (e) {
+    console.error(`[ERROR] ${label}: ${e.message}`);
+    hadSectionErrors = true;
+  }
+}
+
+// 同一キー（例：氏名+スキル名+サブカテゴリ）の行がNotion側に重複登録されていないか検知して警告する。
+// 重複があると後の行が無言で前の行を上書きしてしまうため、ビルドは止めずログにだけ残す
+function warnDuplicates(rows, keyFn, label) {
+  const counts = new Map();
+  for (const row of rows) {
+    const key = keyFn(row);
+    if (!key) continue;
+    counts.set(key, (counts.get(key) || 0) + 1);
+  }
+  for (const [key, count] of counts) {
+    if (count > 1) console.warn(`  [WARN] ${label}: 「${key}」が${count}件重複登録されています（後の行が優先され、片方は無視されます）`);
+  }
+}
+
+async function main() {
+  // 3SEレポートのソート・備考自動判定に使う。member_masterセクションが失敗しても
+  // 後続セクションが動けるよう、安全なデフォルト値をあらかじめ用意しておく
+  let inactiveNames = new Map();
+  let memberOrder = new Map();
+
+  await section('member_master.csv', async () => {
+    console.log('== member_master.csv ==');
+    const memberPages = await notionQuery(DB.member);
+
+    // 既存CSVから「画像」列だけ引き継ぐ（顔写真ファイルの手動管理はCLAUDE.md参照。Notionからは自動取得しない）
+    const existingImageByName = new Map();
+    try {
+      const existing = await fs.readFile(path.join(DATA_DIR, 'members', 'member_master.csv'), 'utf8');
+      const [headers, ...rows] = parseCsv(existing.replace(/^﻿/, ''));
+      const nameIdx = headers.indexOf('氏名');
+      const imgIdx = headers.indexOf('画像');
+      if (nameIdx >= 0 && imgIdx >= 0) {
+        for (const cols of rows) {
+          if (cols[nameIdx]) existingImageByName.set(cols[nameIdx], cols[imgIdx] || '');
+        }
       }
-    }
-  } catch { /* 既存ファイルがなければ画像列は空のまま */ }
+    } catch { /* 既存ファイルがなければ画像列は空のまま */ }
 
-  const members = memberPages.map(page => {
-    const props = page.properties;
-    const name = getTitle(props['氏名']);
-    return {
-      name,
-      empNo:    getRichText(props['社員番号']),
-      role:     getSelect(props['役職']),
-      grade:    getSelect(props['等級']),
-      line:     getSelect(props['所属ライン']),
-      joinIso:  getDateStart(props['入社年月日']),
-      tenure:   getFormula(props['社歴']) || '',
-      committee: getMultiSelect(props['委員会']).join(','),
-      dest:     getSelect(props['支援先']),
-      image:    existingImageByName.get(name) || '',
-      status:   getStatus(props['ステータス']),
-      note:     getRichText(props['備考']),
-      dispOrder: props['表示順']?.number ?? null,
-    };
-  });
-  // 表示順（Notion手動並び替えの代替。数値が入っている人を優先）が未設定の場合は入社日順にフォールバック
-  members.sort((a, b) => {
-    if (a.dispOrder != null && b.dispOrder != null) return a.dispOrder - b.dispOrder;
-    if (a.dispOrder != null) return -1;
-    if (b.dispOrder != null) return 1;
-    if (!a.joinIso && !b.joinIso) return 0;
-    if (!a.joinIso) return 1;
-    if (!b.joinIso) return -1;
-    return a.joinIso.localeCompare(b.joinIso);
+    const members = memberPages.map(page => {
+      const props = page.properties;
+      const name = getTitle(props['氏名']);
+      return {
+        name,
+        empNo:    getRichText(props['社員番号']),
+        role:     getSelect(props['役職']),
+        grade:    getSelect(props['等級']),
+        line:     getSelect(props['所属ライン']),
+        joinIso:  getDateStart(props['入社年月日']),
+        tenure:   getFormula(props['社歴']) || '',
+        committee: getMultiSelect(props['委員会']).join(','),
+        dest:     getSelect(props['支援先']),
+        image:    existingImageByName.get(name) || '',
+        status:   getStatus(props['ステータス']),
+        note:     getRichText(props['備考']),
+        dispOrder: props['表示順']?.number ?? null,
+      };
+    });
+    // 表示順（Notion手動並び替えの代替。数値が入っている人を優先）が未設定の場合は入社日順にフォールバック
+    members.sort((a, b) => {
+      if (a.dispOrder != null && b.dispOrder != null) return a.dispOrder - b.dispOrder;
+      if (a.dispOrder != null) return -1;
+      if (b.dispOrder != null) return 1;
+      if (!a.joinIso && !b.joinIso) return 0;
+      if (!a.joinIso) return 1;
+      if (!b.joinIso) return -1;
+      return a.joinIso.localeCompare(b.joinIso);
+    });
+
+    await writeCsv(path.join('members', 'member_master.csv'),
+      ['氏名','社員番号','役職','等級','所属ライン','入社年月日','社歴','委員会','支援先','画像','ステータス','備考'],
+      members.map(m => ({
+        '氏名': m.name, '社員番号': m.empNo, '役職': m.role, '等級': m.grade,
+        '所属ライン': m.line, '入社年月日': isoToJaDate(m.joinIso), '社歴': m.tenure,
+        '委員会': m.committee, '支援先': m.dest, '画像': m.image, 'ステータス': m.status, '備考': m.note,
+      })));
+
+    // ステータスが異動/退職のメンバー名（3SEレポートの備考自動判定に使う）
+    inactiveNames = new Map(members.filter(m => m.status === '異動' || m.status === '退職').map(m => [m.name, m.status]));
+    memberOrder = new Map(members.map((m, i) => [m.name, i]));
   });
 
-  await writeCsv(path.join('members', 'member_master.csv'),
-    ['氏名','社員番号','役職','等級','所属ライン','入社年月日','社歴','委員会','支援先','画像','ステータス','備考'],
-    members.map(m => ({
-      '氏名': m.name, '社員番号': m.empNo, '役職': m.role, '等級': m.grade,
-      '所属ライン': m.line, '入社年月日': isoToJaDate(m.joinIso), '社歴': m.tenure,
-      '委員会': m.committee, '支援先': m.dest, '画像': m.image, 'ステータス': m.status, '備考': m.note,
-    })));
+  await section('3se_report.csv', async () => {
+    console.log('== 3se_report.csv ==');
+    const sePages = await notionQuery(DB.threeSE);
+    const MONTHS = ['8月','9月','10月','11月','12月','1月','2月','3月','4月','5月','6月','7月'];
+    const seRows = sePages.map(page => {
+      const props = page.properties;
+      const name = getTitle(props['社員番号']); // タイトル列だが実体は氏名
+      const row = { '社員番号': name };
+      for (const m of MONTHS) row[m] = getNumber(props[m]);
+      row['達成状況'] = getFormula(props['達成状況']) || '';
+      row['合計'] = getFormula(props['合計']) ?? 0;
+      for (const q of ['1Q','2Q','3Q','4Q']) row[q] = getFormula(props[q]) ?? 0;
+      row['備考'] = inactiveNames.get(name) || '';
+      return row;
+    });
+    seRows.sort((a, b) => {
+      const ia = memberOrder.has(a['社員番号']) ? memberOrder.get(a['社員番号']) : 999;
+      const ib = memberOrder.has(b['社員番号']) ? memberOrder.get(b['社員番号']) : 999;
+      return ia - ib;
+    });
+    await writeCsv('3se_report.csv',
+      ['社員番号','達成状況','合計', ...MONTHS, '1Q','2Q','3Q','4Q','備考'],
+      seRows);
+  });
 
-  // ステータスが異動/退職のメンバー名（3SEレポートの備考自動判定に使う）
-  const inactiveNames = new Map(members.filter(m => m.status === '異動' || m.status === '退職').map(m => [m.name, m.status]));
-  const memberOrder = new Map(members.map((m, i) => [m.name, i]));
+  await section('sales.csv', async () => {
+    console.log('== sales.csv ==');
+    const salesPages = await notionQuery(DB.sales);
+    const salesRows = salesPages.map(page => {
+      const props = page.properties;
+      return {
+        'タイトル': getTitle(props['タイトル']),
+        '顧客名': getSelect(props['顧客名']),
+        '月': isoToJaDate(getDateStart(props['月'])),
+        '予算': getNumber(props['予算']),
+        '実績': getNumber(props['実績']),
+      };
+    });
+    await writeCsv('sales.csv', ['タイトル','顧客名','月','予算','実績'], salesRows);
+  });
 
-  console.log('== 3se_report.csv ==');
-  const sePages = await notionQuery(DB.threeSE);
-  const MONTHS = ['8月','9月','10月','11月','12月','1月','2月','3月','4月','5月','6月','7月'];
-  const seRows = sePages.map(page => {
-    const props = page.properties;
-    const name = getTitle(props['社員番号']); // タイトル列だが実体は氏名
-    const row = { '社員番号': name };
-    for (const m of MONTHS) row[m] = getNumber(props[m]);
-    row['達成状況'] = getFormula(props['達成状況']) || '';
-    row['合計'] = getFormula(props['合計']) ?? 0;
-    for (const q of ['1Q','2Q','3Q','4Q']) row[q] = getFormula(props[q]) ?? 0;
-    row['備考'] = inactiveNames.get(name) || '';
-    return row;
+  await section('info.csv', async () => {
+    console.log('== info.csv ==');
+    const infoPages = await notionQuery(DB.info);
+    const infoRows = infoPages.map(page => {
+      const props = page.properties;
+      return {
+        'タイトル': getTitle(props['タイトル']),
+        '本文': getRichText(props['本文']),
+        '開始日': getDateStart(props['開始日']),
+        '終了日': getDateStart(props['終了日']),
+        '種別': getSelect(props['種別']),
+      };
+    });
+    await writeCsv('info.csv', ['タイトル','本文','開始日','終了日','種別'], infoRows);
   });
-  seRows.sort((a, b) => {
-    const ia = memberOrder.has(a['社員番号']) ? memberOrder.get(a['社員番号']) : 999;
-    const ib = memberOrder.has(b['社員番号']) ? memberOrder.get(b['社員番号']) : 999;
-    return ia - ib;
-  });
-  await writeCsv('3se_report.csv',
-    ['社員番号','達成状況','合計', ...MONTHS, '1Q','2Q','3Q','4Q','備考'],
-    seRows);
 
-  console.log('== sales.csv ==');
-  const salesPages = await notionQuery(DB.sales);
-  const salesRows = salesPages.map(page => {
-    const props = page.properties;
-    return {
-      'タイトル': getTitle(props['タイトル']),
-      '顧客名': getSelect(props['顧客名']),
-      '月': isoToJaDate(getDateStart(props['月'])),
-      '予算': getNumber(props['予算']),
-      '実績': getNumber(props['実績']),
-    };
+  await section('knowledge.csv', async () => {
+    console.log('== knowledge.csv ==');
+    const knowledgePages = await notionQuery(DB.knowledge);
+    const knowledgeRows = knowledgePages.map(page => {
+      const props = page.properties;
+      return {
+        'タイトル': getTitle(props['タイトル']),
+        '種別': getSelect(props['種別']),
+        'カテゴリ': getSelect(props['カテゴリ']),
+        '質問': getRichText(props['質問']),
+        '回答・本文': getRichText(props['回答・本文']),
+        'サマリー': getRichText(props['サマリー']),
+        'タグ': getMultiSelect(props['タグ']).join(','),
+        '更新日': getDateStart(props['更新日']),
+      };
+    });
+    await writeCsv('knowledge.csv',
+      ['タイトル','種別','カテゴリ','質問','回答・本文','サマリー','タグ','更新日'],
+      knowledgeRows);
   });
-  await writeCsv('sales.csv', ['タイトル','顧客名','月','予算','実績'], salesRows);
 
-  console.log('== info.csv ==');
-  const infoPages = await notionQuery(DB.info);
-  const infoRows = infoPages.map(page => {
-    const props = page.properties;
-    return {
-      'タイトル': getTitle(props['タイトル']),
-      '本文': getRichText(props['本文']),
-      '開始日': getDateStart(props['開始日']),
-      '終了日': getDateStart(props['終了日']),
-      '種別': getSelect(props['種別']),
-    };
+  await section('meeting_plan.csv', async () => {
+    console.log('== meeting_plan.csv ==');
+    const meetingPages = await notionQuery(DB.meetingPlan);
+    const meetingRows = meetingPages.map(page => {
+      const props = page.properties;
+      const dateIso = getDateStart(props['実施日']);
+      return {
+        dateIso,
+        '実施月':   getTitle(props['実施月']),
+        '実施日':   isoToJaDate(dateIso),
+        '開催単位': getSelect(props['開催単位']),
+        '実施形式': getMultiSelect(props['実施形式']).join(','),
+        '備考':     getRichText(props['備考']),
+        '資料リンク': getFileLinks(props['落とし込み内容']).join(','),
+      };
+    });
+    meetingRows.sort((a, b) => a.dateIso.localeCompare(b.dateIso));
+    await writeCsv('meeting_plan.csv',
+      ['実施月','実施日','開催単位','実施形式','備考','資料リンク'],
+      meetingRows);
   });
-  await writeCsv('info.csv', ['タイトル','本文','開始日','終了日','種別'], infoRows);
 
-  console.log('== knowledge.csv ==');
-  const knowledgePages = await notionQuery(DB.knowledge);
-  const knowledgeRows = knowledgePages.map(page => {
-    const props = page.properties;
-    return {
-      'タイトル': getTitle(props['タイトル']),
-      '種別': getSelect(props['種別']),
-      'カテゴリ': getSelect(props['カテゴリ']),
-      '質問': getRichText(props['質問']),
-      '回答・本文': getRichText(props['回答・本文']),
-      'サマリー': getRichText(props['サマリー']),
-      'タグ': getMultiSelect(props['タグ']).join(','),
-      '更新日': getDateStart(props['更新日']),
-    };
+  await section('skill.csv', async () => {
+    console.log('== skill.csv ==');
+    const skillPages = await notionQuery(DB.skill);
+    // ヒアリング実施時期ごとの評価列。新しい時期が追加されたらここに追記し、CLAUDE.mdのデータフォーマット節も更新すること
+    const SKILL_PERIODS = ['2026年8月','2026年11月','2027年2月','2027年5月'];
+    const skillRows = skillPages.map(page => {
+      const props = page.properties;
+      const row = {
+        __order: props['表示順']?.number ?? null,
+        'タイトル': getTitle(props['タイトル']),
+        '氏名': getSelect(props['氏名']),
+        'スキル名': getSelect(props['スキル名']),
+        'カテゴリ': getSelect(props['カテゴリ']),
+        'サブカテゴリ': getSelect(props['サブカテゴリ']),
+      };
+      for (const period of SKILL_PERIODS) row[period] = getNumber(props[period]);
+      row['備考'] = getRichText(props['備考']);
+      row['更新日'] = getDateStart(props['更新日']);
+      return row;
+    });
+    // 表示順（ヒアリングシートの通し番号）が設定されている行を優先し、未設定の行は末尾に回す
+    skillRows.sort((a, b) => {
+      if (a.__order != null && b.__order != null) return a.__order - b.__order;
+      if (a.__order != null) return -1;
+      if (b.__order != null) return 1;
+      return 0;
+    });
+    // 同一人物・同一スキル・同一サブカテゴリの行が重複していると、片方が無言で上書きされてしまうため検知
+    warnDuplicates(skillRows, r => r['氏名'] && r['スキル名'] ? `${r['氏名']}_${r['スキル名']}_${r['サブカテゴリ']}` : '', 'skill.csv');
+    await writeCsv('skill.csv',
+      ['タイトル','氏名','スキル名','カテゴリ','サブカテゴリ', ...SKILL_PERIODS, '備考','更新日'],
+      skillRows);
   });
-  await writeCsv('knowledge.csv',
-    ['タイトル','種別','カテゴリ','質問','回答・本文','サマリー','タグ','更新日'],
-    knowledgeRows);
 
-  console.log('== meeting_plan.csv ==');
-  const meetingPages = await notionQuery(DB.meetingPlan);
-  const meetingRows = meetingPages.map(page => {
-    const props = page.properties;
-    const dateIso = getDateStart(props['実施日']);
-    return {
-      dateIso,
-      '実施月':   getTitle(props['実施月']),
-      '実施日':   isoToJaDate(dateIso),
-      '開催単位': getSelect(props['開催単位']),
-      '実施形式': getMultiSelect(props['実施形式']).join(','),
-      '備考':     getRichText(props['備考']),
-      '資料リンク': getFileLinks(props['落とし込み内容']).join(','),
-    };
+  await section('certifications.csv', async () => {
+    console.log('== certifications.csv ==');
+    const certPages = await notionQuery(DB.certification);
+    const certRows = certPages.map(page => {
+      const props = page.properties;
+      return {
+        __order: props['表示順']?.number ?? null,
+        '資格名': getTitle(props['資格名']), // タイトル型。資格名を選択肢に縛らず自由記述できるようにするため2026-07-28にselectから変更
+        '氏名': getSelect(props['氏名']),
+        '資格区分': getSelect(props['資格区分']),
+        '資格分野': getSelect(props['資格分野']),
+        '資格取得日': getDateStart(props['資格取得日']), // 旧「取得日」から改名
+        '有効期限': getDateStart(props['有効期限']),
+        // デジタルバッジはNotion直アップロードだと期限付きプリサインURL（時間経過で失効）になる。
+        // Credly等の外部サービスや外部ストレージのURLを「リンク」として登録すれば恒久リンクになる（file/externalどちらもgetFileLinksが対応）
+        'デジタルバッジ': getFileLinks(props['デジタルバッジ']).join(','),
+        '備考': getRichText(props['備考']),
+      };
+    });
+    // 表示順（資格カタログの並び）が設定されている行を優先し、未設定の行は末尾に回す
+    certRows.sort((a, b) => {
+      if (a.__order != null && b.__order != null) return a.__order - b.__order;
+      if (a.__order != null) return -1;
+      if (b.__order != null) return 1;
+      return 0;
+    });
+    warnDuplicates(certRows, r => r['氏名'] && r['資格名'] ? `${r['氏名']}_${r['資格名']}` : '', 'certifications.csv');
+    await writeCsv('certifications.csv',
+      ['資格名','氏名','資格区分','資格分野','資格取得日','有効期限','デジタルバッジ','備考'],
+      certRows);
   });
-  meetingRows.sort((a, b) => a.dateIso.localeCompare(b.dateIso));
-  await writeCsv('meeting_plan.csv',
-    ['実施月','実施日','開催単位','実施形式','備考','資料リンク'],
-    meetingRows);
-
-  console.log('== skill.csv ==');
-  const skillPages = await notionQuery(DB.skill);
-  // ヒアリング実施時期ごとの評価列。新しい時期が追加されたらここに追記し、CLAUDE.mdのデータフォーマット節も更新すること
-  const SKILL_PERIODS = ['2026年8月','2026年11月','2027年2月','2027年5月'];
-  const skillRows = skillPages.map(page => {
-    const props = page.properties;
-    const row = {
-      __order: props['表示順']?.number ?? null,
-      'タイトル': getTitle(props['タイトル']),
-      '氏名': getSelect(props['氏名']),
-      'スキル名': getSelect(props['スキル名']),
-      'カテゴリ': getSelect(props['カテゴリ']),
-      'サブカテゴリ': getSelect(props['サブカテゴリ']),
-    };
-    for (const period of SKILL_PERIODS) row[period] = getNumber(props[period]);
-    row['備考'] = getRichText(props['備考']);
-    row['更新日'] = getDateStart(props['更新日']);
-    return row;
-  });
-  // 表示順（ヒアリングシートの通し番号）が設定されている行を優先し、未設定の行は末尾に回す
-  skillRows.sort((a, b) => {
-    if (a.__order != null && b.__order != null) return a.__order - b.__order;
-    if (a.__order != null) return -1;
-    if (b.__order != null) return 1;
-    return 0;
-  });
-  await writeCsv('skill.csv',
-    ['タイトル','氏名','スキル名','カテゴリ','サブカテゴリ', ...SKILL_PERIODS, '備考','更新日'],
-    skillRows);
-
-  console.log('== certifications.csv ==');
-  const certPages = await notionQuery(DB.certification);
-  const certRows = certPages.map(page => {
-    const props = page.properties;
-    return {
-      __order: props['表示順']?.number ?? null,
-      '資格名': getTitle(props['資格名']), // タイトル型。資格名を選択肢に縛らず自由記述できるようにするため2026-07-28にselectから変更
-      '氏名': getSelect(props['氏名']),
-      '資格区分': getSelect(props['資格区分']),
-      '資格分野': getSelect(props['資格分野']),
-      '資格取得日': getDateStart(props['資格取得日']), // 旧「取得日」から改名
-      '有効期限': getDateStart(props['有効期限']),
-      // Notionアップロードのデジタルバッジ画像は期限付きプリサインURL（時間経過で失効する点はmeeting_plan.csvの資料リンクと同じ）
-      'デジタルバッジ': getFileLinks(props['デジタルバッジ']).join(','),
-      '備考': getRichText(props['備考']),
-    };
-  });
-  // 表示順（資格カタログの並び）が設定されている行を優先し、未設定の行は末尾に回す
-  certRows.sort((a, b) => {
-    if (a.__order != null && b.__order != null) return a.__order - b.__order;
-    if (a.__order != null) return -1;
-    if (b.__order != null) return 1;
-    return 0;
-  });
-  await writeCsv('certifications.csv',
-    ['資格名','氏名','資格区分','資格分野','資格取得日','有効期限','デジタルバッジ','備考'],
-    certRows);
 
   console.log('done.');
-  if (hadEmptyRegression) {
-    console.error('[ERROR] 一部データが0件だったためファイル更新をスキップしました。Notion Integrationの共有設定・トークンの有効期限を確認してください。');
+  if (hadEmptyRegression || hadSectionErrors) {
+    console.error('[ERROR] 一部のデータベースでエラーが発生したか0件しか取得できませんでした。Notion Integrationの共有設定・トークンの有効期限・データベースIDを確認してください（成功したデータは反映されます）。');
     process.exit(1);
   }
 }
