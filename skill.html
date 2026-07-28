@@ -69,12 +69,12 @@
     </div>
 
     <div class="card" style="margin-top:1.25rem">
-      <div class="card-title">🎓 保有資格</div>
+      <div class="card-title">💯 保有資格</div>
       <div style="display:flex;gap:14px;font-size:11px;color:var(--text2);margin-bottom:10px;flex-wrap:wrap">
         <span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--green);margin-right:5px;vertical-align:middle"></span>保有</span>
         <span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--amber);margin-right:5px;vertical-align:middle"></span>更新目安（期限まで90日以内）</span>
         <span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--red);margin-right:5px;vertical-align:middle"></span>期限切れ</span>
-        <span style="color:var(--text3)">✓下の年月＝取得日</span>
+        <span style="color:var(--text3)">✓下の年月＝取得日／🏅バッジ＝デジタルバッジのリンク</span>
       </div>
       <div style="overflow-x:auto"><table class="matrix-tbl" id="certTable"></table></div>
     </div>
@@ -229,7 +229,8 @@ function renderCertMatrix() {
         const statusLabel = status === 'expired' ? '期限切れ' : status === 'expiring' ? '更新目安' : '';
         const dateText = fmtCertDate(rec.acquired);
         const titleParts = [rec.acquired ? `取得日: ${rec.acquired}` : '', rec.expiry ? `有効期限: ${rec.expiry}` : '', rec.note || ''].filter(Boolean);
-        html += `<td><span class="skill-dot" style="background:var(--${col}-dim);color:var(--${col})"${titleParts.length ? ` title="${titleParts.join(' / ')}"` : ''}>✓</span>${dateText ? `<div class="skill-note">${dateText}</div>` : ''}${statusLabel ? `<div class="skill-note" style="color:var(--${col})">${statusLabel}</div>` : ''}</td>`;
+        const badgeLink = rec.badge ? `<div class="skill-note"><a href="${rec.badge}" target="_blank" rel="noopener" title="デジタルバッジを開く">🏅バッジ</a></div>` : '';
+        html += `<td><span class="skill-dot" style="background:var(--${col}-dim);color:var(--${col})"${titleParts.length ? ` title="${titleParts.join(' / ')}"` : ''}>✓</span>${dateText ? `<div class="skill-note">${dateText}</div>` : ''}${statusLabel ? `<div class="skill-note" style="color:var(--${col})">${statusLabel}</div>` : ''}${badgeLink}</td>`;
       } else {
         html += `<td><span class="skill-dot-empty">・</span></td>`;
       }
@@ -368,13 +369,14 @@ async function init() {
         .map(r => ({
           name: (r['氏名']||'').trim(),
           cert: (r['資格名']||'').trim(),
-          acquired: (r['取得日']||'').trim(),
+          acquired: (r['資格取得日']||'').trim(),
           expiry: (r['有効期限']||'').trim(),
+          badge: (r['デジタルバッジ']||'').split(',').map(s => s.trim()).filter(Boolean)[0] || '',
           note: (r['備考']||'').trim(),
         }))
         .filter(r => r.name && r.cert);
       certNames = [...new Set(certRows.map(r => r.cert))];
-      certRows.forEach(r => { (certByMember[r.name] ??= {})[r.cert] = { acquired: r.acquired, expiry: r.expiry, note: r.note }; });
+      certRows.forEach(r => { (certByMember[r.name] ??= {})[r.cert] = { acquired: r.acquired, expiry: r.expiry, badge: r.badge, note: r.note }; });
     }
 
     const skillMap = new Map();

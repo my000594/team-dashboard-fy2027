@@ -23,7 +23,7 @@ const DB = {
   knowledge:   '3a529672-672f-80ab-bd6e-c045e34a326a', // ナレッジ・FAQ
   meetingPlan: '3a629672-672f-80a0-8ad7-ce53a48198df', // 実施計画（ライン別会議実施計画）
   skill:       'd94ebc91-0300-4476-b244-2da697341c25', // 📍 スキルマップ
-  certification: 'b88a98ca-3014-4f63-9d23-95cafbea9048', // 🎓 保有資格
+  certification: 'b88a98ca-3014-4f63-9d23-95cafbea9048', // 💯 保有資格
 };
 
 async function notionQuery(databaseId) {
@@ -323,11 +323,14 @@ async function main() {
     const props = page.properties;
     return {
       __order: props['表示順']?.number ?? null,
-      'タイトル': getTitle(props['タイトル']),
+      '資格名': getTitle(props['資格名']), // タイトル型。資格名を選択肢に縛らず自由記述できるようにするため2026-07-28にselectから変更
       '氏名': getSelect(props['氏名']),
-      '資格名': getSelect(props['資格名']),
-      '取得日': getDateStart(props['取得日']),
+      '資格区分': getSelect(props['資格区分']),
+      '資格分野': getSelect(props['資格分野']),
+      '資格取得日': getDateStart(props['資格取得日']), // 旧「取得日」から改名
       '有効期限': getDateStart(props['有効期限']),
+      // Notionアップロードのデジタルバッジ画像は期限付きプリサインURL（時間経過で失効する点はmeeting_plan.csvの資料リンクと同じ）
+      'デジタルバッジ': getFileLinks(props['デジタルバッジ']).join(','),
       '備考': getRichText(props['備考']),
     };
   });
@@ -339,7 +342,7 @@ async function main() {
     return 0;
   });
   await writeCsv('certifications.csv',
-    ['タイトル','氏名','資格名','取得日','有効期限','備考'],
+    ['資格名','氏名','資格区分','資格分野','資格取得日','有効期限','デジタルバッジ','備考'],
     certRows);
 
   console.log('done.');
