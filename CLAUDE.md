@@ -63,6 +63,7 @@ team-dashboard-fy2027/
 ├── knowledge.html      ナレッジ・FAQ
 ├── meetings.html       ライン別会議実施計画（方針＋月別実施計画一覧）
 ├── skill.html          スキルマップ（マトリクス・レーダーチャート・スキル検索）
+├── maintenance-app.html 課長本人用のメンテナンス切替スマホアプリ風ページ（nav.jsのメニューには載せない管理者専用ツール）
 ├── style.css           全ページ共通スタイル（ダークテーマ）
 ├── nav.js              左サイドバーナビ＋メンテナンス制御
 ├── scripts/
@@ -198,6 +199,16 @@ LINE_COLORS・LINE_META・LINE_LABEL_MAP定数はmember.html内に定義。
 - マトリクスタブ内に「💯 保有資格」カードを追加。`data/certifications.csv`が存在すれば資格名×メンバーのマトリクスを表示（無い/空でもスキルマップ本体の表示は壊れない）。詳細はdata/certifications.csvのデータフォーマット節を参照
 - 分野タブの先頭に「総合」を用意し、デフォルト表示はこれ。各分野（サブカテゴリ）に属するスキルレベルの単純平均を軸にした俯瞰表示で、個別スキルの内訳は各分野タブから確認する。平均値は未評価スキル（レベル0）も含めて算出するため、未評価が多い分野は低く出る点に注意
 - マトリクスタブは画面幅700px以下で表示を切り替える（`.desktop-only`/`.mobile-only`クラス＋メディアクエリ）。デスクトップは通常の横長マトリクス、モバイルは「メンバーを選択」チップ＋選んだ1人のスキル一覧（分野ごとにグルーピング）／保有資格一覧を縦一覧で表示する。メンバー×スキル・メンバー×資格を10列前後横に並べると狭い画面では窮屈になるための対応。このモバイル用チップとレーダータブのメンバーチップは`selectMember()`で連動しており、どちらで選んでもレーダー・モバイルのスキル一覧・資格一覧が同時に切り替わる。セルの中身（レベルドット・資格の保有状態）は`skillDotHTML()`/`certCellHTML()`としてデスクトップ表とモバイル一覧の両方から共通で呼び出している
+
+### maintenance-app.html（メンテナンス切替アプリ・課長専用）
+- nav.jsを読み込まない完全に独立したページ。`NAV_ITEMS`にも載せていないため、部下向けダッシュボードのメニューには一切表示されない
+- スマホのホーム画面に追加すると、ブラウザのアドレスバー無しでアプリのように起動する（`apple-mobile-web-app-capable`等のメタタグ＋data URIのmanifest/アイコンで対応。画像ファイルは追加していない）
+- 中身はGitHub REST APIを直接ブラウザから呼び出し、`.github/workflows/maintenance.yml`をworkflow_dispatchでトリガーするだけの単一ページ。バックエンドは持たない
+- 認証は**GitHubのPersonal Access Token（PAT）をこのページ内で入力し、ブラウザのlocalStorageに保存する方式**。トークンはリポジトリのソースコード・git履歴には一切含まれない。ページ自体は誰でもURLを知っていれば開けるが、トークンを持っていない限り操作はできない
+- 想定するトークン：このリポジトリ（`my000594/team-dashboard-fy2027`）のみに絞ったfine-grained PATで、権限は「Actions: Read and write」のみ（Contents権限は付与しない）。漏洩してもコードの読み書き・削除はできず、ワークフローのトリガーのみ可能な設計
+- ボタンは1つ：現在の状態（`data/maintenance.json`をfetchして判定）に応じて「メンテナンスを開始」／「メンテナンスを解除」のどちらかを表示し、タップするとGitHub Actionsにdispatchし、`data/maintenance.json`が実際に切り替わるまで数秒間隔でポーリングして反映を確認する
+- 詳細設定（開始時のメッセージ・復旧見込み）は折りたたみ式。空欄なら`.github/workflows/maintenance.yml`側で前回の内容を維持する仕様と対応している
+- GitHub REST APIはトークン認証リクエストに対してCORSを許可しているため、ブラウザから直接`fetch`で呼び出せる
 
 ---
 
@@ -357,6 +368,8 @@ PowerShellでDownloads内の全 `*ExportBlock*.zip` をスキャンし、CSVの�
 ```
 
 ### メンテナンス切り替え
+最速：`maintenance-app.html`（スマホのホーム画面に追加推奨）をワンタップ。GitHub自体に一切アクセスせず、その場で切り替え・数十秒後の反映確認まで完結する。初回のみGitHub PAT（このリポジトリのActions権限のみのfine-grained推奨）の設定が必要。詳細はmaintenance-app.htmlのセクションを参照
+
 標準：GitHub Actions「メンテナンスモード切り替え」（`.github/workflows/maintenance.yml`）をGitHubのActionsタブから手動実行（workflow_dispatch）。gitコマンド不要、ブラウザから`mode`（on/off）を選んでRun workflowを押すだけ。`message`・`estimated`は空欄なら前回の内容を維持するので、offにするだけなら他の入力は不要
 ```
 開始：Actionsタブ → メンテナンスモード切り替え → Run workflow → mode: on

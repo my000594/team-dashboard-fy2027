@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>メンテナンス切替</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0a0e17">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%230a0e17'/%3E%3Ctext x='50' y='64' font-size='52' text-anchor='middle'%3E%F0%9F%94%A7%3C/text%3E%3C/svg%3E">
+<link rel="manifest" href="data:application/manifest+json,%7B%22name%22%3A%22%E3%83%A1%E3%83%B3%E3%83%86%E3%83%8A%E3%83%B3%E3%82%B9%E5%88%87%E6%9B%BF%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%230a0e17%22%2C%22theme_color%22%3A%22%230a0e17%22%7D">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0a0e17; --bg2:#111827; --bg3:#1a2235; --bg4:#212d45;
+  --border:rgba(255,255,255,0.08); --border2:rgba(255,255,255,0.16);
+  --text:#e2e8f4; --text2:#7f8fa8; --text3:#3d4f6a;
+  --green:#22c55e; --green-dim:rgba(34,197,94,0.12);
+  --red:#f87171; --red-dim:rgba(248,113,113,0.12);
+  --blue:#3b82f6; --amber:#f59e0b;
+  --font:'Noto Sans JP',sans-serif; --mono:'DM Mono',monospace;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  font-family:var(--font);background:var(--bg);color:var(--text);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  min-height:100vh;padding:1.5rem;padding-top:max(1.5rem,env(safe-area-inset-top));
+  padding-bottom:max(1.5rem,env(safe-area-inset-bottom));
+  -webkit-tap-highlight-color:transparent;user-select:none;
+}
+.wrap{width:100%;max-width:400px;display:flex;flex-direction:column;align-items:center;gap:1.25rem}
+.app-title{font-size:13px;font-weight:600;color:var(--text2);letter-spacing:.05em;display:flex;align-items:center;gap:8px}
+.status-card{
+  width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:16px;
+  padding:1.25rem;text-align:center;
+}
+.status-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:7px}
+.status-dot.live{background:var(--green);box-shadow:0 0 8px var(--green)}
+.status-dot.maint{background:var(--amber);box-shadow:0 0 8px var(--amber)}
+.status-dot.unknown{background:var(--text3)}
+.status-label{font-size:15px;font-weight:700}
+.status-sub{font-size:11px;color:var(--text3);margin-top:6px;font-family:var(--mono)}
+.toggle-btn{
+  width:100%;aspect-ratio:1/1;max-height:220px;border-radius:24px;border:none;cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+  font-family:var(--font);transition:transform .1s, opacity .2s;
+}
+.toggle-btn:active{transform:scale(.96)}
+.toggle-btn.start{background:linear-gradient(160deg,#3a2410,#1a1206);border:1px solid rgba(245,158,11,.35)}
+.toggle-btn.stop{background:linear-gradient(160deg,#0f2a1a,#08160e);border:1px solid rgba(34,197,94,.35)}
+.toggle-btn:disabled{opacity:.5;cursor:default}
+.toggle-icon{font-size:40px}
+.toggle-text{font-size:16px;font-weight:700}
+.toggle-text.start{color:var(--amber)}
+.toggle-text.stop{color:var(--green)}
+.toggle-sub{font-size:11px;color:var(--text3)}
+.msg{width:100%;font-size:12px;text-align:center;padding:.6rem;border-radius:10px;min-height:1px}
+.msg.info{background:var(--bg3);color:var(--text2)}
+.msg.error{background:var(--red-dim);color:var(--red)}
+.msg.ok{background:var(--green-dim);color:var(--green)}
+.settings-toggle{font-size:11px;color:var(--text3);background:none;border:none;cursor:pointer;padding:.5rem;font-family:var(--font)}
+.settings-panel{
+  width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:14px;
+  padding:1rem;display:none;flex-direction:column;gap:8px;
+}
+.settings-panel.open{display:flex}
+.settings-panel label{font-size:11px;color:var(--text2)}
+.settings-panel input,.settings-panel textarea{
+  width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;
+  padding:.6rem .7rem;color:var(--text);font-size:13px;font-family:var(--mono);outline:none;
+}
+.settings-panel textarea{font-family:var(--font);resize:vertical;min-height:50px}
+.settings-row{display:flex;gap:8px}
+.settings-row button{
+  flex:1;padding:.55rem;border-radius:8px;border:.5px solid var(--border2);background:var(--bg3);
+  color:var(--text2);font-size:12px;font-family:var(--font);cursor:pointer;
+}
+.settings-row button.primary{background:var(--blue);color:#fff;border-color:var(--blue)}
+.spinner{width:16px;height:16px;border:2px solid rgba(255,255,255,.2);border-top-color:currentColor;border-radius:50%;animation:spin .7s linear infinite;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="app-title">🔧 メンテナンス切替 <span style="color:var(--text3);font-weight:400">／ 第1ライン Dashboard</span></div>
+
+  <div class="status-card">
+    <div id="statusLabel" class="status-label"><span class="status-dot unknown"></span>確認中...</div>
+    <div id="statusSub" class="status-sub">&nbsp;</div>
+  </div>
+
+  <button id="toggleBtn" class="toggle-btn start" disabled>
+    <span class="toggle-icon">⏳</span>
+    <span class="toggle-text">読み込み中</span>
+  </button>
+
+  <div id="msg" class="msg" style="display:none"></div>
+
+  <button id="settingsToggle" class="settings-toggle">⚙ 詳細設定・トークン設定</button>
+
+  <div id="settingsPanel" class="settings-panel">
+    <label>GitHub Personal Access Token（このリポジトリのActions権限のみのfine-grained推奨）</label>
+    <input type="password" id="tokenInput" placeholder="github_pat_...">
+    <label>表示メッセージ（開始時のみ・空欄で前回内容を維持）</label>
+    <textarea id="msgInput" placeholder="データ更新のため一時停止しています"></textarea>
+    <label>復旧見込み（開始時のみ・空欄で前回内容を維持）</label>
+    <input type="text" id="estInput" placeholder="本日中に復旧予定">
+    <div class="settings-row">
+      <button id="saveBtn" class="primary">保存</button>
+      <button id="clearBtn">トークン削除</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const OWNER = 'my000594';
+const REPO = 'team-dashboard-fy2027';
+const WORKFLOW_FILE = 'maintenance.yml';
+const TOKEN_KEY = 'maint_app_gh_pat';
+
+const el = id => document.getElementById(id);
+const getToken = () => localStorage.getItem(TOKEN_KEY) || '';
+const setToken = t => localStorage.setItem(TOKEN_KEY, t);
+const clearToken = () => localStorage.removeItem(TOKEN_KEY);
+
+let currentActive = null; // true=メンテナンス中 / false=稼働中 / null=不明
+let busy = false;
+
+function showMsg(text, type) {
+  const m = el('msg');
+  m.textContent = text;
+  m.className = 'msg' + (type ? ' ' + type : '');
+  m.style.display = text ? 'block' : 'none';
+}
+
+function renderStatus(active, message) {
+  currentActive = active;
+  const label = el('statusLabel');
+  const sub = el('statusSub');
+  const btn = el('toggleBtn');
+
+  if (active === null) {
+    label.innerHTML = `<span class="status-dot unknown"></span>状態を取得できませんでした`;
+    sub.textContent = '';
+    btn.className = 'toggle-btn start';
+    btn.innerHTML = `<span class="toggle-icon">⚠️</span><span class="toggle-text">再読み込み</span>`;
+    btn.disabled = false;
+    btn.onclick = () => location.reload();
+    return;
+  }
+
+  if (active) {
+    label.innerHTML = `<span class="status-dot maint"></span>メンテナンス中`;
+    sub.textContent = message || '';
+    btn.className = 'toggle-btn stop';
+    btn.innerHTML = `<span class="toggle-icon">✅</span><span class="toggle-text stop">メンテナンスを解除</span><span class="toggle-sub">タップして公開を再開</span>`;
+  } else {
+    label.innerHTML = `<span class="status-dot live"></span>公開中（稼働中）`;
+    sub.textContent = '部下からダッシュボードが見えています';
+    btn.className = 'toggle-btn start';
+    btn.innerHTML = `<span class="toggle-icon">🔧</span><span class="toggle-text start">メンテナンスを開始</span><span class="toggle-sub">タップして一時停止</span>`;
+  }
+  btn.disabled = false;
+  btn.onclick = () => toggle(!active);
+}
+
+async function fetchStatus() {
+  try {
+    const res = await fetch('data/maintenance.json?t=' + Date.now(), { cache: 'no-store' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    renderStatus(!!data.active, data.message);
+  } catch (e) {
+    renderStatus(null);
+  }
+}
+
+async function toggle(nextActive) {
+  if (busy) return;
+  const token = getToken();
+  if (!token) {
+    showMsg('先に「⚙ 詳細設定・トークン設定」からトークンを設定してください', 'error');
+    el('settingsPanel').classList.add('open');
+    return;
+  }
+  busy = true;
+  const btn = el('toggleBtn');
+  btn.disabled = true;
+  btn.innerHTML = `<span class="spinner"></span><span class="toggle-text">送信中...</span>`;
+  showMsg('GitHub Actionsに送信しています...', 'info');
+
+  const inputs = { mode: nextActive ? 'on' : 'off' };
+  if (nextActive) {
+    const msgVal = el('msgInput').value.trim();
+    const estVal = el('estInput').value.trim();
+    if (msgVal) inputs.message = msgVal;
+    if (estVal) inputs.estimated = estVal;
+  }
+
+  try {
+    const res = await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/actions/workflows/${WORKFLOW_FILE}/dispatches`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2022-11-28',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ ref: 'main', inputs }),
+    });
+
+    if (res.status === 401) throw new Error('トークンが無効です（⚙から再設定してください）');
+    if (res.status === 403) throw new Error('権限不足です（このリポジトリのActions:write権限があるか確認してください）');
+    if (res.status === 404) throw new Error('ワークフローが見つかりません（リポジトリ名・ファイル名を確認）');
+    if (!res.ok) throw new Error(`GitHub API エラー（HTTP ${res.status}）`);
+
+    showMsg('送信しました。反映まで数十秒お待ちください...', 'info');
+    await waitForReflect(nextActive);
+  } catch (e) {
+    showMsg(e.message, 'error');
+    busy = false;
+    fetchStatus();
+  }
+}
+
+async function waitForReflect(expectedActive) {
+  for (let i = 0; i < 20; i++) {
+    await new Promise(r => setTimeout(r, 3000));
+    try {
+      const res = await fetch('data/maintenance.json?t=' + Date.now(), { cache: 'no-store' });
+      const data = await res.json();
+      if (!!data.active === expectedActive) {
+        showMsg('反映されました', 'ok');
+        renderStatus(!!data.active, data.message);
+        busy = false;
+        return;
+      }
+    } catch (e) { /* retry */ }
+  }
+  showMsg('反映確認がタイムアウトしました。GitHub Actionsの実行状況を確認してください', 'error');
+  busy = false;
+  fetchStatus();
+}
+
+// 設定パネル
+el('settingsToggle').onclick = () => el('settingsPanel').classList.toggle('open');
+el('tokenInput').value = getToken();
+el('saveBtn').onclick = () => {
+  const t = el('tokenInput').value.trim();
+  if (t) { setToken(t); showMsg('トークンを保存しました', 'ok'); }
+  el('settingsPanel').classList.remove('open');
+};
+el('clearBtn').onclick = () => {
+  clearToken();
+  el('tokenInput').value = '';
+  showMsg('トークンを削除しました', 'info');
+};
+
+fetchStatus();
+</script>
+</body>
+</html>
