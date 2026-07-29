@@ -83,12 +83,15 @@ const esc = window.escapeHTML;
 
 function catColor(cat) { return catColorMap[cat] || 'blue'; }
 
-// 「親ナレッジ」が設定されている = 記事の子Q&A。親なし + 質問あり = 独立Q&A。親なし + 質問なし = 記事。
+// 「親ナレッジ」が設定されている = 記事の子Q&A。
+// 親なし + 子あり = 記事（質問フィールドがあっても子を持つなら記事扱い）。
+// 親なし + 子なし + 質問あり = 独立Q&A。親なし + 質問なし = 記事。
 function filterItems() {
   const q = currentQuery.toLowerCase();
   const topLevel = allItems.filter(i => !i.parentTitle);
+  const hasChildren = i => (childrenByParent.get(i.title) || []).length > 0;
 
-  const independentQA = topLevel.filter(i => i.q).filter(i => {
+  const independentQA = topLevel.filter(i => i.q && !hasChildren(i)).filter(i => {
     if (currentCat !== 'すべて' && i.category !== currentCat) return false;
     return !q ||
       i.title.toLowerCase().includes(q) ||
@@ -97,7 +100,7 @@ function filterItems() {
       (i.tags||[]).some(t => t.toLowerCase().includes(q));
   });
 
-  const articles = topLevel.filter(i => !i.q).filter(i => {
+  const articles = topLevel.filter(i => !i.q || hasChildren(i)).filter(i => {
     if (currentCat !== 'すべて' && i.category !== currentCat) return false;
     if (!q) return true;
     const selfMatch =
@@ -161,9 +164,10 @@ function renderArticleCard(item, i) {
       <div class="child-qa-label">関連Q&amp;A (${children.length})</div>
       ${children.map((c, ci) => renderChildFaqCard(c, `art-${i}-c${ci}`)).join('')}
     </div>` : '';
+  const summaryText = item.summary || (item.q ? item.q : '');
   const summaryBadge = children.length
-    ? `${esc(item.summary||'')} <span class="child-qa-badge">${children.length}件のQ&amp;A</span>`
-    : esc(item.summary||'');
+    ? `${esc(summaryText)} <span class="child-qa-badge">${children.length}件のQ&amp;A</span>`
+    : esc(summaryText);
   return `
     <div class="article-card" id="art-${i}">
       <div class="article-header" onclick="document.getElementById('art-${i}').classList.toggle('open')">
@@ -180,7 +184,7 @@ function renderArticleCard(item, i) {
           ${(item.tags||[]).map(t=>`<span class="tag">${esc(t)}</span>`).join('')}
           <span style="margin-left:auto;font-size:10px;color:var(--text3);font-family:var(--mono)">${esc(item.updated||'')}</span>
         </div>
-        <div class="md-body">${md2html(item.body)}</div>
+        ${item.q ? `<div class="faq-a" style="margin-bottom:.75rem"><div class="faq-a-body"><div class="md-body">${md2html(item.body)}</div></div></div>` : `<div class="md-body">${md2html(item.body)}</div>`}
         ${childrenHtml}
       </div>
     </div>`;
