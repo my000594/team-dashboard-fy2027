@@ -42,6 +42,14 @@
 .article-card.open .article-body{display:block}
 .empty{text-align:center;padding:3rem 1rem;color:var(--text3);font-size:13px}
 .result-count{font-size:12px;color:var(--text3);margin-bottom:1rem;font-family:var(--mono)}
+.child-qa-section{margin-top:1.25rem;border-top:1px solid var(--border);padding-top:1rem}
+.child-qa-label{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.5rem}
+.child-faq-card{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:6px;overflow:hidden}
+.child-faq-header{padding:.7rem .9rem;cursor:pointer;display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.child-faq-body{display:none;padding:0 .9rem .75rem}
+.child-faq-card.open .child-faq-body{display:block}
+.child-faq-card.open .faq-chevron{transform:rotate(90deg)}
+.child-qa-badge{font-size:10px;background:var(--blue-dim);color:var(--blue);padding:1px 6px;border-radius:3px;margin-left:6px;vertical-align:middle}
 </style>
 </head>
 <body>
@@ -70,49 +78,55 @@
 const CAT_PALETTE = ['blue','green','amber','purple','cyan','red'];
 let allItems = [], currentCat = 'すべて', currentQuery = '';
 let catColorMap = {};
+let childrenByParent = new Map();
 const esc = window.escapeHTML;
 
+function catColor(cat) { return catColorMap[cat] || 'blue'; }
+
+// 「親ナレッジ」が設定されている = 記事の子Q&A。親なし + 質問あり = 独立Q&A。親なし + 質問なし = 記事。
 function filterItems() {
-  return allItems.filter(item => {
-    const matchCat = currentCat==='すべて' || item.category===currentCat;
-    const q = currentQuery.toLowerCase();
-    const matchQ = !q ||
-      item.title.toLowerCase().includes(q) ||
-      (item.q||'').toLowerCase().includes(q) ||
-      (item.body||'').toLowerCase().includes(q) ||
-      (item.summary||'').toLowerCase().includes(q) ||
-      (item.tags||[]).some(t=>t.toLowerCase().includes(q));
-    return matchCat && matchQ;
+  const q = currentQuery.toLowerCase();
+  const topLevel = allItems.filter(i => !i.parentTitle);
+
+  const independentQA = topLevel.filter(i => i.q).filter(i => {
+    if (currentCat !== 'すべて' && i.category !== currentCat) return false;
+    return !q ||
+      i.title.toLowerCase().includes(q) ||
+      (i.q||'').toLowerCase().includes(q) ||
+      (i.body||'').toLowerCase().includes(q) ||
+      (i.tags||[]).some(t => t.toLowerCase().includes(q));
   });
+
+  const articles = topLevel.filter(i => !i.q).filter(i => {
+    if (currentCat !== 'すべて' && i.category !== currentCat) return false;
+    if (!q) return true;
+    const selfMatch =
+      i.title.toLowerCase().includes(q) ||
+      (i.body||'').toLowerCase().includes(q) ||
+      (i.summary||'').toLowerCase().includes(q) ||
+      (i.tags||[]).some(t => t.toLowerCase().includes(q));
+    if (selfMatch) return true;
+    // 子Q&Aにヒットした場合も親記事を表示
+    return (childrenByParent.get(i.title) || []).some(c =>
+      c.title.toLowerCase().includes(q) ||
+      (c.q||'').toLowerCase().includes(q) ||
+      (c.body||'').toLowerCase().includes(q) ||
+      (c.tags||[]).some(t => t.toLowerCase().includes(q))
+    );
+  });
+
+  return { independentQA, articles };
 }
 
-function catColor(cat) {
-  return catColorMap[cat] || 'blue';
-}
-
-// 種別の文字列（Notionの選択肢名）ではなく、質問(質問列)の有無でカード形式を判定する。
-// これによりNotion側で種別の選択肢が増えても、質問欄の入力有無に応じて
-// 自動的にQ&Aカード／記事アコーディオンのどちらかに表示され、コード修正が不要になる。
-function render() {
-  const items = filterItems();
-  const qaItems      = items.filter(i=>i.q);
-  const articleItems = items.filter(i=>!i.q);
-  document.getElementById('resultCount').textContent = `${items.length}件 表示中（全${allItems.length}件）`;
-
-  const qaSec = document.getElementById('qaSection');
-  qaSec.style.display = qaItems.length?'':'none';
-  document.getElementById('qaList').innerHTML = qaItems.map((item,i)=>`
-    <div class="faq-card" id="faq-${i}">
-      <div class="faq-header" onclick="document.getElementById('faq-${i}').classList.toggle('open')">
+function renderFaqCard(item, id) {
+  return `
+    <div class="faq-card" id="${id}">
+      <div class="faq-header" onclick="document.getElementById('${id}').classList.toggle('open')">
         <div class="faq-q">${esc(item.title)}</div>
         <span class="faq-chevron">›</span>
       </div>
       <div class="faq-body">
-        <div class="faq-a">
-          <div class="faq-a-body">
-            <div class="md-body">${md2html(item.body)}</div>
-          </div>
-        </div>
+        <div class="faq-a"><div class="faq-a-body"><div class="md-body">${md2html(item.body)}</div></div></div>
         <div class="faq-footer">
           <span class="badge badge-${catColor(item.category)}">${esc(item.category)}</span>
           <span class="tag">${esc(item.type)}</span>
@@ -120,16 +134,42 @@ function render() {
           <span style="margin-left:auto;font-size:10px;color:var(--text3);font-family:var(--mono)">${esc(item.updated||'')}</span>
         </div>
       </div>
-    </div>`).join('') || '<div class="empty">該当するQ&amp;Aがありません</div>';
+    </div>`;
+}
 
-  const artSec = document.getElementById('articleSection');
-  artSec.style.display = articleItems.length?'':'none';
-  document.getElementById('articleList').innerHTML = articleItems.map((item,i)=>`
+function renderChildFaqCard(child, id) {
+  return `
+    <div class="child-faq-card" id="${id}">
+      <div class="child-faq-header" onclick="document.getElementById('${id}').classList.toggle('open')">
+        <div class="faq-q">${esc(child.title)}</div>
+        <span class="faq-chevron">›</span>
+      </div>
+      <div class="child-faq-body">
+        <div class="faq-a"><div class="faq-a-body"><div class="md-body">${md2html(child.body)}</div></div></div>
+        <div class="faq-footer">
+          ${(child.tags||[]).map(t=>`<span class="tag">${esc(t)}</span>`).join('')}
+          <span style="margin-left:auto;font-size:10px;color:var(--text3);font-family:var(--mono)">${esc(child.updated||'')}</span>
+        </div>
+      </div>
+    </div>`;
+}
+
+function renderArticleCard(item, i) {
+  const children = childrenByParent.get(item.title) || [];
+  const childrenHtml = children.length ? `
+    <div class="child-qa-section">
+      <div class="child-qa-label">関連Q&amp;A (${children.length})</div>
+      ${children.map((c, ci) => renderChildFaqCard(c, `art-${i}-c${ci}`)).join('')}
+    </div>` : '';
+  const summaryBadge = children.length
+    ? `${esc(item.summary||'')} <span class="child-qa-badge">${children.length}件のQ&amp;A</span>`
+    : esc(item.summary||'');
+  return `
     <div class="article-card" id="art-${i}">
       <div class="article-header" onclick="document.getElementById('art-${i}').classList.toggle('open')">
         <div>
           <div class="article-title">${esc(item.title)}</div>
-          <div class="article-summary">${esc(item.summary||'')}</div>
+          <div class="article-summary">${summaryBadge}</div>
         </div>
         <span class="article-chevron">›</span>
       </div>
@@ -141,13 +181,36 @@ function render() {
           <span style="margin-left:auto;font-size:10px;color:var(--text3);font-family:var(--mono)">${esc(item.updated||'')}</span>
         </div>
         <div class="md-body">${md2html(item.body)}</div>
+        ${childrenHtml}
       </div>
-    </div>`).join('') || '<div class="empty">該当する記事がありません</div>';
+    </div>`;
+}
 
-  if (items.length===0) {
-    qaSec.style.display='';
-    document.getElementById('qaList').innerHTML = `<div class="empty">「${esc(currentQuery)}」に一致するナレッジが見つかりませんでした</div>`;
-    artSec.style.display='none';
+// 種別の文字列（Notionの選択肢名）ではなく、質問列の有無でカード形式を判定する。
+// 「親ナレッジ」が設定された子Q&Aは記事カード内にネスト表示し、トップレベルには出さない。
+function render() {
+  const { independentQA, articles } = filterItems();
+  const topLevelCount = allItems.filter(i => !i.parentTitle).length;
+  document.getElementById('resultCount').textContent =
+    `${independentQA.length + articles.length}件 表示中（全${topLevelCount}件）`;
+
+  const qaSec = document.getElementById('qaSection');
+  qaSec.style.display = independentQA.length ? '' : 'none';
+  document.getElementById('qaList').innerHTML =
+    independentQA.map((item, i) => renderFaqCard(item, `faq-${i}`)).join('') ||
+    '<div class="empty">該当するQ&amp;Aがありません</div>';
+
+  const artSec = document.getElementById('articleSection');
+  artSec.style.display = articles.length ? '' : 'none';
+  document.getElementById('articleList').innerHTML =
+    articles.map((item, i) => renderArticleCard(item, i)).join('') ||
+    '<div class="empty">該当する記事がありません</div>';
+
+  if (independentQA.length === 0 && articles.length === 0) {
+    qaSec.style.display = '';
+    document.getElementById('qaList').innerHTML =
+      `<div class="empty">「${esc(currentQuery)}」に一致するナレッジが見つかりませんでした</div>`;
+    artSec.style.display = 'none';
   }
 }
 
@@ -160,19 +223,29 @@ async function init() {
     const rows = Papa.parse(text, { header:true, skipEmptyLines:true }).data;
 
     allItems = rows.map((r,i) => ({
-      id:       String(i).padStart(3,'0'),
-      title:    (r['タイトル']||'').trim(),
-      type:     (r['種別']||'faq').trim(),
-      category: (r['カテゴリ']||'社内ルール').trim(),
-      q:        (r['質問']||'').trim(),
-      body:     (r['回答・本文']||'').trim(),
-      summary:  (r['サマリー']||'').trim(),
-      tags:     (r['タグ']||'').split(',').map(t=>t.trim()).filter(Boolean),
-      updated:  (r['更新日']||'').trim(),
+      id:          String(i).padStart(3,'0'),
+      title:       (r['タイトル']||'').trim(),
+      type:        (r['種別']||'faq').trim(),
+      category:    (r['カテゴリ']||'社内ルール').trim(),
+      q:           (r['質問']||'').trim(),
+      body:        (r['回答・本文']||'').trim(),
+      summary:     (r['サマリー']||'').trim(),
+      tags:        (r['タグ']||'').split(',').map(t=>t.trim()).filter(Boolean),
+      updated:     (r['更新日']||'').trim(),
+      parentTitle: (r['親ナレッジ']||'').trim(),
     })).filter(r=>r.title);
 
-    // カテゴリもNotion側の選択肢をそのまま採用し、出現順に色を自動割り当てする。
-    const categories = [...new Set(allItems.map(i=>i.category))];
+    // 親タイトル → 子Q&Aリスト のマップを構築
+    childrenByParent = new Map();
+    for (const item of allItems) {
+      if (!item.parentTitle) continue;
+      if (!childrenByParent.has(item.parentTitle)) childrenByParent.set(item.parentTitle, []);
+      childrenByParent.get(item.parentTitle).push(item);
+    }
+
+    // カテゴリは親記事（トップレベル）の出現順に色を自動割り当てる。子Q&Aはカウントから除外。
+    const topLevel = allItems.filter(i => !i.parentTitle);
+    const categories = [...new Set(topLevel.map(i=>i.category))];
     categories.forEach((cat,i) => { catColorMap[cat] = CAT_PALETTE[i % CAT_PALETTE.length]; });
     const CATEGORIES = ['すべて', ...categories];
 
@@ -181,8 +254,8 @@ async function init() {
       const btn = document.createElement('button');
       btn.className = 'filter-btn'+(cat==='すべて'?' active':'');
       btn.textContent = cat==='すべて'
-        ? `すべて (${allItems.length})`
-        : `${cat} (${allItems.filter(i=>i.category===cat).length})`;
+        ? `すべて (${topLevel.length})`
+        : `${cat} (${topLevel.filter(i=>i.category===cat).length})`;
       btn.onclick = () => {
         currentCat = cat;
         document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));

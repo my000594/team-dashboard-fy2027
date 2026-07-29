@@ -293,8 +293,16 @@ async function main() {
   await section('knowledge.csv', async () => {
     console.log('== knowledge.csv ==');
     const knowledgePages = await notionQuery(DB.knowledge);
+    // ページID → タイトルのマップ（「親ナレッジ」リレーション解決用）
+    const pageTitleMap = new Map();
+    for (const page of knowledgePages) {
+      pageTitleMap.set(page.id, getTitle(page.properties['タイトル']));
+    }
     const knowledgeRows = knowledgePages.map(page => {
       const props = page.properties;
+      // 「親ナレッジ」リレーション（単一選択想定）からページIDを取得し、タイトルに変換
+      const parentRel = props['親ナレッジ']?.relation || [];
+      const parentTitle = parentRel.length > 0 ? (pageTitleMap.get(parentRel[0].id) || '') : '';
       return {
         __order: props['表示順']?.number ?? null,
         'タイトル': getTitle(props['タイトル']),
@@ -305,6 +313,7 @@ async function main() {
         'サマリー': getRichText(props['サマリー']),
         'タグ': getMultiSelect(props['タグ']).join(','),
         '更新日': getDateStart(props['更新日']),
+        '親ナレッジ': parentTitle,
       };
     });
     // 表示順（Notion側で設定した並び順）が設定されている行を優先し、未設定の行は末尾に回す
@@ -315,7 +324,7 @@ async function main() {
       return 0;
     });
     await writeCsv('knowledge.csv',
-      ['タイトル','種別','カテゴリ','質問','回答・本文','サマリー','タグ','更新日'],
+      ['タイトル','種別','カテゴリ','質問','回答・本文','サマリー','タグ','更新日','親ナレッジ'],
       knowledgeRows);
   });
 
