@@ -84,14 +84,14 @@ const esc = window.escapeHTML;
 function catColor(cat) { return catColorMap[cat] || 'blue'; }
 
 // 「親ナレッジ」が設定されている = 記事の子Q&A。
-// 親なし + 子あり = 記事（質問フィールドがあっても子を持つなら記事扱い）。
-// 親なし + 子なし + 質問あり = 独立Q&A。親なし + 質問なし = 記事。
+// 種別=ナレッジ → 記事・ガイドセクション。種別=FAQ/手順 → Q&Aセクション。
+// 子Q&Aを持つアイテムは種別によらず記事・ガイドとして扱う。
 function filterItems() {
   const q = currentQuery.toLowerCase();
   const topLevel = allItems.filter(i => !i.parentTitle);
-  const hasChildren = i => (childrenByParent.get(i.title) || []).length > 0;
+  const isArticle = i => i.type === 'ナレッジ' || (childrenByParent.get(i.title) || []).length > 0;
 
-  const independentQA = topLevel.filter(i => i.q && !hasChildren(i)).filter(i => {
+  const independentQA = topLevel.filter(i => !isArticle(i)).filter(i => {
     if (currentCat !== 'すべて' && i.category !== currentCat) return false;
     return !q ||
       i.title.toLowerCase().includes(q) ||
@@ -100,7 +100,7 @@ function filterItems() {
       (i.tags||[]).some(t => t.toLowerCase().includes(q));
   });
 
-  const articles = topLevel.filter(i => !i.q || hasChildren(i)).filter(i => {
+  const articles = topLevel.filter(i => isArticle(i)).filter(i => {
     if (currentCat !== 'すべて' && i.category !== currentCat) return false;
     if (!q) return true;
     const selfMatch =
