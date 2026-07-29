@@ -298,11 +298,26 @@ async function main() {
     for (const page of knowledgePages) {
       pageTitleMap.set(page.id, getTitle(page.properties['タイトル']));
     }
+    // 各ページへの被参照数を集計。
+    // 「親ナレッジ」を双方向リレーションで作成した場合、Notionが親記事にも子→親の逆参照を自動書き込みする。
+    // 「自分より被参照数が多いページを指している」= 真の子、という非対称性で方向を判定する。
+    const inboundCount = new Map();
+    for (const page of knowledgePages) {
+      for (const r of (page.properties['親ナレッジ']?.relation || [])) {
+        inboundCount.set(r.id, (inboundCount.get(r.id) || 0) + 1);
+      }
+    }
     const knowledgeRows = knowledgePages.map(page => {
       const props = page.properties;
-      // 「親ナレッジ」リレーション（単一選択想定）からページIDを取得し、タイトルに変換
       const parentRel = props['親ナレッジ']?.relation || [];
-      const parentTitle = parentRel.length > 0 ? (pageTitleMap.get(parentRel[0].id) || '') : '';
+      // 指先の被参照数が自分の被参照数より多い場合のみ「真の親」とみなす。
+      // 同数の場合（子が1件のケース）は双方向back-fillと区別できないため親なしとして扱う。
+      const myInbound = inboundCount.get(page.id) || 0;
+      const targetId = parentRel[0]?.id;
+      const targetInbound = targetId ? (inboundCount.get(targetId) || 0) : 0;
+      const parentTitle = (targetId && targetInbound > myInbound)
+        ? (pageTitleMap.get(targetId) || '')
+        : '';
       return {
         __order: props['表示順']?.number ?? null,
         'タイトル': getTitle(props['タイトル']),
