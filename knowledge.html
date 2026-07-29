@@ -19,10 +19,13 @@
 .filter-btn.active{background:var(--blue-dim);border-color:rgba(59,130,246,.4);color:var(--blue)}
 .faq-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.1rem;margin-bottom:8px;transition:border-color .15s}
 .faq-card:hover{border-color:var(--border2)}
-.faq-q{font-weight:700;font-size:13px;margin-bottom:6px;display:flex;gap:8px;align-items:flex-start}
-.faq-q::before{content:'Q';font-family:var(--mono);font-size:11px;color:var(--blue);background:var(--blue-dim);padding:1px 6px;border-radius:4px;flex-shrink:0;margin-top:1px}
-.faq-a{font-size:13px;color:var(--text2);line-height:1.7;display:flex;gap:8px;align-items:flex-start;white-space:pre-line}
-.faq-a::before{content:'A';font-family:var(--mono);font-size:11px;color:var(--green);background:var(--green-dim);padding:1px 6px;border-radius:4px;flex-shrink:0;margin-top:1px}
+.faq-q{font-weight:700;font-size:13.5px;margin-bottom:.6rem;display:flex;gap:8px;align-items:flex-start;line-height:1.6}
+.faq-q::before{content:'Q';font-family:var(--mono);font-size:11px;color:var(--blue);background:var(--blue-dim);padding:1px 6px;border-radius:4px;flex-shrink:0;margin-top:2px}
+/* 回答本文はmd.jsでMarkdown描画するため、Aバッジと本文を別要素に分けて
+   本文側をブロック要素（.md-body）として扱う */
+.faq-a{display:flex;gap:8px;align-items:flex-start}
+.faq-a::before{content:'A';font-family:var(--mono);font-size:11px;color:var(--green);background:var(--green-dim);padding:1px 6px;border-radius:4px;flex-shrink:0;margin-top:2px}
+.faq-a-body{flex:1;min-width:0}
 .faq-footer{display:flex;gap:8px;align-items:center;margin-top:.6rem;flex-wrap:wrap}
 .tag{font-size:10px;padding:1px 7px;border-radius:3px;background:var(--bg3);color:var(--text3)}
 .article-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:10px;overflow:hidden;transition:border-color .15s}
@@ -59,25 +62,13 @@
 </div>
 
 <script src="nav.js"></script>
+<script src="md.js"></script>
 <script>
 const CAT_PALETTE = ['blue','green','amber','purple','cyan','red'];
+const CLIP_HEIGHT = 300;   // これを超える高さの回答は折りたたむ（style.cssの.md-clip.clippedと合わせる）
 let allItems = [], currentCat = 'すべて', currentQuery = '';
 let catColorMap = {};
-
-function md2html(md) {
-  if (!md) return '';
-  return md
-    .replace(/^## (.+)$/gm,'<h2>$1</h2>')
-    .replace(/^### (.+)$/gm,'<h3>$1</h3>')
-    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
-    .replace(/`([^`]+)`/g,'<code>$1</code>')
-    .replace(/^- (.+)$/gm,'<li>$1</li>')
-    .replace(/^\d+\. (.+)$/gm,'<li>$1</li>')
-    .replace(/(<li>[\s\S]+?<\/li>\n?)+/g,m=>`<ul>${m}</ul>`)
-    .replace(/\[(.+?)\]\((.+?)\)/g,'<a href="$2" target="_blank">$1</a>')
-    .replace(/\n\n/g,'</p><p>')
-    .trim();
-}
+const esc = window.escapeHTML;
 
 function filterItems() {
   return allItems.filter(item => {
@@ -110,13 +101,17 @@ function render() {
   qaSec.style.display = qaItems.length?'':'none';
   document.getElementById('qaList').innerHTML = qaItems.map(item=>`
     <div class="faq-card">
-      <div class="faq-q">${item.title}</div>
-      <div class="faq-a">${item.body||''}</div>
+      <div class="faq-q">${esc(item.title)}</div>
+      <div class="faq-a">
+        <div class="faq-a-body">
+          <div class="md-body md-clip">${md2html(item.body)}</div>
+        </div>
+      </div>
       <div class="faq-footer">
-        <span class="badge badge-${catColor(item.category)}">${item.category}</span>
-        <span class="tag">${item.type}</span>
-        ${(item.tags||[]).map(t=>`<span class="tag">${t}</span>`).join('')}
-        <span style="margin-left:auto;font-size:10px;color:var(--text3);font-family:var(--mono)">${item.updated||''}</span>
+        <span class="badge badge-${catColor(item.category)}">${esc(item.category)}</span>
+        <span class="tag">${esc(item.type)}</span>
+        ${(item.tags||[]).map(t=>`<span class="tag">${esc(t)}</span>`).join('')}
+        <span style="margin-left:auto;font-size:10px;color:var(--text3);font-family:var(--mono)">${esc(item.updated||'')}</span>
       </div>
     </div>`).join('') || '<div class="empty">該当するQ&amp;Aがありません</div>';
 
@@ -126,27 +121,48 @@ function render() {
     <div class="article-card" id="art-${i}">
       <div class="article-header" onclick="document.getElementById('art-${i}').classList.toggle('open')">
         <div>
-          <div class="article-title">${item.title}</div>
-          <div class="article-summary">${item.summary||''}</div>
+          <div class="article-title">${esc(item.title)}</div>
+          <div class="article-summary">${esc(item.summary||'')}</div>
         </div>
         <span class="article-chevron">›</span>
       </div>
       <div class="article-body">
         <div style="display:flex;gap:8px;align-items:center;margin-bottom:.75rem;flex-wrap:wrap">
-          <span class="badge badge-${catColor(item.category)}">${item.category}</span>
-          <span class="tag">${item.type}</span>
-          ${(item.tags||[]).map(t=>`<span class="tag">${t}</span>`).join('')}
-          <span style="margin-left:auto;font-size:10px;color:var(--text3);font-family:var(--mono)">${item.updated||''}</span>
+          <span class="badge badge-${catColor(item.category)}">${esc(item.category)}</span>
+          <span class="tag">${esc(item.type)}</span>
+          ${(item.tags||[]).map(t=>`<span class="tag">${esc(t)}</span>`).join('')}
+          <span style="margin-left:auto;font-size:10px;color:var(--text3);font-family:var(--mono)">${esc(item.updated||'')}</span>
         </div>
-        <div class="md-body">${md2html(item.body||'')}</div>
+        <div class="md-body">${md2html(item.body)}</div>
       </div>
     </div>`).join('') || '<div class="empty">該当する記事がありません</div>';
 
   if (items.length===0) {
     qaSec.style.display='';
-    document.getElementById('qaList').innerHTML = `<div class="empty">「${currentQuery}」に一致するナレッジが見つかりませんでした</div>`;
+    document.getElementById('qaList').innerHTML = `<div class="empty">「${esc(currentQuery)}」に一致するナレッジが見つかりませんでした</div>`;
     artSec.style.display='none';
   }
+
+  applyClips();
+}
+
+// 手順書のような長い回答は一覧が壁のようになってしまうため、一定の高さを超えるものだけ
+// 折りたたんで「続きを読む」を出す。短いFAQはこれまで通り全文表示のまま。
+function applyClips() {
+  document.querySelectorAll('.md-clip').forEach(el => {
+    if (el.scrollHeight <= CLIP_HEIGHT) return;
+    el.classList.add('clipped');
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'md-more';
+    btn.textContent = '続きを読む ▾';
+    btn.onclick = () => {
+      const clipped = el.classList.toggle('clipped');
+      btn.textContent = clipped ? '続きを読む ▾' : '閉じる ▴';
+      if (clipped) el.scrollIntoView({ block: 'nearest' });
+    };
+    el.parentNode.appendChild(btn);
+  });
 }
 
 async function init() {

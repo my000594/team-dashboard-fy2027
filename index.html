@@ -65,6 +65,7 @@
 </div>
 
 <script src="nav.js"></script>
+<script src="md.js"></script>
 <script>
 const MONTHS = ['8月','9月','10月','11月','12月','1月','2月','3月','4月','5月','6月','7月'];
 
@@ -73,21 +74,6 @@ async function fetchCSV(path) {
   const buf = await res.arrayBuffer();
   const text = new TextDecoder('utf-8').decode(buf).replace(/^\uFEFF/, '');
   return Papa.parse(text, { header: true, skipEmptyLines: true, dynamicTyping: true }).data;
-}
-
-function md2html(md) {
-  if (!md) return '';
-  return String(md)
-    .replace(/^## (.+)$/gm,'<h2>$1</h2>')
-    .replace(/^### (.+)$/gm,'<h3>$1</h3>')
-    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
-    .replace(/`([^`]+)`/g,'<code>$1</code>')
-    .replace(/^- (.+)$/gm,'<li>$1</li>')
-    .replace(/^\d+\. (.+)$/gm,'<li>$1</li>')
-    .replace(/(<li>[\s\S]+?<\/li>\n?)+/g,m=>`<ul>${m}</ul>`)
-    .replace(/\[(.+?)\]\((.+?)\)/g,'<a href="$2" target="_blank">$1</a>')
-    .replace(/\n\n/g,'</p><p>')
-    .trim();
 }
 
 function calcTenure(joinStr) {
@@ -168,7 +154,7 @@ async function init() {
           <span class="info-dot ${dotClass}"></span>
           <div class="info-main">
             <div class="info-title-row">
-              <span class="info-title">${r['タイトル']}</span>
+              <span class="info-title">${escapeHTML(r['タイトル'] || '')}</span>
               <span class="info-due-badge ${dueClass}">${dueText}</span>
               <span class="info-chevron">›</span>
             </div>

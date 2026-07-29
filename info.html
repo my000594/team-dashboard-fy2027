@@ -32,21 +32,8 @@
 </div>
 
 <script src="nav.js"></script>
+<script src="md.js"></script>
 <script>
-function md2html(md) {
-  if (!md) return '';
-  return String(md)
-    .replace(/^## (.+)$/gm,'<h2>$1</h2>')
-    .replace(/^### (.+)$/gm,'<h3>$1</h3>')
-    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
-    .replace(/`([^`]+)`/g,'<code>$1</code>')
-    .replace(/^- (.+)$/gm,'<li>$1</li>')
-    .replace(/^\d+\. (.+)$/gm,'<li>$1</li>')
-    .replace(/(<li>[\s\S]+?<\/li>\n?)+/g,m=>`<ul>${m}</ul>`)
-    .replace(/\[(.+?)\]\((.+?)\)/g,'<a href="$2" target="_blank">$1</a>')
-    .replace(/\n\n/g,'</p><p>')
-    .trim();
-}
 // 開始日・終了日は「2026/08/01」「2026年8月1日」「2026-08-01」いずれの表記でも比較できるようDate化する
 function parseDateFlexible(str) {
   if (!str) return null;
@@ -92,7 +79,7 @@ async function init() {
         <span class="info-dot ${dotClass}"></span>
         <div class="info-main">
           <div class="info-title-row">
-            <span class="info-title">${r['タイトル']}</span>
+            <span class="info-title">${escapeHTML(r['タイトル'] || '')}</span>
             <span class="info-due-badge ${dueClass}">${dueText}</span>
             <span class="info-chevron">›</span>
           </div>
