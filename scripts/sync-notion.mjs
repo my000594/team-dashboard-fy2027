@@ -26,10 +26,13 @@ const DB = {
   certification: 'b88a98ca-3014-4f63-9d23-95cafbea9048', // 💯 保有資格
 };
 
-async function notionQuery(databaseId) {
+async function notionQuery(databaseId, sorts) {
   const results = [];
   let cursor;
   do {
+    const body = { page_size: 100 };
+    if (cursor) body.start_cursor = cursor;
+    if (sorts) body.sorts = sorts;
     const res = await fetch(`https://api.notion.com/v1/databases/${databaseId}/query`, {
       method: 'POST',
       headers: {
@@ -37,7 +40,7 @@ async function notionQuery(databaseId) {
         'Notion-Version': '2022-06-28',
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(cursor ? { start_cursor: cursor, page_size: 100 } : { page_size: 100 }),
+      body: JSON.stringify(body),
     });
     if (!res.ok) {
       const body = await res.text();
@@ -293,6 +296,7 @@ async function main() {
     const knowledgeRows = knowledgePages.map(page => {
       const props = page.properties;
       return {
+        __order: props['表示順']?.number ?? null,
         'タイトル': getTitle(props['タイトル']),
         '種別': getSelect(props['種別']),
         'カテゴリ': getSelect(props['カテゴリ']),
@@ -302,6 +306,13 @@ async function main() {
         'タグ': getMultiSelect(props['タグ']).join(','),
         '更新日': getDateStart(props['更新日']),
       };
+    });
+    // 表示順（Notion側で設定した並び順）が設定されている行を優先し、未設定の行は末尾に回す
+    knowledgeRows.sort((a, b) => {
+      if (a.__order != null && b.__order != null) return a.__order - b.__order;
+      if (a.__order != null) return -1;
+      if (b.__order != null) return 1;
+      return 0;
     });
     await writeCsv('knowledge.csv',
       ['タイトル','種別','カテゴリ','質問','回答・本文','サマリー','タグ','更新日'],

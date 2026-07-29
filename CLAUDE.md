@@ -212,6 +212,7 @@ LINE_COLORS・LINE_META・LINE_LABEL_MAP定数はmember.html内に定義。
 - Q&Aカードの回答・記事本文はどちらも`md.js`の`md2html()`でMarkdown描画する（以前はQ&A側だけ生テキストを`white-space:pre-line`で流していたため、`**強調**`がアスタリスクのまま表示され、見出し・箇条書きも段差が付かず手順書が読めなかった）
 - 回答が高さ300pxを超えるQ&Aカードは自動で折りたたみ、「続きを読む」ボタンを出す（`applyClips()`。閾値は`CLIP_HEIGHT`定数）。短いFAQはこれまで通り全文表示のまま
 - カテゴリフィルターはCSVの実データから動的に生成（固定リストではない）。初出順にblue→green→amber→purple→cyan→redの順で自動着色されるため、Notion側でカテゴリの選択肢が増えてもコード修正不要
+- 表示順はNotion側の「表示順」（Number）プロパティ昇順。CSVには出力されずNotion同期時のソートにのみ使う。未設定の行は末尾に回る（member_master.csv・skill.csvと同じ仕組み）
 - キーワード検索対象：タイトル・本文・タグ
 
 ### meetings.html（ライン別会議実施計画）
