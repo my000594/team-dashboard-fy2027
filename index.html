@@ -141,7 +141,14 @@ async function init() {
     const activeInfo = infoRows
       .map(r => ({ r, start: parseDateFlexible(r['開始日']), end: parseDateFlexible(r['終了日']) }))
       .filter(x => x.start && x.end && today0 >= x.start && today0 <= x.end)
-      .sort((a,b) => a.end - b.end);
+      .sort((a, b) => {
+        const oa = a.r['表示順'] !== '' && a.r['表示順'] != null ? Number(a.r['表示順']) : null;
+        const ob = b.r['表示順'] !== '' && b.r['表示順'] != null ? Number(b.r['表示順']) : null;
+        if (oa != null && ob != null) return oa - ob;
+        if (oa != null) return -1;
+        if (ob != null) return 1;
+        return a.end - b.end;
+      });
 
     if (activeInfo.length > 0) {
       infoCard.style.display = '';

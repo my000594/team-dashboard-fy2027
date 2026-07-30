@@ -263,11 +263,12 @@ LINE_COLORS・LINE_META・LINE_LABEL_MAP定数はmember.html内に定義。
 
 ### data/info.csv（Notionエクスポート）
 ```
-タイトル,本文,開始日,終了日,種別
-社内規定検定,説明文,2026/08/01,2026/09/30,deadline
+タイトル,本文,開始日,終了日,種別,表示順
+社内規定検定,説明文,2026/08/01,2026/09/30,deadline,1
 ```
 - 種別セレクト：`deadline`（赤）/ `event`（青）/ `info`（緑）
 - 今日が開始日〜終了日の範囲内のものだけ表示。index.htmlは最大5件、info.htmlは全件＋期限切れのアーカイブ表示
+- 表示順（Number）：値が入っているものを昇順で先に表示し、未設定のものは終了日昇順でその後に続く。sync-notion.mjsで事前ソートした上でCSVに出力し、index.html・info.htmlでもクライアント側で同じロジックを適用
 
 ### data/sales.csv（Notionエクスポート・縦持ち）
 ```
