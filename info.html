@@ -112,6 +112,7 @@ async function init() {
       const btn = document.getElementById('archiveToggleBtn');
       btn.classList.toggle('active', !showingArchive);
       btn.textContent = showingArchive ? 'アーカイブ' : '現在の表示に戻る';
+      document.querySelector('.card-title').textContent = showingArchive ? '📢 現在の表示' : '📦 アーカイブ';
     };
 
     document.getElementById('loading').style.display = 'none';
