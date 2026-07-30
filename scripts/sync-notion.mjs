@@ -81,8 +81,6 @@ async function notionBlockChildren(blockId) {
   } while (cursor);
   return results;
 }
-const HEADING_TYPES = new Set(['heading_1', 'heading_2', 'heading_3']);
-const blockPlainText = (block) => (block[block.type]?.rich_text || []).map(t => t.plain_text).join('').trim();
 
 // --- Notionプロパティ値の取り出し ---
 const getTitle       = (p) => (p?.title || []).map(t => t.plain_text).join('').trim();
@@ -464,47 +462,31 @@ async function main() {
 
   await section('org_chart.csv', async () => {
     console.log('== org_chart.csv ==');
-    // 「組織構成」ページの「組織構成図」セクション配下に貼られたファイル添付を、出現順のまま取得する。
-    // データベースではなくページ本文のブロックなので、他セクションと異なりnotionBlockChildrenで直接読む。
-    // 「組織構成図」セクションは (a) 見出しブロック＋後続の兄弟としてファイルが並ぶ形と、
-    // (b) トグルブロック／トグル化見出しの子ブロックとしてファイルが入る形の両方があり得るため両対応する。
-    const extractFile = (block, fallbackLabel) => {
-      const f = block.file;
-      const url = f?.type === 'external' ? f.external?.url : f?.file?.url;
-      if (!url) return null;
-      const caption = (f.caption || []).map(t => t.plain_text).join('').trim();
-      return { '表示名': caption || fallbackLabel, 'リンク': url };
-    };
-    const topBlocks = await notionBlockChildren(PAGE.orgChart);
-    const rows = [];
-    for (let i = 0; i < topBlocks.length; i++) {
-      const block = topBlocks[i];
-      const isToggle = block.type === 'toggle';
-      if (!isToggle && !HEADING_TYPES.has(block.type)) continue;
-      const title = isToggle
-        ? (block.toggle?.rich_text || []).map(t => t.plain_text).join('').trim()
-        : blockPlainText(block);
-      if (title !== '組織構成図') continue;
-
-      if (block.has_children) {
-        // トグル／トグル化見出し：子ブロックの中からファイル添付を取得
-        const children = await notionBlockChildren(block.id);
-        for (const child of children) {
-          if (child.type !== 'file') continue;
-          const row = extractFile(child, title);
-          if (row) rows.push(row);
-        }
-      } else {
-        // 通常の見出し：後続の兄弟ブロックとして続くファイル添付を取得（トグル化されていない旧レイアウト向け）
-        for (let j = i + 1; j < topBlocks.length; j++) {
-          const sib = topBlocks[j];
-          if (HEADING_TYPES.has(sib.type) || sib.type === 'toggle') break;
-          if (sib.type !== 'file') continue;
-          const row = extractFile(sib, title);
-          if (row) rows.push(row);
+    // 「組織構成」ページ配下（見出し・トグルなどどんな入れ子でも）にあるファイル添付を、出現順のまま
+    // 再帰的にすべて拾う。このページには組織構成図ファイル以外を置かない運用のため、見出し／トグルの
+    // 文言でセクションを判定する方式はやめた（Notion側で見出し名が変わると検出できなくなるため）。
+    // メンバーDBが埋め込まれた「全体」トグルはchild_databaseとして現れ、file以外は再帰しないため
+    // 自然にスキップされる。
+    async function collectFiles(blockId, depth = 0) {
+      if (depth > 6) return []; // 異常な入れ子に対する保険
+      const children = await notionBlockChildren(blockId);
+      const rows = [];
+      for (const block of children) {
+        if (block.type === 'file') {
+          const f = block.file;
+          const url = f?.type === 'external' ? f.external?.url : f?.file?.url;
+          if (!url) continue;
+          // 表示名は「ファイル名（クリックしてリネームする欄）」を優先し、無ければキャプションを使う
+          const name = (f.name || '').trim();
+          const caption = (f.caption || []).map(t => t.plain_text).join('').trim();
+          rows.push({ '表示名': name || caption || '組織構成図', 'リンク': url });
+        } else if (block.has_children && block.type !== 'child_database' && block.type !== 'child_page') {
+          rows.push(...await collectFiles(block.id, depth + 1));
         }
       }
+      return rows;
     }
+    const rows = await collectFiles(PAGE.orgChart);
     await writeCsv('org_chart.csv', ['表示名', 'リンク'], rows);
   });
 

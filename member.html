@@ -178,13 +178,18 @@ function renderContent() {
 function escHTML(s) {
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
+let orgChartRows = [];
 function renderOrgChart(rows) {
+  orgChartRows = rows;
+  updateOrgChartSection();
+}
+function updateOrgChartSection() {
   const el = document.getElementById('orgChartSection');
-  if (!rows.length) { el.innerHTML = ''; return; }
+  if (currentTab !== 'all' || !orgChartRows.length) { el.innerHTML = ''; return; }
   el.innerHTML = `<div class="card" style="margin-top:16px">
     <div style="font-size:13px;color:var(--text3);margin-bottom:10px">組織構成図</div>
     <div style="display:flex;flex-wrap:wrap;gap:8px">
-      ${rows.map(r => `<a href="${escHTML(r['リンク'])}" target="_blank" rel="noopener noreferrer" class="chip" style="text-decoration:none">📄&nbsp;${escHTML(r['表示名'])}</a>`).join('')}
+      ${orgChartRows.map(r => `<a href="${escHTML(r['リンク'])}" target="_blank" rel="noopener noreferrer" class="chip" style="text-decoration:none">📄&nbsp;${escHTML(r['表示名'])}</a>`).join('')}
     </div>
   </div>`;
 }
@@ -193,6 +198,7 @@ function switchTab(id) {
   currentTab = id;
   document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active', t.dataset.id===id));
   renderContent();
+  updateOrgChartSection();
 }
 window.switchTab = switchTab;
 
