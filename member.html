@@ -20,6 +20,7 @@
   </div>
   <div class="tabs" id="tabs"></div>
   <div id="content"></div>
+  <div id="orgChartSection"></div>
 </main>
 </div>
 
@@ -174,6 +175,20 @@ function renderContent() {
   else if (currentTab==='committee') el.innerHTML = renderByCommittee(members);
 }
 
+function escHTML(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function renderOrgChart(rows) {
+  const el = document.getElementById('orgChartSection');
+  if (!rows.length) { el.innerHTML = ''; return; }
+  el.innerHTML = `<div class="card" style="margin-top:16px">
+    <div style="font-size:13px;color:var(--text3);margin-bottom:10px">組織構成図</div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px">
+      ${rows.map(r => `<a href="${escHTML(r['リンク'])}" target="_blank" rel="noopener noreferrer" class="chip" style="text-decoration:none">📄&nbsp;${escHTML(r['表示名'])}</a>`).join('')}
+    </div>
+  </div>`;
+}
+
 function switchTab(id) {
   currentTab = id;
   document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active', t.dataset.id===id));
@@ -208,6 +223,14 @@ async function init() {
       tabEl.innerHTML += `<button class="tab${t.id==='all'?' active':''}" data-id="${t.id}" onclick="switchTab('${t.id}')">${t.label}</button>`;
     });
     renderContent();
+
+    try {
+      const orgRes = await fetch('data/org_chart.csv');
+      const orgBuf = await orgRes.arrayBuffer();
+      const orgText = new TextDecoder('utf-8').decode(orgBuf).replace(/^﻿/, '');
+      const orgRows = Papa.parse(orgText, { header:true, skipEmptyLines:true }).data.filter(r => r['リンク']);
+      renderOrgChart(orgRows);
+    } catch (e) { /* 組織構成図は補助情報のため、取得失敗してもメンバー一覧の表示は継続する */ }
 
     document.getElementById('loading').style.display = 'none';
     document.getElementById('app').classList.add('ready');

@@ -26,6 +26,11 @@ const DB = {
   certification: 'b88a98ca-3014-4f63-9d23-95cafbea9048', // 💯 保有資格
 };
 
+// データベースではなくページ本文（ブロック）から取得するもの
+const PAGE = {
+  orgChart: '95f29672-672f-8348-a7b7-01d51e19770c', // 👥 組織構成ページ（「組織構成図」見出し配下のファイル添付）
+};
+
 async function notionQuery(databaseId, sorts) {
   const results = [];
   let cursor;
@@ -52,6 +57,32 @@ async function notionQuery(databaseId, sorts) {
   } while (cursor);
   return results;
 }
+
+async function notionBlockChildren(blockId) {
+  const results = [];
+  let cursor;
+  do {
+    const url = new URL(`https://api.notion.com/v1/blocks/${blockId}/children`);
+    url.searchParams.set('page_size', '100');
+    if (cursor) url.searchParams.set('start_cursor', cursor);
+    const res = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${TOKEN}`,
+        'Notion-Version': '2022-06-28',
+      },
+    });
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error(`Notion API error (blocks/${blockId}/children): ${res.status} ${body}`);
+    }
+    const json = await res.json();
+    results.push(...json.results);
+    cursor = json.has_more ? json.next_cursor : null;
+  } while (cursor);
+  return results;
+}
+const HEADING_TYPES = new Set(['heading_1', 'heading_2', 'heading_3']);
+const blockPlainText = (block) => (block[block.type]?.rich_text || []).map(t => t.plain_text).join('').trim();
 
 // --- Notionプロパティ値の取り出し ---
 const getTitle       = (p) => (p?.title || []).map(t => t.plain_text).join('').trim();
@@ -429,6 +460,28 @@ async function main() {
     await writeCsv('certifications.csv',
       ['資格名','氏名','資格区分','資格分野','資格取得日','有効期限','デジタルバッジ','備考'],
       certRows);
+  });
+
+  await section('org_chart.csv', async () => {
+    console.log('== org_chart.csv ==');
+    // 「組織構成」ページの「組織構成図」見出し配下に貼られたファイル添付を、出現順のまま取得する。
+    // データベースではなくページ本文のブロックなので、他セクションと異なりnotionBlockChildrenで直接読む。
+    const blocks = await notionBlockChildren(PAGE.orgChart);
+    let inSection = false;
+    const rows = [];
+    for (const block of blocks) {
+      if (HEADING_TYPES.has(block.type)) {
+        inSection = blockPlainText(block) === '組織構成図';
+        continue;
+      }
+      if (!inSection || block.type !== 'file') continue;
+      const f = block.file;
+      const url = f?.type === 'external' ? f.external?.url : f?.file?.url;
+      if (!url) continue;
+      const caption = (f.caption || []).map(t => t.plain_text).join('').trim();
+      rows.push({ '表示名': caption || '組織構成図', 'リンク': url });
+    }
+    await writeCsv('org_chart.csv', ['表示名', 'リンク'], rows);
   });
 
   console.log('done.');

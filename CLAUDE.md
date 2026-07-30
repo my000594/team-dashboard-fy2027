@@ -87,6 +87,7 @@ team-dashboard-fy2027/
     ├── meeting_plan.csv    ライン別会議実施計画（Notionエクスポート）
     ├── skill.csv           スキルマップ（Notionエクスポート・縦持ち）
     ├── certifications.csv  保有資格（Notionエクスポート・縦持ち）
+    ├── org_chart.csv       組織構成図リンク一覧（Notion「組織構成」ページ本文から自動抽出）
     └── members/
         ├── member_master.csv   メンバーマスタ（Notionエクスポート）
         └── 氏名.png            顔写真（個人名でリネーム・手動管理）
@@ -192,6 +193,8 @@ team-dashboard-fy2027/
 
 LINE_COLORS・LINE_META・LINE_LABEL_MAP定数はmember.html内に定義。
 ラインが変わった場合、または所属ラインの生値の表記が変わった場合は3つとも更新し、このCLAUDE.mdも更新すること。
+
+- メンバー一覧（タブの内容）の下に、`data/org_chart.csv`から組織構成図ファイルへのリンクをチップ形式で常時表示する（タブ切り替えに関わらず固定）。ファイルは最大でも年12件（2026/8〜2027/7の月次更新）想定のため、アーカイブ等の絞り込みはせず全件表示。CSVが空、または取得に失敗してもメンバー一覧本体の表示は継続する（catchで握りつぶす）
 
 ### reports.html（3SEレポート）
 - 集計（件数・グラフ）は全員（退職・異動含む）
@@ -353,6 +356,16 @@ AWS Certified Cloud Practitioner,米花 雅史,認定資格,IT,2025-10-11,2028-1
 - 行の並び順はNotion側の「表示順」（Number）プロパティ昇順。CSVには出力されずNotion同期時のソートにのみ使う
 - このデータベースは手動バッチ運用の対象外（Notion API自動同期のみ対応、update_*.batなし）
 
+### data/org_chart.csv（Notion「組織構成」ページ本文から自動抽出）
+```
+表示名,リンク
+2026年8月,https://syshd01-my.sharepoint.com/...
+```
+- Notion側の出典：DBではなく「👥 組織構成」ページ本文の「### 組織構成図」見出し配下に貼られたファイル添付ブロック（外部ドライブ・SharePoint等へのリンク）。ページ内の掲載順（＝Notion上で追加した順）のままCSVに出力される
+- 表示名：Notion側でファイルに設定した**キャプション**をそのまま使用（例：`2026年8月`）。キャプション未設定の場合は「組織構成図」とフォールバック表示
+- 運用：月1回、その時点の組織構成図ファイルをNotionの「組織構成図」見出し配下に追加し、キャプションに対象年月を入力する。最大でも年12件（2026/8〜2027/7）の想定のため、ダッシュボード側は履歴アーカイブを持たず全件をmember.html（メンバー一覧の下）にチップ表示するだけ
+- このデータは手動バッチ運用の対象外（Notion API自動同期のみ対応、update_*.batなし）
+
 ---
 
 ## データ更新フロー
@@ -377,6 +390,8 @@ Notionを手動エクスポートせず、GitHub ActionsからNotion APIを直�
   - meetingPlan: 実施計画（ライン別会議実施計画）
   - skill: 📍 スキルマップ
   - certification: 💯 保有資格
+- 対象ページ（DBクエリではなくページ本文のブロックを直接取得。`scripts/sync-notion.mjs`内`PAGE`定数）：
+  - orgChart: 👥 組織構成ページ（「組織構成図」見出し配下のファイル添付 → org_chart.csv）
 - 認証：NotionのInternal Integrationトークンを GitHub Secrets の `NOTION_TOKEN` に設定して使用
 - `member_master.csv`の「画像」列は自動取得せず、既存CSVの値を氏名突き合わせで引き継ぐ（顔写真は引き続き手動管理）
 - `3se_report.csv`の「備考」列は、メンバーマスタの「ステータス」が異動/退職の人を自動判定して埋める（手動記入不要になった）
