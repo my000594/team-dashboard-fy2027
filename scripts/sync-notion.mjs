@@ -464,22 +464,46 @@ async function main() {
 
   await section('org_chart.csv', async () => {
     console.log('== org_chart.csv ==');
-    // 「組織構成」ページの「組織構成図」見出し配下に貼られたファイル添付を、出現順のまま取得する。
+    // 「組織構成」ページの「組織構成図」セクション配下に貼られたファイル添付を、出現順のまま取得する。
     // データベースではなくページ本文のブロックなので、他セクションと異なりnotionBlockChildrenで直接読む。
-    const blocks = await notionBlockChildren(PAGE.orgChart);
-    let inSection = false;
-    const rows = [];
-    for (const block of blocks) {
-      if (HEADING_TYPES.has(block.type)) {
-        inSection = blockPlainText(block) === '組織構成図';
-        continue;
-      }
-      if (!inSection || block.type !== 'file') continue;
+    // 「組織構成図」セクションは (a) 見出しブロック＋後続の兄弟としてファイルが並ぶ形と、
+    // (b) トグルブロック／トグル化見出しの子ブロックとしてファイルが入る形の両方があり得るため両対応する。
+    const extractFile = (block, fallbackLabel) => {
       const f = block.file;
       const url = f?.type === 'external' ? f.external?.url : f?.file?.url;
-      if (!url) continue;
+      if (!url) return null;
       const caption = (f.caption || []).map(t => t.plain_text).join('').trim();
-      rows.push({ '表示名': caption || '組織構成図', 'リンク': url });
+      return { '表示名': caption || fallbackLabel, 'リンク': url };
+    };
+    const topBlocks = await notionBlockChildren(PAGE.orgChart);
+    const rows = [];
+    for (let i = 0; i < topBlocks.length; i++) {
+      const block = topBlocks[i];
+      const isToggle = block.type === 'toggle';
+      if (!isToggle && !HEADING_TYPES.has(block.type)) continue;
+      const title = isToggle
+        ? (block.toggle?.rich_text || []).map(t => t.plain_text).join('').trim()
+        : blockPlainText(block);
+      if (title !== '組織構成図') continue;
+
+      if (block.has_children) {
+        // トグル／トグル化見出し：子ブロックの中からファイル添付を取得
+        const children = await notionBlockChildren(block.id);
+        for (const child of children) {
+          if (child.type !== 'file') continue;
+          const row = extractFile(child, title);
+          if (row) rows.push(row);
+        }
+      } else {
+        // 通常の見出し：後続の兄弟ブロックとして続くファイル添付を取得（トグル化されていない旧レイアウト向け）
+        for (let j = i + 1; j < topBlocks.length; j++) {
+          const sib = topBlocks[j];
+          if (HEADING_TYPES.has(sib.type) || sib.type === 'toggle') break;
+          if (sib.type !== 'file') continue;
+          const row = extractFile(sib, title);
+          if (row) rows.push(row);
+        }
+      }
     }
     await writeCsv('org_chart.csv', ['表示名', 'リンク'], rows);
   });
