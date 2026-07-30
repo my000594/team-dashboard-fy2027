@@ -2,13 +2,14 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
+<meta name="robots" content="noindex, nofollow, noarchive">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>売上・数字 — 第1ライン FY2027</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js" integrity="sha384-dug+JxfBvklEQdJ4AYuBBAIScUz0bVN73xpy273gcAwHjb3qI0fXmuYNaNfdyYJG" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js" integrity="sha384-D/t0ZMqQW31H3az8ktEiNb39wyKnS82iFY52QPACM+IjKW3jDUhyIgh2PApRqJZs" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <style>
 .cust-item{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:8px;overflow:hidden;transition:border-color .15s}
 .cust-item:hover{border-color:var(--border2)}
@@ -102,6 +103,9 @@
 const MONTH_ORDER = ['8月','9月','10月','11月','12月','1月','2月','3月','4月','5月','6月','7月'];
 const CUST_COLORS = ['#3b82f6','#22c55e','#f59e0b','#a78bfa','#f87171','#22d3ee','#fb923c','#e879f9','#4ade80','#facc15','#60a5fa'];
 const charts = {};
+function escHTML(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
 
 function rateColor(r, future) {
   if (future) return { bg:'var(--bg3)', text:'var(--text3)' };
@@ -239,7 +243,7 @@ async function init() {
     let hmHtml = `<table class="hm-table"><tr><th>顧客</th>${hmMonths.map(m=>`<th>${m}</th>`).join('')}</tr>`;
     customers.forEach(c => {
       const mMap = Object.fromEntries(c.months.map(m=>[m.monthLabel, m]));
-      hmHtml += `<tr><td style="text-align:left;font-weight:500;padding:5px 8px;white-space:nowrap;color:var(--text)">${c.name}</td>`;
+      hmHtml += `<tr><td style="text-align:left;font-weight:500;padding:5px 8px;white-space:nowrap;color:var(--text)">${escHTML(c.name)}</td>`;
       hmMonths.forEach(m => {
         const md = mMap[m];
         const future = !md || md.actual === 0;
@@ -286,7 +290,7 @@ async function init() {
         <div class="cust-header" onclick="this.closest('.cust-item').classList.toggle('open');toggleChart(${i})">
           <div class="cust-color-bar" style="background:${c.color}"></div>
           <div class="cust-name-wrap">
-            <div class="cust-name">${c.name}</div>
+            <div class="cust-name">${escHTML(c.name)}</div>
             <div class="cust-sub">累計予算 ${c.totalBudget.toLocaleString()}</div>
           </div>
           <div class="cust-bar-wrap"><div class="cust-bar" style="width:${pct}%;background:${c.color}"></div></div>
@@ -302,7 +306,7 @@ async function init() {
             <div class="dkpi"><div class="dkpi-label">残予算</div><div class="dkpi-value">${rate>=100?'達成済':(c.totalBudget-c.totalActual).toLocaleString()}</div></div>
           </div>
           <div style="position:relative;width:100%;height:150px;margin-top:1rem">
-            <canvas id="${chartId}" role="img" aria-label="${c.name}の月別売上推移">${c.name}の月別実績</canvas>
+            <canvas id="${chartId}" role="img" aria-label="${escHTML(c.name)}の月別売上推移">${escHTML(c.name)}の月別実績</canvas>
           </div>
           <table class="month-tbl" style="margin-top:1rem">
             <thead><tr><th style="text-align:left">月</th><th>予算</th><th>実績</th><th>達成度</th><th>達成率</th></tr></thead>

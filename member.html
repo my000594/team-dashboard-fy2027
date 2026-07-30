@@ -2,12 +2,13 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
+<meta name="robots" content="noindex, nofollow, noarchive">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>メンバー — 第1ライン FY2027</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js" integrity="sha384-D/t0ZMqQW31H3az8ktEiNb39wyKnS82iFY52QPACM+IjKW3jDUhyIgh2PApRqJZs" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 </head>
 <body>
 <nav class="nav" id="nav"></nav>
@@ -67,14 +68,15 @@ function calcTenure(joinStr) {
 }
 function avatarHTML(m, sz=28) {
   const col = lc(m.line); const fsz = Math.round(sz*.38);
-  const fb = '<span style="width:'+sz+'px;height:'+sz+'px;border-radius:50%;background:'+col.bg+';color:'+col.c+';display:inline-flex;align-items:center;justify-content:center;font-size:'+fsz+'px;font-weight:500;vertical-align:middle">'+initials(m.name)+'</span>';
+  const initialsEsc = escHTML(initials(m.name));
+  const fb = '<span style="width:'+sz+'px;height:'+sz+'px;border-radius:50%;background:'+col.bg+';color:'+col.c+';display:inline-flex;align-items:center;justify-content:center;font-size:'+fsz+'px;font-weight:500;vertical-align:middle">'+initialsEsc+'</span>';
   if (!m.image) return fb;
   const imgL = IMG_BASE + m.image.replace(/\.[^.]+$/, e => e.toLowerCase());
   const imgU = IMG_BASE + m.image.replace(/\.[^.]+$/, e => e.toUpperCase());
-  return '<img src="'+imgL+'" data-upper="'+imgU+'" width="'+sz+'" height="'+sz+'" style="border-radius:50%;object-fit:cover;vertical-align:middle" onerror="var u=this.getAttribute(\'data-upper\');if(this.src!==u){this.src=u}else{this.outerHTML=\''+initials(m.name)+'\'}" alt="'+m.name+'">';
+  return '<img src="'+imgL+'" data-upper="'+imgU+'" width="'+sz+'" height="'+sz+'" style="border-radius:50%;object-fit:cover;vertical-align:middle" onerror="var u=this.getAttribute(\'data-upper\');if(this.src!==u){this.src=u}else{this.outerHTML=\''+initialsEsc+'\'}" alt="'+escHTML(m.name)+'">';
 }
-function roleBadge(role) { const r=rc(role); return `<span class="badge" style="background:${r.bg};color:${r.c}">${role}</span>`; }
-function lineTag(line) { const l=lc(line); return `<span style="font-size:11px;padding:2px 7px;border-radius:3px;background:${l.bg};color:${l.c}">${line}</span>`; }
+function roleBadge(role) { const r=rc(role); return `<span class="badge" style="background:${r.bg};color:${r.c}">${escHTML(role)}</span>`; }
+function lineTag(line) { const l=lc(line); return `<span style="font-size:11px;padding:2px 7px;border-radius:3px;background:${l.bg};color:${l.c}">${escHTML(line)}</span>`; }
 
 const TABS = [
   {id:'all',label:'ALL'},
@@ -96,26 +98,26 @@ function renderAll(ms) {
       <th class="left">社歴</th><th class="left">委員会</th><th class="left">支援先</th>
     </tr></thead>
     <tbody>${ms.map(m=>`<tr>
-      <td class="left"><div style="display:flex;align-items:center;gap:8px">${avatarHTML(m)}<span style="font-weight:500">${m.name}</span></div></td>
+      <td class="left"><div style="display:flex;align-items:center;gap:8px">${avatarHTML(m)}<span style="font-weight:500">${escHTML(m.name)}</span></div></td>
       <td class="left" style="font-family:var(--mono);font-size:11px;color:var(--text3)">${empFmt(m.empNo)}</td>
       <td class="left">${m.role!=='—'?roleBadge(m.role):'<span style="color:var(--text3)">—</span>'}</td>
-      <td class="left" style="color:var(--text2)">${m.grade}</td>
+      <td class="left" style="color:var(--text2)">${escHTML(m.grade)}</td>
       <td class="left">${lineTag(m.line)}</td>
-      <td class="left" style="color:var(--text2);font-size:11px">${m.join}</td>
-      <td class="left" style="font-family:var(--mono);font-size:11px;color:var(--text2)">${m.tenure}</td>
-      <td class="left" style="font-size:11px">${m.committee}</td>
-      <td class="left" style="font-weight:500">${m.dest}</td>
+      <td class="left" style="color:var(--text2);font-size:11px">${escHTML(m.join)}</td>
+      <td class="left" style="font-family:var(--mono);font-size:11px;color:var(--text2)">${escHTML(m.tenure)}</td>
+      <td class="left" style="font-size:11px">${escHTML(m.committee)}</td>
+      <td class="left" style="font-weight:500">${escHTML(m.dest)}</td>
     </tr>`).join('')}</tbody>
   </table></div></div>`;
 }
 
 function renderGroups(groups) {
   return groups.filter(g=>g.members.length>0).map(g=>{
-    const chips = g.members.map(m=>`<div class="chip">${avatarHTML(m,22)}<div><div class="chip-name">${m.name}</div><div class="chip-sub">${g.subFn(m)}</div></div></div>`).join('');
+    const chips = g.members.map(m=>`<div class="chip">${avatarHTML(m,22)}<div><div class="chip-name">${escHTML(m.name)}</div><div class="chip-sub">${escHTML(g.subFn(m))}</div></div></div>`).join('');
     return `<div class="group-section">
       <div class="group-header" style="border-left-color:${g.color}">
-        <span class="group-title" style="color:${g.color}">${g.label}</span>
-        ${g.sub?`<span style="font-size:11px;color:var(--text3);margin-left:6px">${g.sub}</span>`:''}
+        <span class="group-title" style="color:${g.color}">${escHTML(g.label)}</span>
+        ${g.sub?`<span style="font-size:11px;color:var(--text3);margin-left:6px">${escHTML(g.sub)}</span>`:''}
         <span class="group-count">${g.members.length}名</span>
       </div>
       <div class="chip-list">${chips}</div>
@@ -132,11 +134,11 @@ function renderByLine(ms) {
   }));
   return groups.filter(g=>g.members.length>0).map(g=>{
     const col = lc(g.label);
-    const chips = g.members.map(m=>`<div class="chip">${avatarHTML(m,22)}<div><div class="chip-name">${m.name}</div><div class="chip-sub">${g.subFn(m)}</div></div></div>`).join('');
+    const chips = g.members.map(m=>`<div class="chip">${avatarHTML(m,22)}<div><div class="chip-name">${escHTML(m.name)}</div><div class="chip-sub">${escHTML(g.subFn(m))}</div></div></div>`).join('');
     return `<div class="group-section">
       <div class="group-header" style="border-left-color:${col.c}">
-        <span class="group-title" style="color:${col.c}">${g.label}</span>
-        <span style="font-size:11px;color:var(--text3);margin-left:6px">ライン責任者: ${g.manager}</span>
+        <span class="group-title" style="color:${col.c}">${escHTML(g.label)}</span>
+        <span style="font-size:11px;color:var(--text3);margin-left:6px">ライン責任者: ${escHTML(g.manager)}</span>
         <span class="group-count">${g.members.length}名</span>
       </div>
       <div class="chip-list">${chips}</div>

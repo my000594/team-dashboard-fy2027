@@ -26,7 +26,7 @@
 FY2027（2026年8月〜2027年7月）用。team-dashboardの来期版として新規作成。
 Cloudflare PagesとGitHub（`my000594/team-dashboard-fy2027`）を連携済み。
 `main`ブランチにpushすると自動でビルド・デプロイされる（手動ドロップ運用ではない）。
-URLは部下に共有するだけでアクセス可能。
+サイト全体にBasic認証（共通ID・PASS）がかかっており、URLを知っていてもID・PASSを知らないと閲覧できない（詳細は「認証（Basic認証）」節）。
 公開URL: （Cloudflare Pagesデプロイ後に記載）
 
 ---
@@ -67,6 +67,9 @@ team-dashboard-fy2027/
 ├── style.css           全ページ共通スタイル（ダークテーマ）
 ├── nav.js              左サイドバーナビ＋メンテナンス制御
 ├── md.js               本文のMarkdown描画共通レンダラ（index/info/knowledgeで共用）
+├── robots.txt           検索エンジン避け（全ページDisallow）
+├── functions/
+│   └── _middleware.js  Cloudflare Pages Functions。サイト全体にBasic認証をかける（詳細は「認証（Basic認証）」節）
 ├── scripts/
 │   └── sync-notion.mjs Notion APIからdata/配下のCSVを自動生成するスクリプト
 ├── .github/workflows/
@@ -438,8 +441,40 @@ Cloudflare PagesとGitHub（`my000594/team-dashboard-fy2027`）を連携済み�
 
 ---
 
+## 認証（Basic認証）
+
+サイト全体（`data/`配下のCSVも含む、`maintenance-app.html`も含む）に、Cloudflare Pages Functions（`functions/_middleware.js`）でHTTP Basic認証をかけている。URLを知っていても、ID・PASSを知らなければ何も見えない。
+
+- 全員共通の1組のID・PASSを使う運用（個々のメンバーごとの発行はしない。管理者＝課長本人がNotion等で控えを管理し、部下には別途伝える）
+- ID・PASSはリポジトリにコミットしない。Cloudflareダッシュボード → 対象のPagesプロジェクト → **Settings → Environment variables** で `DASH_USER` / `DASH_PASS` を設定する（本番＝Productionタブに設定。Preview環境にも同じ値を設定しておくとブランチプレビューにも認証がかかる）
+- 環境変数を設定するまでは`_middleware.js`が全リクエストを503でブロックする（誤って無認証公開してしまう事故を防ぐフェイルクローズ設計）。**初回デプロイ後、必ずCloudflareダッシュボードでこの2つの環境変数を設定すること**
+- パスワードを変更したい場合は、Cloudflareダッシュボードで`DASH_PASS`の値を更新するだけでよい（コード変更・再デプロイ不要）
+- ブラウザ標準のBasic認証ダイアログを使うため、追加のログイン画面・Cookie/セッション管理コードは持たない。一度入力すればブラウザが記憶する（ログアウトしたい場合はブラウザ側の認証情報キャッシュをクリアする必要がある）
+- 弱点：共有ID・PASSのため「誰が・いつアクセスしたか」の個別ログは取れない。個別ログが必要になった場合はCloudflare Access（メールアドレス単位のOTP認証等）への切り替えを検討すること
+
+---
+
+## セキュリティ対応状況（2026-07-30時点）
+
+部下への本格展開に向けて実施した対応と、対応していない既知の限界をまとめる。
+
+**対応済み**
+- サイト全体にBasic認証をかけ、URL単独では閲覧できないようにした（詳細は上記「認証」節）
+- CSV・Notion由来の自由記述文字列（備考・氏名・顧客名・開催単位・達成状況等）をHTMLに埋め込む箇所は、各ページ内の`escHTML`（または`md.js`の`escapeHTML`/`esc`）を通すよう統一。以前は`meetings.html`と`reports.html`の一部列が無エスケープでinnerHTMLに入っており、Notion側の自由記述に`<`等が混ざると表示が壊れる／理論上コード注入の余地があった
+- 全ページに`<meta name="robots" content="noindex, nofollow, noarchive">`を追加し、`robots.txt`で全体をDisallowにした（検索エンジンへの意図しないインデックス防止）
+- 外部CDN（cdnjs経由のChart.js 4.4.1 / PapaParse 5.4.1）の`<script>`タグに`integrity`（SRI）・`crossorigin`・`referrerpolicy`を付与し、CDN側の改ざんを検知できるようにした。**ライブラリのバージョンを上げる場合は、新しいファイルのSHA-384ハッシュを取り直してintegrity属性も更新すること**（古いハッシュのまま新バージョンを指定すると、ブラウザがintegrity不一致でスクリプトをブロックしサイトが全面的に動かなくなる）
+- `scripts/sync-notion.mjs`に`assertProperties()`を追加。各Notion DBの1件目のページに、期待するプロパティ名が存在するかを同期のたびにチェックする。Notion側でプロパティ名が変更・削除されると、これまでは該当項目が無言で空欄になり続けていた（実際に「組織構成図」見出し名変更で発生）。プロパティ名を追加・変更した場合はこのチェックリストも追随して更新すること
+
+**既知の限界（未対応・運用でカバー）**
+- Notionのプロパティ**名**の変更は`assertProperties()`で検知できるが、**型**の変更（例：テキスト→セレクト）や**値の中身が意図とズレる**ケース（誤入力等）までは検知できない
+- Notion直アップロードファイル（`meeting_plan.csv`の資料リンク・`org_chart.csv`・`certifications.csv`のデジタルバッジ）は期限付きURLになり得るため、時間経過でリンク切れになることがある。エラー表示は出ないため、リンクを踏んだ人が気づく形になる。恒久リンクにしたい場合は外部ストレージ（Google Drive等）のリンクをNotionに貼る運用にすること
+- 共有Basic認証のため、ID・PASSを知っている人同士であれば区別できない（前述）
+
+---
+
 ## 今後の課題・未実装
 - Cloudflare Pages公開URLの確定・記載
+- Cloudflare Pagesの環境変数（`DASH_USER` / `DASH_PASS`）設定（未設定の間はサイト全体が503になる）
 - NotionのInternal Integration作成・各データベースへの共有・GitHub Secrets（`NOTION_TOKEN`）登録（scripts/sync-notion.mjs運用開始のため）
 - 顔写真（氏名.png）の準備・配置
 - 実売上データへの置き換え（現在サンプル値）

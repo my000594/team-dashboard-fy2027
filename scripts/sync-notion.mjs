@@ -169,6 +169,19 @@ async function writeCsv(relPath, headers, rows) {
   console.log(`  wrote ${relPath} (${rows.length} rows)`);
 }
 
+// Notion側でプロパティ名が変更・削除されると、getSelect等は例外を出さずに''を返すため
+// 気づかないまま該当項目だけ空欄になり続ける（実際に組織構成図の見出し名変更で発生した）。
+// 値が空なのは正常（未入力）だが、プロパティ名そのものが1件目のページに存在しない場合は
+// 列名変更の可能性が高いため、ここで検知してエラーとして表面化させる。
+function assertProperties(pages, requiredNames, label) {
+  if (!pages.length) return; // 0件の場合はwriteCsv側の空データガードに任せる
+  const sample = pages[0].properties;
+  const missing = requiredNames.filter(name => !(name in sample));
+  if (missing.length) {
+    throw new Error(`Notion側のプロパティが見つかりません（列名変更・削除の可能性）: ${missing.join('、')}`);
+  }
+}
+
 let hadSectionErrors = false;
 // 1つのDB取得・書き込みが失敗しても他のDBの同期を止めないようにするラッパー。
 // GitHub Actions側もコミットステップにif: !cancelled()を設定し、一部失敗時でも成功分は反映されるようにしている
@@ -204,6 +217,7 @@ async function main() {
   await section('member_master.csv', async () => {
     console.log('== member_master.csv ==');
     const memberPages = await notionQuery(DB.member);
+    assertProperties(memberPages, ['氏名','社員番号','役職','等級','所属ライン','入社年月日','社歴','委員会','支援先','ステータス','備考'], 'member_master.csv');
 
     // 既存CSVから「画像」列だけ引き継ぐ（顔写真ファイルの手動管理はCLAUDE.md参照。Notionからは自動取得しない）
     const existingImageByName = new Map();
@@ -266,6 +280,7 @@ async function main() {
     console.log('== 3se_report.csv ==');
     const sePages = await notionQuery(DB.threeSE);
     const MONTHS = ['8月','9月','10月','11月','12月','1月','2月','3月','4月','5月','6月','7月'];
+    assertProperties(sePages, ['社員番号', ...MONTHS, '達成状況','合計','1Q','2Q','3Q','4Q'], '3se_report.csv');
     const seRows = sePages.map(page => {
       const props = page.properties;
       const name = getTitle(props['社員番号']); // タイトル列だが実体は氏名
@@ -290,6 +305,7 @@ async function main() {
   await section('sales.csv', async () => {
     console.log('== sales.csv ==');
     const salesPages = await notionQuery(DB.sales);
+    assertProperties(salesPages, ['タイトル','顧客名','月','予算','実績'], 'sales.csv');
     const salesRows = salesPages.map(page => {
       const props = page.properties;
       return {
@@ -306,6 +322,7 @@ async function main() {
   await section('info.csv', async () => {
     console.log('== info.csv ==');
     const infoPages = await notionQuery(DB.info);
+    assertProperties(infoPages, ['タイトル','本文','開始日','終了日','種別'], 'info.csv');
     const infoRows = infoPages.map(page => {
       const props = page.properties;
       return {
@@ -322,6 +339,7 @@ async function main() {
   await section('knowledge.csv', async () => {
     console.log('== knowledge.csv ==');
     const knowledgePages = await notionQuery(DB.knowledge);
+    assertProperties(knowledgePages, ['タイトル','種別','カテゴリ','質問','回答・本文','サマリー','タグ','更新日','親ナレッジ'], 'knowledge.csv');
     // ページID → タイトルのマップ（「親ナレッジ」リレーション解決用）
     const pageTitleMap = new Map();
     for (const page of knowledgePages) {
@@ -375,6 +393,7 @@ async function main() {
   await section('meeting_plan.csv', async () => {
     console.log('== meeting_plan.csv ==');
     const meetingPages = await notionQuery(DB.meetingPlan);
+    assertProperties(meetingPages, ['実施月','実施日','開催単位','実施形式','備考','落とし込み内容'], 'meeting_plan.csv');
     const meetingRows = meetingPages.map(page => {
       const props = page.properties;
       const dateIso = getDateStart(props['実施日']);
@@ -399,6 +418,7 @@ async function main() {
     const skillPages = await notionQuery(DB.skill);
     // ヒアリング実施時期ごとの評価列。新しい時期が追加されたらここに追記し、CLAUDE.mdのデータフォーマット節も更新すること
     const SKILL_PERIODS = ['2026年8月','2026年11月','2027年2月','2027年5月'];
+    assertProperties(skillPages, ['タイトル','氏名','スキル名','カテゴリ','サブカテゴリ', ...SKILL_PERIODS, '備考','更新日'], 'skill.csv');
     const skillRows = skillPages.map(page => {
       const props = page.properties;
       const row = {
@@ -431,6 +451,7 @@ async function main() {
   await section('certifications.csv', async () => {
     console.log('== certifications.csv ==');
     const certPages = await notionQuery(DB.certification);
+    assertProperties(certPages, ['資格名','氏名','資格区分','資格分野','資格取得日','有効期限','デジタルバッジ','備考'], 'certifications.csv');
     const certRows = certPages.map(page => {
       const props = page.properties;
       return {

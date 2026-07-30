@@ -2,13 +2,14 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
+<meta name="robots" content="noindex, nofollow, noarchive">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>3SEレポート — 第1ライン FY2027</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js" integrity="sha384-dug+JxfBvklEQdJ4AYuBBAIScUz0bVN73xpy273gcAwHjb3qI0fXmuYNaNfdyYJG" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js" integrity="sha384-D/t0ZMqQW31H3az8ktEiNb39wyKnS82iFY52QPACM+IjKW3jDUhyIgh2PApRqJZs" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 </head>
 <body>
 <nav class="nav" id="nav"></nav>
@@ -99,6 +100,9 @@
 const MONTHS = ['8月','9月','10月','11月','12月','1月','2月','3月','4月','5月','6月','7月'];
 const Q_COLS  = ['1Q','2Q','3Q','4Q'];
 const fmt = n => (n===0||n==null) ? '' : n;
+function escHTML(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
 
 async function init() {
   try {
@@ -153,9 +157,10 @@ async function init() {
       if(ai!==bi) return ai-bi;
       return calcTotal(b)-calcTotal(a);
     }).forEach(r=>{
+      const status = (r['達成状況']||'').trim();
       tbody.innerHTML+=`<tr>
-        <td class="left" style="font-weight:500">${r['社員番号']}</td>
-        <td class="left"><span class="badge badge-${r['達成状況']}">${r['達成状況']}</span></td>
+        <td class="left" style="font-weight:500">${escHTML(r['社員番号'])}</td>
+        <td class="left"><span class="badge badge-${escHTML(status)}">${escHTML(status)}</span></td>
         <td class="left" style="font-family:var(--mono);font-weight:700">${calcTotal(r)}</td>
         <td>${fmt(r['8月'])}</td><td>${fmt(r['9月'])}</td><td>${fmt(r['10月'])}</td>
         <td class="q-col">${fmt(r['1Q'])}</td>
@@ -165,7 +170,7 @@ async function init() {
         <td class="q-col">${fmt(r['3Q'])}</td>
         <td>${fmt(r['5月'])}</td><td>${fmt(r['6月'])}</td><td>${fmt(r['7月'])}</td>
         <td class="q-col">${fmt(r['4Q'])}</td>
-        <td class="left" style="color:var(--text3);font-size:11px">${r['備考']||''}</td>
+        <td class="left" style="color:var(--text3);font-size:11px">${escHTML(r['備考']||'')}</td>
       </tr>`;
     });
 
