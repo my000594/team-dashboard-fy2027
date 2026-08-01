@@ -477,11 +477,20 @@ async function main() {
         '備考': getRichText(props['備考']),
       };
     });
-    // 表示順（資格カタログの並び）が設定されている行を優先し、未設定の行は末尾に回す
+    // 表示順（資格カタログの並び）で並べる。1行＝1人×1資格のため、同じ資格を複数人が持つ場合に
+    // 表示順が一部の人の行にしか入っていなくても並びがブレないよう、資格名ごとの最小値（＝資格カタログとしての順位）で比較する
+    const certOrderByName = new Map();
+    certRows.forEach(r => {
+      if (r.__order == null) return;
+      const cur = certOrderByName.get(r['資格名']);
+      if (cur == null || r.__order < cur) certOrderByName.set(r['資格名'], r.__order);
+    });
     certRows.sort((a, b) => {
-      if (a.__order != null && b.__order != null) return a.__order - b.__order;
-      if (a.__order != null) return -1;
-      if (b.__order != null) return 1;
+      const oa = certOrderByName.get(a['資格名']);
+      const ob = certOrderByName.get(b['資格名']);
+      if (oa != null && ob != null) return oa - ob;
+      if (oa != null) return -1;
+      if (ob != null) return 1;
       return 0;
     });
     warnDuplicates(certRows, r => r['氏名'] && r['資格名'] ? `${r['氏名']}_${r['資格名']}` : '', 'certifications.csv');
