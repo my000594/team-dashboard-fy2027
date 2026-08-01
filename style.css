@@ -200,7 +200,10 @@ body {
 .tbl tfoot tr td { border-top: 1px solid var(--border2); color: var(--blue); font-family: var(--mono); font-weight: 700; border-bottom: none; }
 
 /* ── Tabs ── */
-.tabs { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 1.25rem; }
+/* min-width:0：他の要素と横並びのflex行にネストされる場合（例：skill.htmlの評価時期・分野タブ）に備えた保険。
+   flexアイテムはデフォルトでmin-width:autoのため、指定がないと自身の内容の最大幅を主張して
+   折り返さずに横にはみ出すことがある典型パターンを防ぐ */
+.tabs { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 1.25rem; min-width: 0; }
 .tab {
   font-size: 12px; font-weight: 500; padding: 5px 14px;
   border-radius: 999px; cursor: pointer;

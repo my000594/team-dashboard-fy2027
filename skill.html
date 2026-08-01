@@ -38,10 +38,13 @@
 .sr-bar{height:100%;border-radius:3px}
 .sr-lv{font-size:11px;font-family:var(--mono);color:var(--text2);min-width:34px;text-align:right}
 .mobile-only{display:none}
-.mobile-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:.5px solid var(--border);font-size:12px}
+/* 名前と値を横並びにすると、資格名など長い英語名が2行に折り返した時に右側の日付・バッジが窮屈に詰まって
+   見づらくなるため、名前を1行目・値を2行目に積む縦積みレイアウトにしている */
+.mobile-row{padding:9px 0;border-bottom:.5px solid var(--border);font-size:13px}
 .mobile-row:last-child{border-bottom:none}
-.mobile-row-name{color:var(--text);flex:1;min-width:0}
-.mobile-row-val{display:flex;flex-direction:column;align-items:flex-end;gap:2px;flex-shrink:0}
+.mobile-row-name{color:var(--text);display:block;margin-bottom:5px}
+.mobile-row-val{display:flex;align-items:center;flex-wrap:wrap;gap:8px 10px}
+.mobile-row-val .skill-note{margin-top:0;font-size:11px}
 /* 幅が狭い画面ではメンバー×スキル／資格の横長マトリクスが窮屈になるため、
    メンバーを1人選んでスキル・資格を縦一覧で見るモバイル専用ビューに切り替える */
 @media (max-width: 700px) {
