@@ -101,6 +101,21 @@ function getFormula(p) {
   if (f.type === 'date') return f.date?.start || null;
   return null;
 }
+// 数値プロパティの型がnumber／formula（数式）／rollupのいずれで作られていても読み取れるようにする汎用ゲッター。
+// 予算差（見込）・予算差（実績）はNotion側で計算済みの数式列だが、作り方（formula/rollup）を限定しないための保険
+function getNumberAny(p) {
+  if (!p) return null;
+  if (p.type === 'number') return p.number ?? null;
+  if (p.type === 'formula') return p.formula?.type === 'number' ? p.formula.number : null;
+  if (p.type === 'rollup') {
+    if (p.rollup?.type === 'number') return p.rollup.number;
+    if (p.rollup?.type === 'array') {
+      const nums = (p.rollup.array || []).map(x => x?.number).filter(n => typeof n === 'number');
+      return nums.length ? nums.reduce((a, b) => a + b, 0) : null;
+    }
+  }
+  return null;
+}
 
 // ISO日付(YYYY-MM-DD) → 「YYYY年M月D日」
 function isoToJaDate(iso) {
@@ -305,7 +320,7 @@ async function main() {
   await section('sales.csv', async () => {
     console.log('== sales.csv ==');
     const salesPages = await notionQuery(DB.sales);
-    assertProperties(salesPages, ['タイトル','顧客名','月','予算','実績'], 'sales.csv');
+    assertProperties(salesPages, ['タイトル','顧客名','月','予算','実績','予算差（見込）','予算差（実績）'], 'sales.csv');
     const salesRows = salesPages.map(page => {
       const props = page.properties;
       return {
@@ -314,9 +329,12 @@ async function main() {
         '月': isoToJaDate(getDateStart(props['月'])),
         '予算': getNumber(props['予算']),
         '実績': getNumber(props['実績']),
+        // 月が確定するまでは見込、確定後は実績の差分をNotion側の数式で算出したもの（sales.html側で使い分ける）
+        '予算差（見込）': getNumberAny(props['予算差（見込）']),
+        '予算差（実績）': getNumberAny(props['予算差（実績）']),
       };
     });
-    await writeCsv('sales.csv', ['タイトル','顧客名','月','予算','実績'], salesRows);
+    await writeCsv('sales.csv', ['タイトル','顧客名','月','予算','実績','予算差（見込）','予算差（実績）'], salesRows);
   });
 
   await section('info.csv', async () => {

@@ -229,7 +229,8 @@ async function init() {
     // 売上月別グラフ
     const salesByMonth = {};
     salesRows.forEach(r => {
-      const d = new Date(r['月']); if(isNaN(d)) return;
+      // 「2027年7月1日」のようなNotion同期形式はnew Date()で解釈できないため、parseMonth()を使う
+      const d = parseMonth(r['月']); if(!d||isNaN(d)) return;
       const label = (d.getMonth()+1)+'月';
       if (!salesByMonth[label]) salesByMonth[label] = { budget: 0, actual: 0 };
       salesByMonth[label].budget += +r['予算']||0;

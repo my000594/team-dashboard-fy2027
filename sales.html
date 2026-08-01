@@ -39,6 +39,11 @@
 .month-tbl tbody tr:last-child td{border-bottom:none}
 .month-tbl tfoot td{border-top:.5px solid var(--border2);font-weight:700;border-bottom:none;color:var(--blue)}
 .rate-pill{display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px}
+/* 予算差（見込・実績）表示用。達成率の色（緑=達成／赤=未達）はそのまま流用し、
+   「確定値か見込値か」だけを紫系タグで別軸に区別する */
+.delta-chip{display:inline-flex;align-items:baseline;gap:4px;font-family:var(--mono);font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;flex-shrink:0}
+.delta-chip .tag,.tag{font-family:var(--font);font-size:9px;font-weight:600;color:var(--purple);background:var(--purple-dim);border-radius:4px;padding:1px 5px;margin-left:4px;vertical-align:1px}
+.diffval{font-weight:700}
 .hm-table{border-collapse:collapse;font-size:11px;min-width:100%}
 .hm-table th{font-size:10px;font-weight:500;color:var(--text3);padding:5px 6px;text-align:center;white-space:nowrap}
 .hm-table th:first-child{text-align:left;min-width:120px}
@@ -49,6 +54,8 @@
   .cust-header{gap:8px}
   .cust-val{min-width:0;font-size:11px}
   .cust-rate{min-width:34px}
+  /* 狭い画面では行が窮屈になるため予算差チップは折りたたみ表示側に譲る */
+  .delta-chip{display:none}
 }
 @media (max-width: 700px) {
   .detail-kpi{grid-template-columns:repeat(2,1fr)}
@@ -88,7 +95,8 @@
       <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:rgba(34,197,94,.2);margin-right:5px;vertical-align:middle"></span>100%以上</span>
       <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:rgba(245,158,11,.2);margin-right:5px;vertical-align:middle"></span>85〜99%</span>
       <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:rgba(248,113,113,.2);margin-right:5px;vertical-align:middle"></span>85%未満</span>
-      <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--bg3);margin-right:5px;vertical-align:middle"></span>未確定</span>
+      <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--bg3);margin-right:5px;vertical-align:middle"></span>未確定（見込データ無し）</span>
+      <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:rgba(148,163,184,.35);margin-right:5px;vertical-align:middle"></span>薄い色＝見込（未確定月の予測）</span>
     </div>
     <div style="overflow-x:auto" id="heatmap"></div>
   </div>
@@ -152,6 +160,14 @@ async function init() {
     }
     // カンマ区切り数値を数値に変換
     function toNum(v) { return parseFloat(String(v||'0').replace(/,/g,''))||0; }
+    // 予算差（見込・実績）はデータが無い月もあるため、0扱いせずnullのまま区別する
+    function toNumOrNull(v) {
+      if (v === '' || v === null || v === undefined) return null;
+      const n = parseFloat(String(v).replace(/,/g,''));
+      return isNaN(n) ? null : n;
+    }
+    // 符号付きで表示（マイナスは▲、それ以外は+）
+    function fmtDiff(v) { return (v > 0 ? '+' : v < 0 ? '▲' : '') + Math.abs(v).toLocaleString(); }
 
     const custMap = new Map();
     rows.forEach(r => {
@@ -159,44 +175,78 @@ async function init() {
       if (!name) return;
       const d = parseMonth(r['月']); if(!d||isNaN(d)) return;
       const monthLabel = (d.getMonth()+1) + '月';
+      const actual = toNum(r['実績']);
+      const diffActual   = toNumOrNull(r['予算差（実績）']);
+      const diffForecast = toNumOrNull(r['予算差（見込）']);
+      // 実績が確定している月は実績側の差分を、未確定の月は見込側の差分を採用する
+      let diff = null, diffIsForecast = false;
+      if (actual > 0 && diffActual !== null) { diff = diffActual; }
+      else if (diffForecast !== null) { diff = diffForecast; diffIsForecast = true; }
       if (!custMap.has(name)) custMap.set(name, []);
-      custMap.get(name).push({ monthLabel, date: d, budget: toNum(r['予算']), actual: toNum(r['実績']) });
+      custMap.get(name).push({ monthLabel, date: d, budget: toNum(r['予算']), actual, diff, diffIsForecast });
     });
 
     // 月順ソート
     custMap.forEach((v,k) => custMap.set(k, v.sort((a,b)=>a.date-b.date)));
 
-    const customers = [...custMap.entries()].map(([name, months], i) => ({
-      name, color: CUST_COLORS[i % CUST_COLORS.length],
-      months,
-      totalBudget: months.reduce((s,m)=>s+m.budget, 0),
-      totalActual: months.reduce((s,m)=>s+m.actual, 0),
-    })).sort((a,b)=>b.totalBudget-a.totalBudget);
+    const customers = [...custMap.entries()].map(([name, months], i) => {
+      // 累計予算差＝確定月は実績差・未確定月は見込差を合算した「今のペースで着地したらどうなるか」の値。
+      // 予算差の列が無い（Notion未同期・旧CSV）月が混ざっていても、データがある月だけで合算する
+      let totalDiff = 0, hasDiffData = false, hasForecastComponent = false;
+      months.forEach(m => {
+        if (m.diff === null) return;
+        totalDiff += m.diff;
+        hasDiffData = true;
+        if (m.diffIsForecast) hasForecastComponent = true;
+      });
+      return {
+        name, color: CUST_COLORS[i % CUST_COLORS.length],
+        months,
+        totalBudget: months.reduce((s,m)=>s+m.budget, 0),
+        totalActual: months.reduce((s,m)=>s+m.actual, 0),
+        totalDiff, hasDiffData, hasForecastComponent,
+      };
+    }).sort((a,b)=>b.totalBudget-a.totalBudget);
 
     const grandBudget = customers.reduce((s,c)=>s+c.totalBudget, 0);
     const grandActual = customers.reduce((s,c)=>s+c.totalActual, 0);
     const grandRate   = grandBudget>0 ? Math.round(grandActual/grandBudget*100) : 0;
     const achieved    = customers.filter(c=>Math.round(c.totalActual/c.totalBudget*100)>=100).length;
     const warning     = customers.filter(c=>{ const r=Math.round(c.totalActual/c.totalBudget*100); return r>0&&r<85; }).length;
+    const grandHasDiffData = customers.some(c=>c.hasDiffData);
+    const grandDiff = customers.reduce((s,c)=>s+(c.hasDiffData?c.totalDiff:0), 0);
+    const grandHasForecastComponent = customers.some(c=>c.hasForecastComponent);
 
     document.getElementById('subtitle').textContent =
       `${new Date().toLocaleDateString('ja-JP')} 時点 ／ 顧客 ${customers.length}社`;
 
     // Metrics
     const mEl = document.getElementById('metrics');
-    [
+    const metricDefs = [
       { label:'累計実績',     val: grandActual.toLocaleString(), sub:`予算比 ${grandRate}%（単位：千円）`, cls:'amber'  },
       { label:'累計予算',     val: grandBudget.toLocaleString(), sub:'年間累計（単位：千円）',              cls:'blue'   },
       { label:'予算達成顧客', val: achieved+'社',                sub:`全${customers.length}社中`,          cls:'green'  },
       { label:'要注意顧客',   val: warning+'社',                 sub:'予算比85%未満',                      cls:'red'    },
-    ].forEach(m => {
-      mEl.innerHTML += `<div class="metric ${m.cls}"><div class="metric-label">${m.label}</div><div class="metric-value">${m.val}</div><div class="metric-sub">${m.sub}</div></div>`;
+    ];
+    // 予算差（見込・実績）がNotionからまだ同期されていない場合はこのカード自体を出さず、既存4枚のまま静かに動作する
+    if (grandHasDiffData) {
+      metricDefs.push({
+        label: '累計予算差（着地見込）',
+        val: fmtDiff(grandDiff),
+        valColor: grandDiff >= 0 ? 'var(--green)' : 'var(--red)',
+        sub: grandHasForecastComponent ? '確定分＋見込分の合計（単位：千円）' : '確定分の合計（単位：千円）',
+        cls: 'purple',
+      });
+    }
+    metricDefs.forEach(m => {
+      mEl.innerHTML += `<div class="metric ${m.cls}"><div class="metric-label">${m.label}</div><div class="metric-value"${m.valColor?` style="color:${m.valColor}"`:''}>${m.val}</div><div class="metric-sub">${m.sub}</div></div>`;
     });
 
     // 月別集計
     const byMonth = {};
     rows.forEach(r => {
-      const d = new Date(r['月']); if(isNaN(d)) return;
+      // 「2027年7月1日」のようなNotion同期形式はnew Date()で解釈できないため、parseMonth()を使う
+      const d = parseMonth(r['月']); if(!d||isNaN(d)) return;
       const lbl = (d.getMonth()+1)+'月';
       if (!byMonth[lbl]) byMonth[lbl] = { budget:0, actual:0 };
       byMonth[lbl].budget += +r['予算']||0;
@@ -249,9 +299,17 @@ async function init() {
       hmMonths.forEach(m => {
         const md = mMap[m];
         const future = !md || md.actual === 0;
-        const rate = future ? null : Math.round(md.actual/md.budget*100);
-        const col = rateColor(rate, future);
-        hmHtml += `<td style="background:${col.bg};color:${col.text};padding:5px 6px">${future?'—':rate+'%'}</td>`;
+        let rate = future ? null : Math.round(md.actual/md.budget*100);
+        // 未確定月でも見込差があれば、予算＋見込差から算出した予測達成率を薄い色で先出しする
+        let isForecast = false;
+        if (future && md && md.diffIsForecast && md.diff !== null && md.budget > 0) {
+          rate = Math.round((md.budget + md.diff) / md.budget * 100);
+          isForecast = true;
+        }
+        const col = rateColor(rate, future && !isForecast);
+        const style = isForecast ? `background:${col.bg};color:${col.text};opacity:.7` : `background:${col.bg};color:${col.text}`;
+        const label = rate === null ? '—' : (isForecast ? `${rate}%<span style="font-size:8px;vertical-align:2px">見</span>` : rate+'%');
+        hmHtml += `<td style="${style};padding:5px 6px">${label}</td>`;
       });
       hmHtml += '</tr>';
     });
@@ -274,17 +332,27 @@ async function init() {
         totB += m.budget; totA += m.actual;
         const mr = future ? null : Math.round(m.actual/m.budget*100);
         const mc = rateColor(mr, future);
-        const bar = future ? '' : `<span style="display:inline-block;width:${Math.min(100,mr)}%;height:5px;background:${mc.text};border-radius:2px;vertical-align:middle;max-width:60px"></span>`;
+        // 達成率%バッジと情報が重複していた達成度バーの代わりに、予算差の実額を表示する
+        const diffCell = m.diff === null
+          ? '<span style="color:var(--text3)">—</span>'
+          : `<span class="diffval" style="color:${m.diff>=0?'var(--green)':'var(--red)'}">${fmtDiff(m.diff)}</span>${m.diffIsForecast?'<span class="tag">見込</span>':''}`;
         rows += `<tr>
           <td>${m.monthLabel}</td>
           <td>${m.budget.toLocaleString()}</td>
           <td>${future?'<span style="color:var(--text3)">—</span>':m.actual.toLocaleString()}</td>
-          <td>${bar}</td>
+          <td>${diffCell}</td>
           <td>${future?'<span style="color:var(--text3)">—</span>':`<span class="rate-pill" style="background:${mc.bg};color:${mc.text}">${mr}%</span>`}</td>
         </tr>`;
       });
       const totRate = totB>0 ? Math.round(totA/totB*100) : 0;
       const tc = rateColor(totRate, false);
+      const totDiffCell = c.hasDiffData
+        ? `<span style="color:${c.totalDiff>=0?'var(--green)':'var(--red)'}">${fmtDiff(c.totalDiff)}</span>${c.hasForecastComponent?'<span class="tag">見込</span>':''}`
+        : '';
+
+      const diffChip = c.hasDiffData
+        ? `<div class="delta-chip" style="background:${c.totalDiff>=0?'var(--green-dim)':'var(--red-dim)'};color:${c.totalDiff>=0?'var(--green)':'var(--red)'}">${fmtDiff(c.totalDiff)}${c.hasForecastComponent?'<span class="tag">見込</span>':''}</div>`
+        : '';
 
       const div = document.createElement('div');
       div.className = 'cust-item';
@@ -297,6 +365,7 @@ async function init() {
           </div>
           <div class="cust-bar-wrap"><div class="cust-bar" style="width:${pct}%;background:${c.color}"></div></div>
           <div class="cust-val">${c.totalActual.toLocaleString()}</div>
+          ${diffChip}
           <div class="cust-rate" style="color:${rc.text}">${rate}%</div>
           <span class="chevron">›</span>
         </div>
@@ -311,11 +380,11 @@ async function init() {
             <canvas id="${chartId}" role="img" aria-label="${escHTML(c.name)}の月別売上推移">${escHTML(c.name)}の月別実績</canvas>
           </div>
           <table class="month-tbl" style="margin-top:1rem">
-            <thead><tr><th style="text-align:left">月</th><th>予算</th><th>実績</th><th>達成度</th><th>達成率</th></tr></thead>
+            <thead><tr><th style="text-align:left">月</th><th>予算</th><th>実績</th><th>予算差</th><th>達成率</th></tr></thead>
             <tbody>${rows}</tbody>
             <tfoot><tr>
               <td style="text-align:left;font-family:var(--font)">合計</td>
-              <td>${totB.toLocaleString()}</td><td>${totA.toLocaleString()}</td><td></td>
+              <td>${totB.toLocaleString()}</td><td>${totA.toLocaleString()}</td><td>${totDiffCell}</td>
               <td><span class="rate-pill" style="background:${tc.bg};color:${tc.text}">${totRate}%</span></td>
             </tr></tfoot>
           </table>
