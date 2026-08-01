@@ -175,6 +175,15 @@ body {
 
 /* ── Table ── */
 .tbl-wrap { overflow-x: auto; }
+/* スマホ幅：横スクロール中も先頭列（氏名等の行識別列）を画面内に固定する */
+@media (max-width: 700px) {
+  .tbl-wrap { position: relative; }
+  .tbl th:first-child, .tbl td:first-child {
+    position: sticky; left: 0; z-index: 1;
+    background: var(--bg2);
+  }
+  .tbl tbody tr:hover td:first-child { background: var(--bg3); }
+}
 .tbl { width: 100%; border-collapse: collapse; font-size: 12px; }
 .tbl th {
   font-size: 10px; font-weight: 600; color: var(--text2);

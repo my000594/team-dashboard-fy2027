@@ -22,6 +22,14 @@
 .doc-link:hover { text-decoration: underline; }
 .plan-tbl { table-layout: fixed; }
 .plan-tbl td.left { white-space: normal; }
+/* スマホ幅：固定%レイアウトのままだと列が詰まって読みにくいため、他表と同じ横スクロール表示に切り替える */
+@media (max-width: 700px) {
+  .plan-tbl { table-layout: auto; min-width: 640px; }
+  .plan-tbl col { width: auto !important; }
+  .plan-tbl td.left { white-space: nowrap; }
+  /* 備考のみ自由記述で長文が入り得るため、折り返しを維持して表が際限なく横に伸びるのを防ぐ */
+  .plan-tbl td.left:nth-child(5) { white-space: normal; max-width: 220px; }
+}
 </style>
 </head>
 <body>
