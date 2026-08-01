@@ -17,6 +17,11 @@
 .matrix-tbl td{padding:5px 8px;border-bottom:.5px solid var(--border);text-align:center;vertical-align:middle}
 .matrix-tbl td.name-col{text-align:left;font-weight:500;color:var(--text);white-space:nowrap}
 .matrix-tbl tbody tr:hover td{background:var(--bg3)}
+/* 区分別・分野別のグループ区切り行。以前はグループごとに別々の<table>を組んでおり、
+   資格名が少ないグループで名前列の幅が狭くなって列がずれて見えていたため、1つのtable内の区切り行に変更 */
+.matrix-tbl tr.group-row td{background:var(--bg2);padding:.5rem .85rem;border-left:3px solid transparent;border-bottom:1px solid var(--border)}
+.matrix-tbl tr.group-row .g-name{font-size:12px;font-weight:500}
+.matrix-tbl tr.group-row .g-count{font-size:11px;color:var(--text3);font-family:var(--mono);margin-left:10px}
 .skill-dot{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;font-size:10px;font-weight:700}
 .skill-dot-empty{color:var(--text3);font-size:15px}
 .skill-note{font-size:10px;color:var(--text2);margin-top:2px;line-height:1.2;word-break:break-word}
@@ -290,19 +295,22 @@ function certCellHTML(rec) {
   return `<span class="skill-dot" style="background:var(--${col}-dim);color:var(--${col})"${titleParts.length ? ` title="${esc(titleParts.join(' / '))}"` : ''}>✓</span>${dateText ? `<div class="skill-note">${dateText}</div>` : ''}${statusLabel ? `<div class="skill-note" style="color:var(--${col})">${statusLabel}</div>` : ''}${badgeLinks}`;
 }
 
-// 資格名のリストから1つのマトリクステーブル（資格×メンバー）のHTMLを組み立てる
-function certTableHTML(certList) {
-  let html = '<thead><tr><th class="name-col">資格</th>' +
+// マトリクスの見出し行（資格・メンバー名）。区分別・分野別でも同じ1つのtableを使い回すため共通化
+function certTableHeadHTML() {
+  return '<thead><tr><th class="name-col">資格</th>' +
     members.map(m => `<th>${esc(m)}</th>`).join('') +
-    '</tr></thead><tbody>';
-  certList.forEach(cert => {
-    html += `<tr><td class="name-col">${esc(cert)}</td>`;
+    '</tr></thead>';
+}
+
+// 資格名のリストから、1つのマトリクステーブルに入れるtbody行（資格×メンバー）のHTMLを組み立てる
+function certTableRowsHTML(certList) {
+  return certList.map(cert => {
+    let row = `<tr><td class="name-col">${esc(cert)}</td>`;
     members.forEach(m => {
-      html += `<td>${certCellHTML(certByMember[m]?.[cert])}</td>`;
+      row += `<td>${certCellHTML(certByMember[m]?.[cert])}</td>`;
     });
-    html += '</tr>';
-  });
-  return html + '</tbody>';
+    return row + '</tr>';
+  }).join('');
 }
 
 // メンバーを1人選んで、その人が保有している資格だけを縦一覧で見るモバイル専用ビュー
@@ -333,23 +341,23 @@ function renderCertMatrix() {
   }
 
   if (currentCertView === 'all') {
-    container.innerHTML = `<div style="overflow-x:auto"><table class="matrix-tbl">${certTableHTML(certNames)}</table></div>`;
+    container.innerHTML = `<div style="overflow-x:auto"><table class="matrix-tbl">${certTableHeadHTML()}<tbody>${certTableRowsHTML(certNames)}</tbody></table></div>`;
     return;
   }
 
+  // 区分別・分野別も同じ1つのtable内でグループ区切り行を挟んで表示する（グループごとに<table>を分けると
+  // 資格名の長さに応じて名前列の幅がグループごとにバラつき、列がずれて見えるため）
   const metaKey = currentCertView === 'category' ? 'category' : 'field';
   const groupOrder = [...new Set(certNames.map(c => certMeta[c]?.[metaKey] || '未分類'))];
-  container.innerHTML = groupOrder.map((g, i) => {
+  const colspan = members.length + 1;
+  const body = groupOrder.map((g, i) => {
     const certsInGroup = certNames.filter(c => (certMeta[c]?.[metaKey] || '未分類') === g);
     const col = CAT_PALETTE[i % CAT_PALETTE.length];
-    return `<div class="group-section">
-      <div class="group-header" style="border-left-color:var(--${col})">
-        <span class="group-title" style="color:var(--${col})">${esc(g)}</span>
-        <span class="group-count">${certsInGroup.length}件</span>
-      </div>
-      <div style="overflow-x:auto"><table class="matrix-tbl">${certTableHTML(certsInGroup)}</table></div>
-    </div>`;
+    return `<tr class="group-row"><td colspan="${colspan}" style="border-left-color:var(--${col})">
+      <span class="g-name" style="color:var(--${col})">${esc(g)}</span><span class="g-count">${certsInGroup.length}件</span>
+    </td></tr>${certTableRowsHTML(certsInGroup)}`;
   }).join('');
+  container.innerHTML = `<div style="overflow-x:auto"><table class="matrix-tbl">${certTableHeadHTML()}<tbody>${body}</tbody></table></div>`;
 }
 
 function showRadar(m) {
