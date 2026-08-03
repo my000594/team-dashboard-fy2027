@@ -487,3 +487,10 @@ Cloudflare PagesとGitHub（`my000594/team-dashboard-fy2027`）を連携済み�
 - 顔写真（氏名.png）の準備・配置
 - 実売上データへの置き換え（現在サンプル値）
 - デザインのさらなる洗練
+- **認証強化（部下への連絡・承諾待ちで保留中）**
+  - 現状：共通ID/PASSのBasic認証 → 個人単位の認証に移行したい
+  - 採用予定方式：**Cloudflare Access + メールOTP**
+  - 理由：Microsoft Azure管理者権限が不要、Cloudflare設定だけで完結、会社メアドがそのまま使える、無料（50名まで）
+  - 対応手順：①部下に事前連絡・承諾取得 → ②Cloudflare Zero Trustを有効化 → ③メールOTPポリシーを設定（許可するメアドを登録） → ④`functions/_middleware.js`を削除 → ⑤pushして完了
+  - セッション有効期間は7日間程度に設定し、毎回コード入力しなくて済むようにする
+  - 検討済み・見送り：Microsoft SSO（Azure管理者権限が必要）、AWS Cognito（構築コスト大・月額コストは同等）
