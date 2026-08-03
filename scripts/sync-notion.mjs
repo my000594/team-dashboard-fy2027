@@ -92,6 +92,12 @@ const getNumber      = (p) => p?.number ?? 0;
 const getDateStart   = (p) => p?.date?.start || '';
 // files型プロパティからリンクだけを取り出す（Notionアップロードのfile.urlは期限付きプリサインURLである点に注意）
 const getFileLinks   = (p) => (p?.files || []).map(f => f.type === 'external' ? f.external?.url : f.file?.url).filter(Boolean);
+// files型プロパティから「名前|URL」形式で取り出す（Notionで設定した表示名を利用。名前未設定時はURLのみ）
+const getFileLinksWithName = (p) => (p?.files || []).map(f => {
+  const url = f.type === 'external' ? f.external?.url : f.file?.url;
+  if (!url) return null;
+  return f.name ? `${f.name}|${url}` : url;
+}).filter(Boolean);
 function getFormula(p) {
   const f = p?.formula;
   if (!f) return null;
@@ -431,7 +437,7 @@ async function main() {
         '開催単位': getSelect(props['開催単位']),
         '実施形式': getMultiSelect(props['実施形式']).join(','),
         '備考':     getRichText(props['備考']),
-        '資料リンク': getFileLinks(props['落とし込み内容']).join(','),
+        '資料リンク': getFileLinksWithName(props['落とし込み内容']).join(','),
       };
     });
     meetingRows.sort((a, b) => a.dateIso.localeCompare(b.dateIso));
