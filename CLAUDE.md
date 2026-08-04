@@ -460,6 +460,34 @@ Cloudflare PagesとGitHub（`my000594/team-dashboard-fy2027`）を連携済み�
 - ブラウザ標準のBasic認証ダイアログを使うため、追加のログイン画面・Cookie/セッション管理コードは持たない。一度入力すればブラウザが記憶する（ログアウトしたい場合はブラウザ側の認証情報キャッシュをクリアする必要がある）
 - 弱点：共有ID・PASSのため「誰が・いつアクセスしたか」の個別ログは取れない。個別ログが必要になった場合はCloudflare Access（メールアドレス単位のOTP認証等）への切り替えを検討すること
 
+### Cloudflare Accessへの移行計画（2026-08-04時点・準備中／切替待ち）
+
+現行の共有Basic認証を廃止し、**Cloudflare Access＋メールOTP（会社ドメイン一括、必要に応じて個別メール追加）**へ切り替える方針が決定済み。ただし即時切替ではなく、**部下へのセキュリティ変更告知後に本切替**する運用のため、事前準備だけを先行して行い、告知まで発火させない形をとる。
+
+**設計のポイント：Bypassポリシーで「設定済み・未発火」を作る**
+Cloudflare AccessのApplicationには複数ポリシーを登録でき、上から順に最初にマッチしたものが適用される。これを利用し、告知前は`Bypass`ポリシーを一番上に置いてAccessを実質無効化しておき（＝今まで通り`_middleware.js`のBasic認証だけがゲートとして機能する）、告知と同時にBypassを外して本番ポリシーを有効化する。
+
+**対象メンバーの確認事項（切替前に要確認）**
+組織構成のうち以下は会社ドメインメールを持たない可能性があるため、ドメイン一括ルールだけでは弾かれる恐れがある。個別メールアドレスをOR条件で追加する必要があるか事前に確認すること。
+- 劉 華雲（GITより出向）
+- 谷野 亘・眞野 哲朗（嘱託社員。契約形態によっては別ドメインの可能性）
+
+**事前準備フェーズ（今すぐ実施可能・ユーザー影響なし）**
+1. Cloudflareダッシュボード → Zero Trust → チームドメインを有効化（アカウント単位で一度だけ。これ自体はPagesサイトの挙動に影響しない）
+2. Zero Trust → Access → Applications → Add an application → Self-hosted で、対象のPages公開ドメインを指定。パスは`*`（サイト全体）を対象にする（今のBasic認証と同じ範囲）
+3. **ポリシー①（一番上に配置・現状アクティブ）**：名前「Bypass（Basic認証稼働中のため一時停止）」／Action = `Bypass`／Include = Everyone
+4. **ポリシー②（下に用意・現状は①に隠れて未発火）**：名前「本番：会社ドメイン＋個別許可」／Action = `Allow`／Include = `Emails ending in @会社ドメイン`（OR条件で必要に応じて個別メールアドレスを追加行で並べる）／ログイン方式 = One-time PIN（Cloudflare標準機能、外部IdP不要）／Session Duration = 要決定（長めに設定するほど再ログイン頻度が下がり、Basic認証からの体験差を緩和できる）
+5. ポリシー順序が「①Bypass → ②Allow」になっていることを確認（①が先に評価される限り②は発火しない）
+
+**本切替フェーズ（告知当日・数分で完了）**
+1. 部下へ告知（共有ID・PASSのBasic認証から、個人の会社メールアドレス宛OTP認証へ切り替わる旨）
+2. Zero Trust → Access → Applications → 対象App → Policies で、ポリシー①（Bypass）を削除 or 無効化（ポリシー②のみが残り、即座に有効化される）
+3. シークレットウィンドウ等で動作確認：Basic認証ダイアログではなくAccessのOTP画面（メールアドレス入力→ワンタイムコード）が出ることを確認
+4. `functions/_middleware.js`のBasic認証ロジックを無効化（`return next()`にする、またはファイル自体を削除）し、コミット・push（Cloudflare Pagesが自動デプロイ）
+5. 動作確認：Access通過後、通常どおり各ページ・`data/`配下のCSV fetch・`maintenance-app.html`が問題なく動くこと（AccessはCookie（`CF_Authorization`）ベースで同一オリジンの以降のリクエストにも適用されるため、クライアント側の`fetch()`は変更不要のはず）
+6. 不要になった`DASH_USER`／`DASH_PASS`のCloudflare環境変数を削除（任意・お好みで）
+7. このCLAUDE.mdの「認証（Basic認証）」節を「認証（Cloudflare Access）」に書き換え、本セクション（移行計画）と「セキュリティ対応状況」の該当箇所を実態に合わせて更新する
+
 ---
 
 ## セキュリティ対応状況（2026-07-30時点）
@@ -481,6 +509,7 @@ Cloudflare PagesとGitHub（`my000594/team-dashboard-fy2027`）を連携済み�
 ---
 
 ## 今後の課題・未実装
+- Cloudflare Accessへの移行（Basic認証廃止）：事前準備の進め方・切替手順は上記「認証（Basic認証）」節内の「Cloudflare Accessへの移行計画」参照。部下への告知後に本切替を実施する予定
 - Cloudflare Pages公開URLの確定・記載
 - Cloudflare Pagesの環境変数（`DASH_USER` / `DASH_PASS`）設定（未設定の間はサイト全体が503になる）
 - NotionのInternal Integration作成・各データベースへの共有・GitHub Secrets（`NOTION_TOKEN`）登録（scripts/sync-notion.mjs運用開始のため）
