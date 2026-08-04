@@ -476,7 +476,7 @@ Cloudflare AccessのApplicationには複数ポリシーを登録でき、上か�
 1. Cloudflareダッシュボード → Zero Trust → チームドメインを有効化（アカウント単位で一度だけ。これ自体はPagesサイトの挙動に影響しない）
 2. Zero Trust → Access → Applications → Add an application → Self-hosted で、対象のPages公開ドメインを指定。パスは`*`（サイト全体）を対象にする（今のBasic認証と同じ範囲）
 3. **ポリシー①（一番上に配置・現状アクティブ）**：名前「Bypass（Basic認証稼働中のため一時停止）」／Action = `Bypass`／Include = Everyone
-4. **ポリシー②（下に用意・現状は①に隠れて未発火）**：名前「本番：会社ドメイン＋個別許可」／Action = `Allow`／Include = `Emails ending in @会社ドメイン`（OR条件で必要に応じて個別メールアドレスを追加行で並べる）／ログイン方式 = One-time PIN（Cloudflare標準機能、外部IdP不要）／Session Duration = 7日間程度（長めに設定し、毎回コード入力しなくて済むようにする。Basic認証からの体験差を緩和する狙い）
+4. **ポリシー②（下に用意・現状は①に隠れて未発火）**：名前「本番：会社ドメイン＋個別許可」／Action = `Allow`／Include = `Emails ending in @会社ドメイン`（OR条件で必要に応じて個別メールアドレスを追加行で並べる）／ログイン方式 = One-time PIN（Cloudflare標準機能、外部IdP不要）／Session Duration = 1ヶ月（`1 month`）。ダッシュボードが月次更新のため、更新確認の頻度と再認証の煩わしさのバランスを取ってこの値に決定（毎回コード入力を求めると閲覧のハードルが上がり見てもらえなくなるため）。会社ドメイン一括での運用のため、無期限にはせず一定期間で区切る
 5. ポリシー順序が「①Bypass → ②Allow」になっていることを確認（①が先に評価される限り②は発火しない）
 
 **本切替フェーズ（告知当日・数分で完了）**
