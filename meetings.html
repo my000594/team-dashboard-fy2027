@@ -18,7 +18,7 @@
 .format-chip { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 4px; margin-right: 4px; display: inline-block; background: var(--bg3); color: var(--text2); }
 .format-職場別 { background: var(--cyan-dim); color: var(--cyan); }
 .format-懇親会 { background: var(--amber-dim); color: var(--amber); }
-.doc-link { color: var(--blue); font-size: 12px; text-decoration: none; }
+.doc-link { color: var(--blue); font-size: 12px; text-decoration: none; white-space: nowrap; }
 .doc-link:hover { text-decoration: underline; }
 .plan-tbl { table-layout: fixed; }
 .plan-tbl td.left { white-space: normal; }
@@ -89,8 +89,8 @@ async function init() {
     const tableWrap = document.getElementById('tableWrap');
     tableWrap.innerHTML = `<div class="tbl-wrap"><table class="tbl plan-tbl">
       <colgroup>
-        <col style="width:11%"><col style="width:13%"><col style="width:9%">
-        <col style="width:20%"><col style="width:32%"><col style="width:15%">
+        <col style="width:9%"><col style="width:11%"><col style="width:8%">
+        <col style="width:13%"><col style="width:24%"><col style="width:35%">
       </colgroup>
       <thead><tr>
         <th class="left">実施月</th><th class="left">実施日</th><th>開催単位</th>
@@ -99,7 +99,12 @@ async function init() {
       <tbody>${rows.map(r => {
         const d = parseJaDate(r['実施日']);
         const isPast = d && d < today0;
-        const links = (r['資料リンク']||'').split(',').map(s=>s.trim()).filter(Boolean).map(safeHref).filter(Boolean);
+        const links = ((r['資料リンク']||'').split(',').map(s=>s.trim()).filter(Boolean).map(part => {
+          const sep = part.indexOf('|');
+          const name = sep !== -1 ? part.slice(0, sep).trim() : '';
+          const url  = safeHref(sep !== -1 ? part.slice(sep + 1) : part);
+          return url ? { name, url } : null;
+        }).filter(Boolean)).map((l, i, arr) => ({ ...l, name: l.name || (arr.length > 1 ? `資料${i+1}` : '資料') }));
         const unit = (r['開催単位']||'').trim();
         return `<tr style="${isPast?'opacity:.5':''}">
           <td class="left" style="font-weight:500">${escHTML(r['実施月'])}</td>
@@ -107,7 +112,7 @@ async function init() {
           <td>${unit?`<span class="unit-badge unit-${escHTML(unit)}">${escHTML(unit)}</span>`:''}</td>
           <td class="left">${(r['実施形式']||'').split(',').map(s=>s.trim()).filter(Boolean).map(f=>`<span class="format-chip format-${escHTML(f)}">${escHTML(f)}</span>`).join('')}</td>
           <td class="left" style="color:var(--text3)">${escHTML(r['備考']||'')}</td>
-          <td class="left">${links.length ? links.map((l,i)=>`<a class="doc-link" href="${l}" target="_blank" rel="noopener">資料${links.length>1?i+1:''}</a>`).join(' ') : '<span style="color:var(--text3)">—</span>'}</td>
+          <td class="left">${links.length ? links.map(l=>`<a class="doc-link" href="${l.url}" target="_blank" rel="noopener">${escHTML(l.name)}</a>`).join(' ') : '<span style="color:var(--text3)">—</span>'}</td>
         </tr>`;
       }).join('')}</tbody>
     </table></div>`;
