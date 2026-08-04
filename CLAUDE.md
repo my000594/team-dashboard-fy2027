@@ -476,7 +476,7 @@ Cloudflare AccessのApplicationには複数ポリシーを登録でき、上か�
 1. Cloudflareダッシュボード → Zero Trust → チームドメインを有効化（アカウント単位で一度だけ。これ自体はPagesサイトの挙動に影響しない）
 2. Zero Trust → Access → Applications → Add an application → Self-hosted で、対象のPages公開ドメインを指定。パスは`*`（サイト全体）を対象にする（今のBasic認証と同じ範囲）
 3. **ポリシー①（一番上に配置・現状アクティブ）**：名前「Bypass（Basic認証稼働中のため一時停止）」／Action = `Bypass`／Include = Everyone
-4. **ポリシー②（下に用意・現状は①に隠れて未発火）**：名前「本番：会社ドメイン＋個別許可」／Action = `Allow`／Include = `Emails ending in @会社ドメイン`（OR条件で必要に応じて個別メールアドレスを追加行で並べる）／ログイン方式 = One-time PIN（Cloudflare標準機能、外部IdP不要）／Session Duration = 要決定（長めに設定するほど再ログイン頻度が下がり、Basic認証からの体験差を緩和できる）
+4. **ポリシー②（下に用意・現状は①に隠れて未発火）**：名前「本番：会社ドメイン＋個別許可」／Action = `Allow`／Include = `Emails ending in @会社ドメイン`（OR条件で必要に応じて個別メールアドレスを追加行で並べる）／ログイン方式 = One-time PIN（Cloudflare標準機能、外部IdP不要）／Session Duration = 7日間程度（長めに設定し、毎回コード入力しなくて済むようにする。Basic認証からの体験差を緩和する狙い）
 5. ポリシー順序が「①Bypass → ②Allow」になっていることを確認（①が先に評価される限り②は発火しない）
 
 **本切替フェーズ（告知当日・数分で完了）**
@@ -509,7 +509,6 @@ Cloudflare AccessのApplicationには複数ポリシーを登録でき、上か�
 ---
 
 ## 今後の課題・未実装
-- Cloudflare Accessへの移行（Basic認証廃止）：事前準備の進め方・切替手順は上記「認証（Basic認証）」節内の「Cloudflare Accessへの移行計画」参照。部下への告知後に本切替を実施する予定
 - Cloudflare Pages公開URLの確定・記載
 - Cloudflare Pagesの環境変数（`DASH_USER` / `DASH_PASS`）設定（未設定の間はサイト全体が503になる）
 - NotionのInternal Integration作成・各データベースへの共有・GitHub Secrets（`NOTION_TOKEN`）登録（scripts/sync-notion.mjs運用開始のため）
@@ -517,9 +516,7 @@ Cloudflare AccessのApplicationには複数ポリシーを登録でき、上か�
 - 実売上データへの置き換え（現在サンプル値）
 - デザインのさらなる洗練
 - **認証強化（部下への連絡・承諾待ちで保留中）**
-  - 現状：共通ID/PASSのBasic認証 → 個人単位の認証に移行したい
-  - 採用予定方式：**Cloudflare Access + メールOTP**
-  - 理由：Microsoft Azure管理者権限が不要、Cloudflare設定だけで完結、会社メアドがそのまま使える、無料（50名まで）
-  - 対応手順：①部下に事前連絡・承諾取得 → ②Cloudflare Zero Trustを有効化 → ③メールOTPポリシーを設定（許可するメアドを登録） → ④`functions/_middleware.js`を削除 → ⑤pushして完了
-  - セッション有効期間は7日間程度に設定し、毎回コード入力しなくて済むようにする
+  - 現状：共通ID/PASSのBasic認証 → 個人単位認証（Cloudflare Access + メールOTP、会社ドメイン一括＋必要に応じ個別メール追加）に移行予定
+  - 採用理由：Microsoft Azure管理者権限が不要、Cloudflare設定だけで完結、会社メアドがそのまま使える、無料（50名まで）
   - 検討済み・見送り：Microsoft SSO（Azure管理者権限が必要）、AWS Cognito（構築コスト大・月額コストは同等）
+  - 事前準備の進め方・切替手順の詳細（Bypassポリシーによる段階準備、要確認メンバー、切替当日の`_middleware.js`削除手順など）は上記「認証（Basic認証）」節内の「Cloudflare Accessへの移行計画」を参照。部下への告知後に本切替を実施する予定
