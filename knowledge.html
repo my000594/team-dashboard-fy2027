@@ -130,6 +130,7 @@ function renderFaqCard(item, id) {
         <span class="faq-chevron">›</span>
       </div>
       <div class="faq-body">
+        ${item.q ? `<div class="faq-q" style="margin-bottom:.75rem">${esc(item.q)}</div>` : ''}
         <div class="faq-a"><div class="faq-a-body"><div class="md-body">${md2html(item.body)}</div></div></div>
         <div class="faq-footer">
           <span class="badge badge-${catColor(item.category)}">${esc(item.category)}</span>
@@ -149,6 +150,7 @@ function renderChildFaqCard(child, id) {
         <span class="faq-chevron">›</span>
       </div>
       <div class="child-faq-body">
+        ${child.q ? `<div class="faq-q" style="margin-bottom:.75rem">${esc(child.q)}</div>` : ''}
         <div class="faq-a"><div class="faq-a-body"><div class="md-body">${md2html(child.body)}</div></div></div>
         <div class="faq-footer">
           ${(child.tags||[]).map(t=>`<span class="tag">${esc(t)}</span>`).join('')}
