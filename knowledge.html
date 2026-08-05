@@ -21,6 +21,7 @@
 .faq-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:8px;overflow:hidden;transition:border-color .15s}
 .faq-card:hover{border-color:var(--border2)}
 .faq-header{padding:.9rem 1.1rem;cursor:pointer;display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.faq-card-title{font-weight:700;font-size:13.5px;line-height:1.6;flex:1}
 .faq-q{font-weight:700;font-size:13.5px;display:flex;gap:8px;align-items:flex-start;line-height:1.6;flex:1}
 .faq-q::before{content:'Q';font-family:var(--mono);font-size:11px;color:var(--blue);background:var(--blue-dim);padding:1px 6px;border-radius:4px;flex-shrink:0;margin-top:2px}
 .faq-chevron{color:var(--text3);font-size:16px;flex-shrink:0;transition:transform .2s;margin-top:2px}
@@ -126,7 +127,7 @@ function renderFaqCard(item, id) {
   return `
     <div class="faq-card" id="${id}">
       <div class="faq-header" onclick="document.getElementById('${id}').classList.toggle('open')">
-        <div class="faq-q">${esc(item.title)}</div>
+        <div class="faq-card-title">${esc(item.title)}</div>
         <span class="faq-chevron">›</span>
       </div>
       <div class="faq-body">
@@ -146,7 +147,7 @@ function renderChildFaqCard(child, id) {
   return `
     <div class="child-faq-card" id="${id}">
       <div class="child-faq-header" onclick="document.getElementById('${id}').classList.toggle('open')">
-        <div class="faq-q">${esc(child.title)}</div>
+        <div class="faq-card-title">${esc(child.title)}</div>
         <span class="faq-chevron">›</span>
       </div>
       <div class="child-faq-body">
