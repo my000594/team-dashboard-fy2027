@@ -188,7 +188,7 @@ function renderArticleCard(item, i) {
           ${(item.tags||[]).map(t=>`<span class="tag">${esc(t)}</span>`).join('')}
           <span style="margin-left:auto;font-size:10px;color:var(--text3);font-family:var(--mono)">${esc(item.updated||'')}</span>
         </div>
-        ${item.q ? `<div class="faq-a" style="margin-bottom:.75rem"><div class="faq-a-body"><div class="md-body">${md2html(item.body)}</div></div></div>` : `<div class="md-body">${md2html(item.body)}</div>`}
+        ${item.q ? `<div class="faq-q" style="margin-bottom:.75rem">${esc(item.q)}</div><div class="faq-a" style="margin-bottom:.75rem"><div class="faq-a-body"><div class="md-body">${md2html(item.body)}</div></div></div>` : `<div class="md-body">${md2html(item.body)}</div>`}
         ${childrenHtml}
       </div>
     </div>`;
