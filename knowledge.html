@@ -220,7 +220,7 @@ function renderGrouped(independentQA, articles) {
     ].join('');
     return `
       <div class="cat-group">
-        <div class="cat-group-header open" onclick="this.classList.toggle('open')">
+        <div class="cat-group-header" onclick="this.classList.toggle('open')">
           <span class="badge badge-${catColor(cat)}" style="font-size:12px;padding:3px 10px">${esc(cat)}</span>
           <span class="cat-group-count">${total}件</span>
           <span class="cat-group-chevron">›</span>
