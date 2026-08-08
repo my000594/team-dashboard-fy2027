@@ -107,18 +107,30 @@ function render() {
     el.addEventListener('click', () => { selectedFY = +el.dataset.fy; render(); });
   });
 
-  // ── ダイジェスト ──
-  document.getElementById('metrics').innerHTML = TYPE_ORDER.map(type => {
-    const meta = TYPE_META[type];
-    const count = fyRows.filter(r => r.type === type).length;
-    return `<div class="metric ${meta.color}">
-      <div class="metric-label">${meta.icon} ${escHTML(type)}</div>
-      <div class="metric-value">${count}</div>
-    </div>`;
-  }).join('');
+  // 実際にデータがある種別のみを対象にする。0件の種別を「異動 0」「MVP 0」のように出すと、
+  // 「異動があるのか？」等の憶測を招きかねないため、選択中の期に1件も無い種別はダイジェスト・タブどちらにも出さない
+  const typesWithData = TYPE_ORDER.filter(type => fyRows.some(r => r.type === type));
+  if (selectedType !== 'all' && !typesWithData.includes(selectedType)) selectedType = 'all';
 
-  // ── 種別タブ ──
-  const tabs = [{ type: 'all', label: 'すべて' }, ...TYPE_ORDER.map(t => ({ type: t, label: t }))];
+  // ── ダイジェスト ──
+  const metricsEl = document.getElementById('metrics');
+  if (!typesWithData.length) {
+    metricsEl.innerHTML = '';
+    metricsEl.style.display = 'none';
+  } else {
+    metricsEl.style.display = '';
+    metricsEl.innerHTML = typesWithData.map(type => {
+      const meta = TYPE_META[type];
+      const count = fyRows.filter(r => r.type === type).length;
+      return `<div class="metric ${meta.color}">
+        <div class="metric-label">${meta.icon} ${escHTML(type)}</div>
+        <div class="metric-value">${count}</div>
+      </div>`;
+    }).join('');
+  }
+
+  // ── 種別タブ（「すべて」は常時表示。0件の種別は出さない） ──
+  const tabs = [{ type: 'all', label: 'すべて' }, ...typesWithData.map(t => ({ type: t, label: t }))];
   document.getElementById('tabs').innerHTML = tabs.map(t => {
     const count = t.type === 'all' ? fyRows.length : fyRows.filter(r => r.type === t.type).length;
     const meta = TYPE_META[t.type];
