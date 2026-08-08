@@ -27,7 +27,7 @@ FY2027（2026年8月〜2027年7月）用。team-dashboardの来期版として�
 Cloudflare PagesとGitHub（`my000594/team-dashboard-fy2027`）を連携済み。
 `main`ブランチにpushすると自動でビルド・デプロイされる（手動ドロップ運用ではない）。
 サイト全体にCloudflare Access（会社メールアドレス単位のOne-time PIN認証）がかかっており、許可されたメールアドレスでないと閲覧できない（詳細は「認証（Cloudflare Access）」節）。
-公開URL: （Cloudflare Pagesデプロイ後に記載）
+公開URL: https://team-dashboard-fy2027.pages.dev
 
 ---
 
@@ -479,9 +479,7 @@ Cloudflare PagesとGitHub（`my000594/team-dashboard-fy2027`）を連携済み�
 ---
 
 ## 今後の課題・未実装
-- Cloudflare Pages公開URLの確定・記載
 - NotionのInternal Integration作成・各データベースへの共有・GitHub Secrets（`NOTION_TOKEN`）登録（scripts/sync-notion.mjs運用開始のため）
 - 顔写真（氏名.png）の準備・配置
 - 実売上データへの置き換え（現在サンプル値）
 - デザインのさらなる洗練
-- （任意）不要になったCloudflare Pagesの環境変数`DASH_USER`／`DASH_PASS`の削除
