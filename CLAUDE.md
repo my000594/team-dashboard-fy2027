@@ -93,7 +93,10 @@ team-dashboard-fy2027/
         ├── member_master.csv   メンバーマスタ（Notionエクスポート）
         └── 氏名.png            顔写真（個人名でリネーム・手動管理）
 └── docs/
-    └── skill_hearing_sheet.xlsx  スキル・保有資格ヒアリングシート（部下配布用。サイト非公開・デプロイ対象外）
+    ├── skill_hearing_sheet.xlsx  スキル・保有資格ヒアリングシート（部下配布用。サイト非公開・デプロイ対象外）
+    ├── spec.md              仕様書（人間向け。仕組み・技術スタック・ページ構成の概要）
+    ├── user_manual.md       ユーザーマニュアル（部下向け。アクセス方法・各ページの使い方）
+    └── admin_manual.md      管理マニュアル（管理者向け。データ更新・メンバー管理・Access管理・トラブル対応の手順）
 ```
 
 ---
