@@ -9,6 +9,7 @@ const NAV_ITEMS = [
   { href: 'meetings.html', icon: 'calendar',    label: 'ライン別会議' },
   { href: 'skill.html',    icon: 'radar',       label: 'スキルマップ' },
   { href: 'career.html',  icon: 'compass',     label: 'キャリアロードマップ' },
+  { href: 'chronicle.html', icon: 'book',      label: 'ライン年表' },
 ];
 
 const ICONS = {
@@ -21,6 +22,7 @@ const ICONS = {
   calendar:     `<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>`,
   radar:        `<circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/>`,
   compass:      `<circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/>`,
+  book:         `<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>`,
 };
 
 function buildNav() {

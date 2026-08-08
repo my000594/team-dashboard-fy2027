@@ -24,6 +24,7 @@ const DB = {
   meetingPlan: '3a629672-672f-80a0-8ad7-ce53a48198df', // 実施計画（ライン別会議実施計画）
   skill:       'd94ebc91-0300-4476-b244-2da697341c25', // 📍 スキルマップ
   certification: 'b88a98ca-3014-4f63-9d23-95cafbea9048', // 💯 保有資格
+  chronicle:   'a4c700d71a98421d874ee6789f9e6885', // 📖 ライン年表
 };
 
 // データベースではなくページ本文（ブロック）から取得するもの
@@ -234,6 +235,7 @@ async function main() {
   // 後続セクションが動けるよう、安全なデフォルト値をあらかじめ用意しておく
   let inactiveNames = new Map();
   let memberOrder = new Map();
+  let memberNameById = new Map(); // chronicle.csvの「氏名」リレーション解決用
 
   await section('member_master.csv', async () => {
     console.log('== member_master.csv ==');
@@ -295,6 +297,7 @@ async function main() {
     // ステータスが異動/退職のメンバー名（3SEレポートの備考自動判定に使う）
     inactiveNames = new Map(members.filter(m => m.status === '異動' || m.status === '退職').map(m => [m.name, m.status]));
     memberOrder = new Map(members.map((m, i) => [m.name, i]));
+    memberNameById = new Map(memberPages.map(p => [p.id, getTitle(p.properties['氏名'])]));
   });
 
   await section('3se_report.csv', async () => {
@@ -521,6 +524,33 @@ async function main() {
     await writeCsv('certifications.csv',
       ['資格名','氏名','資格区分','資格分野','資格取得日','有効期限','デジタルバッジ','備考'],
       certRows);
+  });
+
+  await section('chronicle.csv', async () => {
+    console.log('== chronicle.csv ==');
+    const chroniclePages = await notionQuery(DB.chronicle);
+    assertProperties(chroniclePages, ['タイトル','日付','種別','氏名','詳細','ステータス'], 'chronicle.csv');
+    const chronicleRows = chroniclePages.map(page => {
+      const props = page.properties;
+      const dateIso = getDateStart(props['日付']);
+      // 「氏名」はメンバーマスタへのリレーション（複数選択可・ライン全体向けイベントは空欄）。
+      // ID→氏名のマップはmember_masterセクションで構築したものを使う
+      const names = (props['氏名']?.relation || [])
+        .map(r => memberNameById.get(r.id))
+        .filter(Boolean)
+        .join(',');
+      return {
+        dateIso,
+        'タイトル': getTitle(props['タイトル']),
+        '日付': dateIso,
+        '種別': getSelect(props['種別']),
+        '氏名': names,
+        '詳細': getRichText(props['詳細']),
+        'ステータス': getSelect(props['ステータス']) || '確定',
+      };
+    });
+    chronicleRows.sort((a, b) => a.dateIso.localeCompare(b.dateIso));
+    await writeCsv('chronicle.csv', ['タイトル','日付','種別','氏名','詳細','ステータス'], chronicleRows);
   });
 
   await section('org_chart.csv', async () => {

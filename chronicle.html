@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="robots" content="noindex, nofollow, noarchive">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ライン年表 — 第1ライン FY2027</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js" integrity="sha384-D/t0ZMqQW31H3az8ktEiNb39wyKnS82iFY52QPACM+IjKW3jDUhyIgh2PApRqJZs" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<style>
+.fy-row{display:flex;gap:6px;margin-bottom:1.25rem;flex-wrap:wrap}
+.fy-chip{font-size:12px;font-weight:500;padding:5px 14px;border-radius:999px;border:.5px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;font-family:var(--font);transition:.15s}
+.fy-chip:hover{border-color:var(--border2);color:var(--text)}
+.fy-chip.active{background:var(--bg3);border-color:var(--border2);color:var(--text)}
+.fy-chip.empty{color:var(--text3)}
+
+.chronicle-tabs .tab{display:flex;align-items:center;gap:6px}
+.chronicle-tabs .tab .dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.chronicle-tabs .tab .n{font-family:var(--mono);color:var(--text3);font-size:11px}
+
+.timeline{position:relative;padding-left:26px}
+.timeline::before{content:'';position:absolute;left:6px;top:6px;bottom:6px;width:1px;background:var(--border2)}
+.month-group{margin-bottom:1.6rem}
+.month-group:last-child{margin-bottom:0}
+.month-head{display:flex;align-items:baseline;gap:10px;margin-bottom:.9rem;position:relative}
+.month-head::before{content:'';position:absolute;left:-26px;top:4px;width:11px;height:11px;border-radius:50%;background:var(--bg2);border:2px solid var(--text3)}
+.month-head .m{font-family:var(--mono);font-size:15px;font-weight:700;color:var(--text)}
+.month-head .y{font-size:11px;color:var(--text3)}
+.month-head .count{margin-left:auto;font-size:11px;color:var(--text3);font-family:var(--mono)}
+
+.event{position:relative;display:flex;gap:12px;align-items:flex-start;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:.75rem .9rem;margin-bottom:8px;transition:border-color .15s}
+.event:hover{border-color:var(--border2)}
+.event::before{content:'';position:absolute;left:-23px;top:1.05rem;width:7px;height:7px;border-radius:50%;background:var(--dot-color)}
+.event-date{font-family:var(--mono);font-size:11px;color:var(--text3);flex-shrink:0;width:34px;padding-top:2px;text-align:right;font-variant-numeric:tabular-nums}
+.avatar,.event-icon{width:30px;height:30px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
+.event-body{flex:1;min-width:0}
+.event-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:2px}
+.type-badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;flex-shrink:0}
+.event-name{font-size:12px;color:var(--text2);font-weight:500}
+.pending-badge{font-size:10px;color:var(--text3);border:.5px solid var(--border2);border-radius:999px;padding:1px 8px;margin-left:auto;flex-shrink:0}
+.event-title{font-size:13.5px;font-weight:600;color:var(--text);line-height:1.5}
+.event-desc{font-size:12px;color:var(--text2);margin-top:2px;line-height:1.6}
+
+.empty-state{text-align:center;padding:3rem 1rem;color:var(--text3);font-size:13px;line-height:1.8}
+</style>
+</head>
+<body>
+<nav class="nav" id="nav"></nav>
+<div id="loading"><div class="spinner"></div><span>年表を読み込んでいます...</span></div>
+<div id="app">
+<main class="main">
+  <div class="page-header">
+    <h1>ライン年表</h1>
+    <p id="subtitle">参画・異動・ライン内MVP・資格取得・イベントを記録した第1ラインの一年</p>
+  </div>
+
+  <div class="fy-row" id="fyRow"></div>
+  <div class="metrics" id="metrics"></div>
+  <div class="tabs chronicle-tabs" id="tabs"></div>
+
+  <div class="card">
+    <div id="timelineWrap"></div>
+  </div>
+</main>
+</div>
+
+<script src="nav.js"></script>
+<script>
+function escHTML(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+const TYPE_META = {
+  '参画':        { color: 'green',  dim: 'green-dim',  icon: '👋' },
+  '異動':        { color: 'amber',  dim: 'amber-dim',  icon: '🔀' },
+  'ライン内MVP': { color: 'purple', dim: 'purple-dim', icon: '🏆' },
+  '資格取得':    { color: 'cyan',   dim: 'cyan-dim',   icon: '🎓' },
+  'イベント':    { color: 'blue',   dim: 'blue-dim',   icon: '📅' },
+};
+const TYPE_ORDER = ['参画', '異動', 'ライン内MVP', '資格取得', 'イベント'];
+const MONTHS = ['8月','9月','10月','11月','12月','1月','2月','3月','4月','5月','6月','7月'];
+
+// 8月始まり・7月終わりの期（例：2026年8月〜2027年7月＝FY2027）
+function fyOf(date) {
+  const y = date.getFullYear(), m = date.getMonth() + 1;
+  return m >= 8 ? y + 1 : y;
+}
+
+let allRows = [];
+let selectedFY = null;
+let selectedType = 'all';
+
+function render() {
+  const fyRows = allRows.filter(r => r.fy === selectedFY);
+
+  // ── FYセレクタ ──
+  const fySet = new Set(allRows.map(r => r.fy));
+  fySet.add(fyOf(new Date()));
+  const fys = Array.from(fySet).sort((a, b) => b - a);
+  document.getElementById('fyRow').innerHTML = fys.map(fy => {
+    const count = allRows.filter(r => r.fy === fy).length;
+    return `<button class="fy-chip ${fy === selectedFY ? 'active' : ''} ${count === 0 ? 'empty' : ''}" data-fy="${fy}">FY${fy}${count === 0 ? '（データなし）' : ''}</button>`;
+  }).join('');
+  document.querySelectorAll('.fy-chip').forEach(el => {
+    el.addEventListener('click', () => { selectedFY = +el.dataset.fy; render(); });
+  });
+
+  // ── ダイジェスト ──
+  document.getElementById('metrics').innerHTML = TYPE_ORDER.map(type => {
+    const meta = TYPE_META[type];
+    const count = fyRows.filter(r => r.type === type).length;
+    return `<div class="metric ${meta.color}">
+      <div class="metric-label">${meta.icon} ${escHTML(type)}</div>
+      <div class="metric-value">${count}</div>
+    </div>`;
+  }).join('');
+
+  // ── 種別タブ ──
+  const tabs = [{ type: 'all', label: 'すべて' }, ...TYPE_ORDER.map(t => ({ type: t, label: t }))];
+  document.getElementById('tabs').innerHTML = tabs.map(t => {
+    const count = t.type === 'all' ? fyRows.length : fyRows.filter(r => r.type === t.type).length;
+    const meta = TYPE_META[t.type];
+    return `<div class="tab ${selectedType === t.type ? 'active' : ''}" data-type="${t.type}">
+      ${meta ? `<span class="dot" style="background:var(--${meta.color})"></span>` : ''}${escHTML(t.label)} <span class="n">${count}</span>
+    </div>`;
+  }).join('');
+  document.querySelectorAll('.tab').forEach(el => {
+    el.addEventListener('click', () => { selectedType = el.dataset.type; render(); });
+  });
+
+  // ── タイムライン ──
+  const visRows = fyRows.filter(r => selectedType === 'all' || r.type === selectedType);
+  const wrap = document.getElementById('timelineWrap');
+  if (!visRows.length) {
+    wrap.innerHTML = `<div class="empty-state">${fyRows.length ? 'この種別の記録はまだありません。' : 'FY' + selectedFY + 'の記録はまだありません。<br>Notion側の「📖 ライン年表」DBに記録を追加すると、ここに表示されます。'}</div>`;
+    return;
+  }
+  // 8月始まりの期内月順にグルーピング
+  const byMonth = new Map();
+  for (const r of visRows) {
+    const key = `${r.date.getFullYear()}-${r.date.getMonth()}`;
+    if (!byMonth.has(key)) byMonth.set(key, { year: r.date.getFullYear(), month: r.date.getMonth() + 1, rows: [] });
+    byMonth.get(key).rows.push(r);
+  }
+  const groups = Array.from(byMonth.values()).sort((a, b) => {
+    const ai = MONTHS.indexOf(a.month + '月'), bi = MONTHS.indexOf(b.month + '月');
+    return ai - bi;
+  });
+  for (const g of groups) g.rows.sort((a, b) => a.dateIso.localeCompare(b.dateIso));
+
+  wrap.innerHTML = `<div class="timeline">${groups.map(g => `
+    <div class="month-group">
+      <div class="month-head"><span class="m">${g.month}月</span><span class="y">${g.year}</span><span class="count">${g.rows.length}件</span></div>
+      ${g.rows.map(r => {
+        const meta = TYPE_META[r.type] || TYPE_META['イベント'];
+        const names = r.names.length ? r.names.join('、') : '';
+        const avatarHTML = r.names.length
+          ? `<div class="avatar" style="background:var(--${meta.color})">${escHTML(r.names[0].charAt(0))}</div>`
+          : `<div class="event-icon" style="background:var(--${meta.dim});color:var(--${meta.color})">${meta.icon}</div>`;
+        return `<div class="event" style="--dot-color:var(--${meta.color})">
+          ${avatarHTML}
+          <div class="event-body">
+            <div class="event-top">
+              <span class="type-badge" style="background:var(--${meta.dim});color:var(--${meta.color})">${escHTML(r.type)}</span>
+              ${names ? `<span class="event-name">${escHTML(names)}</span>` : ''}
+              ${r.status === '予定' ? `<span class="pending-badge">予定</span>` : ''}
+            </div>
+            <div class="event-title">${escHTML(r.title)}</div>
+            ${r.detail ? `<div class="event-desc">${escHTML(r.detail)}</div>` : ''}
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+  `).join('')}</div>`;
+}
+
+async function init() {
+  try {
+    const res = await fetch('data/chronicle.csv');
+    const buf = await res.arrayBuffer();
+    const text = new TextDecoder('utf-8').decode(buf).replace(/^﻿/, '');
+    const rows = Papa.parse(text, { header: true, skipEmptyLines: true }).data;
+
+    allRows = rows.map(r => {
+      const dateIso = (r['日付'] || '').trim();
+      const date = dateIso ? new Date(dateIso) : null;
+      if (!date || isNaN(date)) return null;
+      return {
+        dateIso,
+        date,
+        fy: fyOf(date),
+        title: (r['タイトル'] || '').trim(),
+        type: (r['種別'] || '').trim(),
+        names: (r['氏名'] || '').split(',').map(s => s.trim()).filter(Boolean),
+        detail: (r['詳細'] || '').trim(),
+        status: (r['ステータス'] || '確定').trim(),
+      };
+    }).filter(Boolean);
+
+    const today = new Date();
+    const todayFY = fyOf(today);
+    const fysWithData = new Set(allRows.map(r => r.fy));
+    selectedFY = fysWithData.has(todayFY) || !fysWithData.size ? todayFY
+      : Array.from(fysWithData).sort((a, b) => b - a)[0];
+
+    document.getElementById('subtitle').textContent =
+      `参画・異動・ライン内MVP・資格取得・イベントを記録した第1ラインの一年（${new Date().toLocaleDateString('ja-JP')} 時点／全${allRows.length}件）`;
+
+    render();
+
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('app').classList.add('ready');
+  } catch (e) {
+    document.getElementById('loading').innerHTML = `<div style="color:var(--red);font-size:13px">⚠ データの読み込みに失敗しました<br><small style="color:var(--text3)">${e.message}</small></div>`;
+  }
+}
+init();
+</script>
+</body>
+</html>
