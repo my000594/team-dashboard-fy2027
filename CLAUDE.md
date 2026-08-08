@@ -26,7 +26,7 @@
 FY2027（2026年8月〜2027年7月）用。team-dashboardの来期版として新規作成。
 Cloudflare PagesとGitHub（`my000594/team-dashboard-fy2027`）を連携済み。
 `main`ブランチにpushすると自動でビルド・デプロイされる（手動ドロップ運用ではない）。
-サイト全体にBasic認証（共通ID・PASS）がかかっており、URLを知っていてもID・PASSを知らないと閲覧できない（詳細は「認証（Basic認証）」節）。
+サイト全体にCloudflare Access（会社メールアドレス単位のOne-time PIN認証）がかかっており、許可されたメールアドレスでないと閲覧できない（詳細は「認証（Cloudflare Access）」節）。
 公開URL: （Cloudflare Pagesデプロイ後に記載）
 
 ---
@@ -68,8 +68,6 @@ team-dashboard-fy2027/
 ├── nav.js              左サイドバーナビ＋メンテナンス制御
 ├── md.js               本文のMarkdown描画共通レンダラ（index/info/knowledgeで共用）
 ├── robots.txt           検索エンジン避け（全ページDisallow）
-├── functions/
-│   └── _middleware.js  Cloudflare Pages Functions。サイト全体にBasic認証をかける（詳細は「認証（Basic認証）」節）
 ├── scripts/
 │   └── sync-notion.mjs Notion APIからdata/配下のCSVを自動生成するスクリプト
 ├── .github/workflows/
@@ -449,44 +447,17 @@ Cloudflare PagesとGitHub（`my000594/team-dashboard-fy2027`）を連携済み�
 
 ---
 
-## 認証（Basic認証）
+## 認証（Cloudflare Access）
 
-サイト全体（`data/`配下のCSVも含む、`maintenance-app.html`も含む）に、Cloudflare Pages Functions（`functions/_middleware.js`）でHTTP Basic認証をかけている。URLを知っていても、ID・PASSを知らなければ何も見えない。
+サイト全体（`data/`配下のCSVも含む、`maintenance-app.html`も含む）に、Cloudflare Access（Zero Trust）で会社メールアドレス単位のOne-time PIN（OTP）認証をかけている。2026-08-08、共有ID・PASSのBasic認証から切替済み。
 
-- 全員共通の1組のID・PASSを使う運用（個々のメンバーごとの発行はしない。管理者＝課長本人がNotion等で控えを管理し、部下には別途伝える）
-- ID・PASSはリポジトリにコミットしない。Cloudflareダッシュボード → 対象のPagesプロジェクト → **Settings → Environment variables** で `DASH_USER` / `DASH_PASS` を設定する（本番＝Productionタブに設定。Preview環境にも同じ値を設定しておくとブランチプレビューにも認証がかかる）
-- 環境変数を設定するまでは`_middleware.js`が全リクエストを503でブロックする（誤って無認証公開してしまう事故を防ぐフェイルクローズ設計）。**初回デプロイ後、必ずCloudflareダッシュボードでこの2つの環境変数を設定すること**
-- パスワードを変更したい場合は、Cloudflareダッシュボードで`DASH_PASS`の値を更新するだけでよい（コード変更・再デプロイ不要）
-- ブラウザ標準のBasic認証ダイアログを使うため、追加のログイン画面・Cookie/セッション管理コードは持たない。一度入力すればブラウザが記憶する（ログアウトしたい場合はブラウザ側の認証情報キャッシュをクリアする必要がある）
-- 弱点：共有ID・PASSのため「誰が・いつアクセスしたか」の個別ログは取れない。個別ログが必要になった場合はCloudflare Access（メールアドレス単位のOTP認証等）への切り替えを検討すること
-
-### Cloudflare Accessへの移行計画（2026-08-04時点・準備中／切替待ち）
-
-現行の共有Basic認証を廃止し、**Cloudflare Access＋メールOTP（会社ドメイン一括、必要に応じて個別メール追加）**へ切り替える方針が決定済み。ただし即時切替ではなく、**部下へのセキュリティ変更告知後に本切替**する運用のため、事前準備だけを先行して行い、告知まで発火させない形をとる。
-
-**設計のポイント：Bypassポリシーで「設定済み・未発火」を作る**
-Cloudflare AccessのApplicationには複数ポリシーを登録でき、上から順に最初にマッチしたものが適用される。これを利用し、告知前は`Bypass`ポリシーを一番上に置いてAccessを実質無効化しておき（＝今まで通り`_middleware.js`のBasic認証だけがゲートとして機能する）、告知と同時にBypassを外して本番ポリシーを有効化する。
-
-**対象メンバーの確認事項（切替前に要確認）**
-組織構成のうち以下は会社ドメインメールを持たない可能性があるため、ドメイン一括ルールだけでは弾かれる恐れがある。個別メールアドレスをOR条件で追加する必要があるか事前に確認すること。
-- 劉 華雲（GITより出向）
-- 谷野 亘・眞野 哲朗（嘱託社員。契約形態によっては別ドメインの可能性）
-
-**事前準備フェーズ（今すぐ実施可能・ユーザー影響なし）**
-1. Cloudflareダッシュボード → Zero Trust → チームドメインを有効化（アカウント単位で一度だけ。これ自体はPagesサイトの挙動に影響しない）
-2. Zero Trust → Access → Applications → Add an application → Self-hosted で、対象のPages公開ドメインを指定。パスは`*`（サイト全体）を対象にする（今のBasic認証と同じ範囲）
-3. **ポリシー①（一番上に配置・現状アクティブ）**：名前「Bypass（Basic認証稼働中のため一時停止）」／Action = `Bypass`／Include = Everyone
-4. **ポリシー②（下に用意・現状は①に隠れて未発火）**：名前「本番：会社ドメイン＋個別許可」／Action = `Allow`／Include = `Emails ending in @会社ドメイン`（OR条件で必要に応じて個別メールアドレスを追加行で並べる）／ログイン方式 = One-time PIN（Cloudflare標準機能、外部IdP不要）／Session Duration = 1ヶ月（`1 month`）。ダッシュボードが月次更新のため、更新確認の頻度と再認証の煩わしさのバランスを取ってこの値に決定（毎回コード入力を求めると閲覧のハードルが上がり見てもらえなくなるため）。会社ドメイン一括での運用のため、無期限にはせず一定期間で区切る
-5. ポリシー順序が「①Bypass → ②Allow」になっていることを確認（①が先に評価される限り②は発火しない）
-
-**本切替フェーズ（告知当日・数分で完了）**
-1. 部下へ告知（共有ID・PASSのBasic認証から、個人の会社メールアドレス宛OTP認証へ切り替わる旨）
-2. Zero Trust → Access → Applications → 対象App → Policies で、ポリシー①（Bypass）を削除 or 無効化（ポリシー②のみが残り、即座に有効化される）
-3. シークレットウィンドウ等で動作確認：Basic認証ダイアログではなくAccessのOTP画面（メールアドレス入力→ワンタイムコード）が出ることを確認
-4. `functions/_middleware.js`のBasic認証ロジックを無効化（`return next()`にする、またはファイル自体を削除）し、コミット・push（Cloudflare Pagesが自動デプロイ）
-5. 動作確認：Access通過後、通常どおり各ページ・`data/`配下のCSV fetch・`maintenance-app.html`が問題なく動くこと（AccessはCookie（`CF_Authorization`）ベースで同一オリジンの以降のリクエストにも適用されるため、クライアント側の`fetch()`は変更不要のはず）
-6. 不要になった`DASH_USER`／`DASH_PASS`のCloudflare環境変数を削除（任意・お好みで）
-7. このCLAUDE.mdの「認証（Basic認証）」節を「認証（Cloudflare Access）」に書き換え、本セクション（移行計画）と「セキュリティ対応状況」の該当箇所を実態に合わせて更新する
+- Zero Trust → Access → Applications に、対象のPages公開ドメイン（パス`*`＝サイト全体）を対象としたApplicationを設定
+- ポリシー：Include = `Emails ending in @会社ドメイン`（OR条件で個別メールアドレスを追加行で並べる。劉 華雲・谷野 亘・眞野 哲朗の3名は会社ドメインメールを保有していることを確認済み）／ログイン方式 = One-time PIN／Session Duration = 1ヶ月
+- ログイン方式（Identity provider）：Zero Trust → Integrations → Identity providers に「One-time PIN」を明示的に登録している。**注意：** IdPを1件も登録しなければ自動的にOne-time PINがデフォルトになる仕様のはずだが、実際には登録なしの状態で「There are no login methods available for this account」エラーになったため、One-time PINは明示登録が必須（デフォルトIdPとして紛れ込んでいた「Cloudflare」（Cloudflareアカウントでのパスワードログイン）を削除した際に発覚）
+- `functions/_middleware.js`（旧Basic認証のフェイルクローズ処理）は削除済み。認証はCloudflare Access側（エッジ）のみで行い、Pages Functions側に認証コードは持たない
+- AccessはCookie（`CF_Authorization`）ベースで同一オリジンの以降のリクエストにも適用されるため、クライアント側の`fetch()`は変更不要
+- 個人単位のメールアドレス認証になったため、旧Basic認証の弱点だった「誰が・いつアクセスしたか」が区別できない問題は解消
+- 不要になった`DASH_USER`／`DASH_PASS`のCloudflare Pages環境変数は削除して問題ない（未削除でも動作に影響はない）
 
 ---
 
@@ -495,7 +466,7 @@ Cloudflare AccessのApplicationには複数ポリシーを登録でき、上か�
 部下への本格展開に向けて実施した対応と、対応していない既知の限界をまとめる。
 
 **対応済み**
-- サイト全体にBasic認証をかけ、URL単独では閲覧できないようにした（詳細は上記「認証」節）
+- サイト全体にCloudflare Access（会社メールアドレス単位のOTP認証）をかけ、URL単独では閲覧できないようにした（2026-08-08、共有Basic認証から切替済み。詳細は上記「認証」節）
 - CSV・Notion由来の自由記述文字列（備考・氏名・顧客名・開催単位・達成状況等）をHTMLに埋め込む箇所は、各ページ内の`escHTML`（または`md.js`の`escapeHTML`/`esc`）を通すよう統一。以前は`meetings.html`と`reports.html`の一部列が無エスケープでinnerHTMLに入っており、Notion側の自由記述に`<`等が混ざると表示が壊れる／理論上コード注入の余地があった
 - 全ページに`<meta name="robots" content="noindex, nofollow, noarchive">`を追加し、`robots.txt`で全体をDisallowにした（検索エンジンへの意図しないインデックス防止）
 - 外部CDN（cdnjs経由のChart.js 4.4.1 / PapaParse 5.4.1）の`<script>`タグに`integrity`（SRI）・`crossorigin`・`referrerpolicy`を付与し、CDN側の改ざんを検知できるようにした。**ライブラリのバージョンを上げる場合は、新しいファイルのSHA-384ハッシュを取り直してintegrity属性も更新すること**（古いハッシュのまま新バージョンを指定すると、ブラウザがintegrity不一致でスクリプトをブロックしサイトが全面的に動かなくなる）
@@ -504,19 +475,13 @@ Cloudflare AccessのApplicationには複数ポリシーを登録でき、上か�
 **既知の限界（未対応・運用でカバー）**
 - Notionのプロパティ**名**の変更は`assertProperties()`で検知できるが、**型**の変更（例：テキスト→セレクト）や**値の中身が意図とズレる**ケース（誤入力等）までは検知できない
 - Notion直アップロードファイル（`meeting_plan.csv`の資料リンク・`org_chart.csv`・`certifications.csv`のデジタルバッジ）は期限付きURLになり得るため、時間経過でリンク切れになることがある。エラー表示は出ないため、リンクを踏んだ人が気づく形になる。恒久リンクにしたい場合は外部ストレージ（Google Drive等）のリンクをNotionに貼る運用にすること
-- 共有Basic認証のため、ID・PASSを知っている人同士であれば区別できない（前述）
 
 ---
 
 ## 今後の課題・未実装
 - Cloudflare Pages公開URLの確定・記載
-- Cloudflare Pagesの環境変数（`DASH_USER` / `DASH_PASS`）設定（未設定の間はサイト全体が503になる）
 - NotionのInternal Integration作成・各データベースへの共有・GitHub Secrets（`NOTION_TOKEN`）登録（scripts/sync-notion.mjs運用開始のため）
 - 顔写真（氏名.png）の準備・配置
 - 実売上データへの置き換え（現在サンプル値）
 - デザインのさらなる洗練
-- **認証強化（部下への連絡・承諾待ちで保留中）**
-  - 現状：共通ID/PASSのBasic認証 → 個人単位認証（Cloudflare Access + メールOTP、会社ドメイン一括＋必要に応じ個別メール追加）に移行予定
-  - 採用理由：Microsoft Azure管理者権限が不要、Cloudflare設定だけで完結、会社メアドがそのまま使える、無料（50名まで）
-  - 検討済み・見送り：Microsoft SSO（Azure管理者権限が必要）、AWS Cognito（構築コスト大・月額コストは同等）
-  - 事前準備の進め方・切替手順の詳細（Bypassポリシーによる段階準備、要確認メンバー、切替当日の`_middleware.js`削除手順など）は上記「認証（Basic認証）」節内の「Cloudflare Accessへの移行計画」を参照。部下への告知後に本切替を実施する予定
+- （任意）不要になったCloudflare Pagesの環境変数`DASH_USER`／`DASH_PASS`の削除
