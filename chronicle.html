@@ -146,8 +146,10 @@ function render() {
   // ── タイムライン ──
   const visRows = fyRows.filter(r => selectedType === 'all' || r.type === selectedType);
   const wrap = document.getElementById('timelineWrap');
+  // selectedTypeは上のガードで必ず「データが1件以上ある種別」か'all'に補正されるため、
+  // ここが空になるのはfyRows自体が0件のときだけ（＝選択中の期に記録が無い）
   if (!visRows.length) {
-    wrap.innerHTML = `<div class="empty-state">${fyRows.length ? 'この種別の記録はまだありません。' : 'FY' + selectedFY + 'の記録はまだありません。<br>Notion側の「📖 ライン年表」DBに記録を追加すると、ここに表示されます。'}</div>`;
+    wrap.innerHTML = `<div class="empty-state">FY${selectedFY}の記録はまだありません。<br>Notion側の「📖 ライン年表」DBに記録を追加すると、ここに表示されます。</div>`;
     return;
   }
   // 8月始まりの期内月順にグルーピング

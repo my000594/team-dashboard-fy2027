@@ -530,25 +530,30 @@ async function main() {
     console.log('== chronicle.csv ==');
     const chroniclePages = await notionQuery(DB.chronicle);
     assertProperties(chroniclePages, ['タイトル','日付','種別','氏名','詳細','ステータス'], 'chronicle.csv');
+    // member_masterセクションの失敗・個別ページの削除等でIDが解決できなかった件数を数える。
+    // memberNameByIdが（member_masterの失敗により）空のまま、氏名だけが全件無言で空欄になり続けるのを防ぐため
+    let unresolvedNameCount = 0;
     const chronicleRows = chroniclePages.map(page => {
       const props = page.properties;
       const dateIso = getDateStart(props['日付']);
       // 「氏名」はメンバーマスタへのリレーション（複数選択可・ライン全体向けイベントは空欄）。
       // ID→氏名のマップはmember_masterセクションで構築したものを使う
-      const names = (props['氏名']?.relation || [])
-        .map(r => memberNameById.get(r.id))
-        .filter(Boolean)
-        .join(',');
+      const relIds = (props['氏名']?.relation || []).map(r => r.id);
+      const names = relIds.map(id => memberNameById.get(id)).filter(Boolean);
+      unresolvedNameCount += relIds.length - names.length;
       return {
         dateIso,
         'タイトル': getTitle(props['タイトル']),
         '日付': dateIso,
         '種別': getSelect(props['種別']),
-        '氏名': names,
+        '氏名': names.join(','),
         '詳細': getRichText(props['詳細']),
         'ステータス': getSelect(props['ステータス']) || '確定',
       };
     });
+    if (unresolvedNameCount > 0) {
+      console.warn(`  [WARN] chronicle.csv: 氏名リレーションが${unresolvedNameCount}件解決できませんでした（member_masterセクションの失敗、または対象メンバーページの削除・変更の可能性）`);
+    }
     chronicleRows.sort((a, b) => a.dateIso.localeCompare(b.dateIso));
     await writeCsv('chronicle.csv', ['タイトル','日付','種別','氏名','詳細','ステータス'], chronicleRows);
   });
