@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="robots" content="noindex, nofollow, noarchive">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>キャリアロードマップ — 第1ライン FY2027</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+.track-row{display:flex;align-items:center;gap:6px;overflow-x:auto;padding:4px 2px 12px}
+.track-connector{flex:0 0 auto;color:var(--text3);font-size:14px}
+.fork-note{text-align:center;color:var(--text3);font-size:11px;margin:.25rem 0 1rem}
+.track-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;margin:0 0 .5rem;display:flex;align-items:center;gap:6px}
+.step-box{flex:0 0 auto;min-width:104px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:.55rem .7rem;cursor:pointer;text-align:center;transition:border-color .15s,background .15s}
+.step-box:hover{border-color:var(--border2)}
+.step-box.active{background:var(--blue-dim);border-color:rgba(59,130,246,.5)}
+.step-box.active .step-grade,.step-box.active .step-title{color:var(--blue)}
+.step-box.active.spec{background:var(--purple-dim);border-color:rgba(167,139,250,.5)}
+.step-box.active.spec .step-grade,.step-box.active.spec .step-title{color:var(--purple)}
+.step-grade{font-family:var(--mono);font-size:10px;color:var(--text3)}
+.step-title{font-size:11.5px;font-weight:600;margin-top:2px;line-height:1.3}
+.req-list{padding-left:1.15rem;font-size:12.5px;color:var(--text2);line-height:1.85}
+.req-list li{margin-bottom:.4rem}
+.req-note{font-size:11px;color:var(--text3);margin-top:1px}
+.req-either{margin:.25rem 0 0 0;padding-left:1.1rem}
+.req-either-label{font-size:12px;color:var(--text3)}
+.track-desc-card{border-left:3px solid transparent;background:var(--bg3);border-radius:0 var(--radius) var(--radius) 0;padding:.65rem .9rem;font-size:12px;color:var(--text2);line-height:1.7;margin-bottom:1rem}
+.track-desc-card.mgmt{border-left-color:var(--blue)}
+.track-desc-card.spec{border-left-color:var(--purple)}
+.next-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:.5rem}
+@media (max-width:700px){.next-grid{grid-template-columns:1fr}}
+.next-sub-card{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:.85rem 1rem}
+.next-sub-card h4{font-size:12.5px;margin-bottom:.5rem}
+.exp-list{padding-left:1.15rem;font-size:12px;color:var(--text2);line-height:1.85}
+.exp-list li{margin-bottom:.3rem}
+.link-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:1.1rem;padding-top:1rem;border-top:1px solid var(--border)}
+.link-chip{font-size:11.5px;color:var(--blue);text-decoration:none;border:.5px solid rgba(59,130,246,.3);background:var(--blue-dim);border-radius:999px;padding:5px 12px;transition:.15s}
+.link-chip:hover{border-color:rgba(59,130,246,.6)}
+.overview-tbl{font-size:11.5px}
+.overview-tbl td{white-space:normal}
+.placeholder-hint{font-size:13px;color:var(--text2);padding:1.5rem 0;text-align:center;line-height:1.8}
+</style>
+</head>
+<body>
+<nav class="nav" id="nav"></nav>
+<div id="loading"><div class="spinner"></div><span>読み込んでいます...</span></div>
+<div id="app">
+<main class="main">
+
+  <div class="page-header">
+    <h1>キャリアロードマップ</h1>
+    <p>会社の職務要件・昇格基準（3SEシステム部・情報戦略グループ）をもとにした、等級ごとの現在地と次のステップの確認ツール</p>
+  </div>
+
+  <div class="card" style="margin-bottom:1.5rem;background:var(--blue-dim);border-color:rgba(59,130,246,.3)">
+    <p style="font-size:12px;color:var(--text2);line-height:1.8">
+      昇格要件（等級・職位名・昇格基準）は、SYSホールディングスグループ「職務要件・昇格基準定義書」（更新日：2025年4月24日）の3SEシステム部・情報戦略グループ列に基づく<strong style="color:var(--text)">会社公式の基準</strong>です。
+      一方、各ステップの「<strong style="color:var(--text)">成長のための経験例</strong>」は会社の公式基準ではなく、第1ラインとして参考に整理した項目です。あわせて確認したい場合はライン運営方針や上長との面談でご相談ください。
+    </p>
+  </div>
+
+  <div class="section-label">🗺️ 全体マップ（1〜4等級は共通、5等級から2コースに分岐）</div>
+  <div class="card" style="margin-bottom:1.5rem">
+    <div class="track-label" style="color:var(--text2)">🧭 共通キャリアパス（1〜4等級）</div>
+    <div class="track-row" id="commonTrack"></div>
+    <div class="fork-note">▼ 5等級から「リーダー・管理職コース」と「スペシャリストコース」に分岐します ▼</div>
+    <div class="track-label" style="color:var(--blue)">🧑‍💼 リーダー・管理職コース（5〜10等級）</div>
+    <div class="track-row" id="mgmtTrack"></div>
+    <div class="track-label" style="color:var(--purple)">🧑‍💻 スペシャリストコース（5〜10等級）</div>
+    <div class="track-row" id="specTrack"></div>
+  </div>
+
+  <div class="card" id="detailCard" style="margin-bottom:1.5rem">
+    <div class="card-title">📍 現在地・次のステップ</div>
+    <div id="detailBody"></div>
+  </div>
+
+  <div class="section-label">📋 全等級 早見表</div>
+  <div class="card">
+    <div class="card-title">3SEシステム部・情報戦略グループ　等級・職位一覧</div>
+    <div class="tbl-wrap">
+      <table class="tbl overview-tbl">
+        <thead><tr><th>等級</th><th class="left">リーダー・管理職コース</th><th class="left">スペシャリストコース</th></tr></thead>
+        <tbody id="overviewBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="section-label">📖 共通の注記（公式基準）</div>
+  <div class="card">
+    <ul class="policy-list">
+      <li>「経営会議メンバー」は、課長以上（8等級以上のリーダー・管理職コース）を基準として会社が決定する（スペシャリストコースには経営会議メンバー要件は課されない）</li>
+      <li>経営会議メンバーは「講師認定制度」の対象外であり、講師認定制度に関する基準は適用しない</li>
+      <li>上位等級の昇格基準項目は、下位等級の昇格基準項目を踏襲する</li>
+      <li>昇格基準に記載されている資格に関する表記は、個人資格取得委員会資料「国家資格_情報処理技術者試験報奨金支給規定」の資格取得時支給額表に準ずる</li>
+    </ul>
+    <p style="font-size:11px;color:var(--text3);margin-top:.9rem">
+      出典：SYSホールディングスグループ「職務要件・昇格基準定義書」（更新日：2025年4月24日）／3SEシステム部・情報戦略グループ列を抜粋。営業職・事務職等、他グループの基準はこのページには含まれません。
+    </p>
+  </div>
+
+</main>
+</div>
+
+<script src="nav.js"></script>
+<script>
+function escHTML(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// ── 会社公式の昇格基準（3SEシステム部・情報戦略グループ列を抜粋） ──
+const NOTE5   = '※未取得の場合、資格取得状況に応じて給与から減額（基本情報技術者：月5,000円／応用情報技術者：資格手当無し）';
+const NOTE10  = '※未取得の場合、資格取得状況に応じて給与から減額（基本情報技術者：月10,000円／応用情報技術者：月5,000円）';
+
+const COMMON_GRADES = [
+  { g:1, title:'1等級', req: [] },
+  { g:2, title:'2等級', req: [
+    '社歴が2年以上であること',
+    '詳細設計からプログラミングまでを自身で行えること',
+  ]},
+  { g:3, title:'3等級', req: [
+    '昇格試験に合格していること（情報処理技術者試験「ランクE」＝基本情報技術者試験）',
+    '基本設計が上位管理者の補助を受けながら実行できること',
+    '他の社員へプログラミングを教えられること',
+  ]},
+  { g:4, title:'4等級', req: [
+    '昇格試験に合格していること（情報処理技術者試験「ランクD」＝応用情報技術者試験）もしくは相当の顕著な実績があること',
+    'プロジェクトのリーダーが、補助を受けながら実行できること',
+    '基本設計ができること',
+    '能動的に報連相ができること',
+  ]},
+];
+
+const EXP_COMMON = {
+  2: [
+    '詳細設計書のレビューを受けながら作成する',
+    '与えられた設計に基づきプログラミングを担当する',
+    '単体・結合テストを自分の担当範囲として実施する',
+    'わからないことを先輩・上司に相談する習慣をつける',
+  ],
+  3: [
+    '基本設計を上位者のレビューを受けながら担当する',
+    '後輩へのプログラミング指導・コードレビューを経験する',
+    '詳細設計〜実装までを一人で完了できる範囲を広げる',
+    '基本情報技術者試験の学習・受験に取り組む',
+  ],
+  4: [
+    'プロジェクトリーダーの補助（進捗管理・課題管理のサポート）を経験する',
+    '基本設計を主担当として実施する',
+    '顧客・BP様との定例会議に同席し、報告・相談の経験を積む',
+    '後輩・BP様への技術指導を継続的に行う',
+  ],
+};
+
+const TRACK_META = {
+  mgmt: { label:'🧑‍💼 リーダー・管理職コース', color:'blue',
+    desc:'人・プロジェクト・組織を動かす方向。プロジェクトマネジメント、メンバー育成、組織運営、予算管理、事業目標達成を担う。' },
+  spec: { label:'🧑‍💻 スペシャリストコース', color:'purple',
+    desc:'専門性によって現場・組織を牽引する方向。技術課題解決、技術指導、専門性による事業貢献を担う。' },
+};
+
+const FORK_GRADES = [
+  { g:5,
+    mgmt:{ title:'リーダー／エンジニア', req:[
+      'プロジェクトのマネジメントが、補助を受けながら行えること',
+      'プロジェクトのリーダーを一人で行えること',
+      '要件定義ができること',
+      '社長／管理本部長面談による昇格承認（考え方の継承ができていること）',
+      { either:[
+        {text:'昇格試験に合格していること（情報処理技術者試験「ランクD」）', note:NOTE5},
+        {text:'社歴が10年以上あり、社員の模範となる顕著な実績があること'},
+        {text:'サブリーダー職として1年以上十分な職責を果たした実績があること'},
+      ]},
+    ]},
+    spec:{ title:'アソシエイトスペシャリスト', req:[
+      { text:'昇格試験に合格していること（情報処理技術者試験「ランクD」）', note:NOTE5 },
+      '社員の技術的に模範となる顕著な実績があること',
+      '2年以上の実務経験があること',
+      'プロジェクトのリーダーを一人で行えること',
+      '要件定義ができること',
+      '社長／管理本部長面談による昇格承認（考え方の継承ができていること）',
+    ]},
+  },
+  { g:6,
+    mgmt:{ title:'マネージャー', req:[
+      '講師認定されていること（毎年5月末期限）',
+      'プロジェクトのマネジメントを一人で行えること',
+      'プロジェクトを計画的に実行できること',
+      '社長／管理本部長面談による昇格承認（自分なりの職位に対する考え方と目的を持っていること）',
+      { either:[
+        {text:'昇格試験に合格していること（情報処理技術者試験「ランクD」）', note:NOTE10},
+        {text:'社歴が10年以上あり、社員の模範となる顕著な実績があること'},
+        {text:'サブリーダー職として1年以上十分な職責を果たした実績があること'},
+      ]},
+    ]},
+    spec:{ title:'ジュニアスペシャリスト', req:[
+      '秀でたスキルを持ち、そのスキルで自身の現場やラインの目標達成や課題解決に貢献できること',
+      { text:'昇格試験に合格していること（情報処理技術者試験「ランクD」）', note:NOTE10 },
+      '社員を技術的に篤く、厳しく指導することができ、その顕著な実績があること',
+    ]},
+  },
+  { g:7,
+    mgmt:{ title:'課長代理', req:[
+      'プロジェクトのマネジメントを計画的に実行できること',
+      '社長／管理本部長面談による昇格承認',
+      { either:[
+        {text:'昇格試験に合格していること（情報処理技術者試験「ランクC」）', note:NOTE10},
+        {text:'社歴が10年以上あり、社員を篤く、楽しく、厳しく育成した顕著な実績があること'},
+      ]},
+    ]},
+    spec:{ title:'スペシャリスト', req:[
+      '課の目標達成や課題解決に於いて自身の突出したスキルで貢献できること',
+      { either:[
+        {text:'篤く、楽しく、厳しく技術的に育成した顕著な実績があること'},
+        {text:'情報処理技術者試験「ランクC」以上の合格か、それに相当する資格の取得をしていること', note:NOTE10},
+      ]},
+    ]},
+  },
+  { g:8,
+    mgmt:{ title:'課長', req:[
+      '経営会議メンバーであること（※1）',
+      '課の予算達成に貢献した顕著な実績があること',
+      '社長／管理本部長面談による昇格承認',
+      { either:[
+        {text:'昇格試験に合格していること（情報処理技術者試験「システム監査技術者」）', note:NOTE10},
+        {text:'社歴が10年以上あり、組織・プロジェクトを篤く、楽しく、厳しく育成した顕著な実績があること'},
+      ]},
+    ]},
+    spec:{ title:'シニアスペシャリスト', req:[
+      '部の目標達成や課題解決に於いて自身の突出したスキルで貢献できること',
+      { either:[
+        {text:'篤く、楽しく、厳しく組織・プロジェクトを技術的に育成した顕著な実績があること'},
+        {text:'情報処理技術者試験「ランクA」の合格か、それに相当する資格の取得をしていること', note:NOTE10},
+      ]},
+    ]},
+  },
+  { g:9,
+    mgmt:{ title:'次長', req:[
+      '経営会議メンバーであること（※1）',
+      '全社方針を踏まえた部の予算策定及び予実分析ができること',
+      '社長／管理本部長面談による昇格承認',
+      { text:'昇格試験に合格していること（情報処理技術者試験「ランクD」）', note:NOTE10 },
+    ]},
+    spec:{ title:'エグゼクティブスペシャリスト', req:[
+      '事業本部の戦略を理解し、その目標達成や課題解決に於いて自身の突出したスキルで貢献できること',
+      '社長／管理本部長面談による昇格承認',
+      '篤く、楽しく、厳しく組織・プロジェクトを技術的に育成した顕著な実績があること',
+      '情報処理技術者試験「ランクA」の合格か、それに相当する資格の取得をしていること',
+    ]},
+  },
+  { g:10,
+    mgmt:{ title:'部長', req:[
+      '経営会議メンバーであること（※1）',
+      '社長／管理本部長面談による昇格承認',
+      { text:'昇格試験に合格していること（情報処理技術者試験「ランクD」）', note:NOTE10 },
+    ]},
+    spec:{ title:'エバンジェリスト／プリンシパルスペシャリスト', req:[
+      '会社戦略を理解し、会社の目標達成や課題解決に於いて自身の突出したスキルで貢献できること',
+      '社長／管理本部長面談による昇格承認',
+      '情報処理技術者試験「ランクA」の合格か、それに相当する資格の取得をしていること',
+    ]},
+  },
+];
+
+// ── 成長のための経験例（第1ラインとしての参考。会社公式の昇格基準ではない） ──
+const EXP_FORK = {
+  5: {
+    mgmt:[ '小規模チームでPL（プロジェクトリーダー）を経験する','メンバーのタスク管理を経験する','顧客との要件整理に参加する','要件定義書を作成する','見積・工数算出を経験する','進捗・課題管理を担当する','顧客への進捗報告を担当する','後輩へのレビュー・指導を経験する' ],
+    spec:[ '専門領域（得意技術）を明確にし、案件の技術的な相談役を担う','技術的な課題解決でラインに貢献した実績を作る','後輩・チームメンバーへの技術指導を継続的に行う','要件定義・PLの経験も並行して積んでおく' ],
+  },
+  6: {
+    mgmt:[ 'PLだけでなくPM（プロジェクトマネジメント）を単独で担当する案件を持つ','予算・工数・スケジュールの管理責任を持つ','講師認定の取得に向けて社内研修の講師を担当する','サブリーダー・リーダーとしてメンバーの育成に関わる' ],
+    spec:[ '得意分野の技術で社内勉強会・ナレッジ共有の講師を担当する','技術的な課題解決でラインの目標達成に貢献した実績を作る','後輩への技術指導を継続し、育成実績として説明できる形にする' ],
+  },
+  7: {
+    mgmt:[ '複数案件・複数チームのプロジェクトマネジメントを経験する','メンバーの育成計画を立て、実行する','部下の評価・査定プロセスに関わる','情報処理技術者試験ランクC以上の合格を目指す' ],
+    spec:[ '課をまたいだ技術的な相談・課題解決に関わる','育成実績（指導した後輩の成長）を可視化できるようにする','情報処理技術者試験ランクC以上、または相当資格の取得を目指す' ],
+  },
+  8: {
+    mgmt:[ '課の予算策定・予実管理を担当する','課全体の目標達成に向けた戦略立案に関わる','システム監査技術者試験の受験、または社歴・育成実績の積み上げを意識する' ],
+    spec:[ '部レベルの技術課題解決に貢献する','組織・プロジェクト全体への技術的育成の実績をさらに広げる','情報処理技術者試験ランクA、または相当資格の取得を目指す' ],
+  },
+  9: {
+    mgmt:[ '全社方針を理解し、部の予算策定・予実分析を担当する','部門を横断したマネジメントに関わる','経営会議メンバーとしての視点（全社戦略）を意識する' ],
+    spec:[ '事業本部の戦略を理解し、それに基づく技術貢献を行う','組織・プロジェクトへの技術的育成の実績をさらに広げる','情報処理技術者試験ランクA相当の専門性を維持・更新する' ],
+  },
+  10: {
+    mgmt:[ '経営会議メンバーとして全社戦略・予算に関わる','部長として組織運営・事業目標達成を担う' ],
+    spec:[ '会社戦略を理解し、突出した専門性で会社全体に貢献する','情報処理技術者試験ランクA相当の専門性を対外的にも発揮する' ],
+  },
+};
+
+function reqItemHTML(item) {
+  if (typeof item === 'string') return `<li>${escHTML(item)}</li>`;
+  if (item.either) {
+    return `<li><span class="req-either-label">以下のいずれかを満たすこと</span>
+      <ul class="req-either">${item.either.map(reqItemHTML).join('')}</ul>
+    </li>`;
+  }
+  return `<li>${escHTML(item.text)}${item.note ? `<div class="req-note">${escHTML(item.note)}</div>` : ''}</li>`;
+}
+function reqListHTML(items) {
+  if (!items || !items.length) return `<p style="color:var(--text3);font-size:12px">昇格基準の定めなし（起点等級）</p>`;
+  return `<ul class="req-list">${items.map(reqItemHTML).join('')}</ul>`;
+}
+function expListHTML(items) {
+  if (!items || !items.length) return '';
+  return `<ul class="exp-list">${items.map(t => `<li>${escHTML(t)}</li>`).join('')}</ul>`;
+}
+
+// ── ロードマップ描画 ──
+let selectedGrade = null, selectedTrack = null;
+
+function renderTracks() {
+  document.getElementById('commonTrack').innerHTML = COMMON_GRADES.map((c, i) => `
+    ${i > 0 ? '<span class="track-connector">→</span>' : ''}
+    <div class="step-box" data-grade="${c.g}" data-track="">
+      <div class="step-grade">${c.g}等級</div>
+    </div>
+  `).join('');
+
+  ['mgmt', 'spec'].forEach(track => {
+    document.getElementById(track === 'mgmt' ? 'mgmtTrack' : 'specTrack').innerHTML = FORK_GRADES.map((f, i) => `
+      ${i > 0 ? '<span class="track-connector">→</span>' : ''}
+      <div class="step-box ${track === 'spec' ? 'spec' : ''}" data-grade="${f.g}" data-track="${track}">
+        <div class="step-grade">${f.g}等級</div>
+        <div class="step-title">${escHTML(f[track].title)}</div>
+      </div>
+    `).join('');
+  });
+
+  document.querySelectorAll('.step-box').forEach(el => {
+    el.addEventListener('click', () => {
+      selectedGrade = +el.dataset.grade;
+      selectedTrack = el.dataset.track || null;
+      renderActive();
+      renderDetail();
+    });
+  });
+}
+
+function renderActive() {
+  document.querySelectorAll('.step-box').forEach(el => {
+    const g = +el.dataset.grade, t = el.dataset.track || null;
+    el.classList.toggle('active', g === selectedGrade && t === selectedTrack);
+  });
+}
+
+function renderDetail() {
+  const body = document.getElementById('detailBody');
+  if (selectedGrade === null) {
+    body.innerHTML = `<div class="placeholder-hint">上のロードマップから、あなたの等級をクリックしてください。<br>現在地・次のステップ・成長のための経験例が表示されます。</div>`;
+    return;
+  }
+
+  const isFork = selectedGrade >= 5;
+  const current = isFork ? FORK_GRADES.find(x => x.g === selectedGrade)[selectedTrack] : COMMON_GRADES.find(x => x.g === selectedGrade);
+  const currentTitle = isFork ? current.title : (selectedGrade + '等級');
+
+  let html = `<div style="margin-bottom:1.25rem">`;
+  if (isFork) {
+    const meta = TRACK_META[selectedTrack];
+    html += `<div class="track-desc-card ${selectedTrack}">${meta.label}：${meta.desc}</div>`;
+  }
+  html += `
+    <div style="font-size:13px;font-weight:700;margin-bottom:.6rem">あなたの現在地：${selectedGrade}等級${isFork ? `（${escHTML(currentTitle)}）` : ''}</div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:.4rem">現在求められている水準（公式基準）</div>
+    ${reqListHTML(current.req)}
+  </div>`;
+
+  if (selectedGrade === 10) {
+    html += `<div style="color:var(--text3);font-size:12px">これが最上位の等級です。次のステップの定めはありません。</div>`;
+  } else if (selectedGrade === 4) {
+    // 4→5等級は分岐点。両コースを並べて提示する
+    html += `<div style="font-size:13px;font-weight:700;margin:1.25rem 0 .6rem">次のステップ：5等級から2つのコースに分岐します</div>
+      <div class="next-grid">
+        ${['mgmt', 'spec'].map(track => {
+          const next = FORK_GRADES.find(x => x.g === 5)[track];
+          const meta = TRACK_META[track];
+          return `<div class="next-sub-card">
+            <h4 style="color:var(--${track === 'mgmt' ? 'blue' : 'purple'})">${meta.label}<br><span style="font-weight:400;color:var(--text2);font-size:11px">5等級：${escHTML(next.title)}</span></h4>
+            ${reqListHTML(next.req)}
+            <div style="font-size:11px;color:var(--text3);margin:.75rem 0 .3rem">成長のための経験例（ラインの参考／非公式）</div>
+            ${expListHTML(EXP_FORK[5][track])}
+          </div>`;
+        }).join('')}
+      </div>`;
+  } else {
+    const nextGrade = selectedGrade + 1;
+    const nextIsFork = nextGrade >= 5;
+    const nextTrack = nextIsFork ? (selectedTrack || 'mgmt') : null;
+    const next = nextIsFork ? FORK_GRADES.find(x => x.g === nextGrade)[nextTrack] : COMMON_GRADES.find(x => x.g === nextGrade);
+    const nextTitle = nextIsFork ? next.title : (nextGrade + '等級');
+    html += `
+      <div style="font-size:13px;font-weight:700;margin:1.25rem 0 .6rem">次のステップ：${nextGrade}等級${nextIsFork ? `（${escHTML(nextTitle)}）` : ''}</div>
+      ${reqListHTML(next.req)}
+      <div style="font-size:11px;color:var(--text3);margin:1rem 0 .3rem">成長のための経験例（ラインの参考／非公式）</div>
+      ${expListHTML(nextIsFork ? EXP_FORK[nextGrade][nextTrack] : EXP_COMMON[nextGrade])}
+    `;
+  }
+
+  html += `
+    <div class="link-row">
+      <a class="link-chip" href="skill.html">→ スキルマップを見る</a>
+      <a class="link-chip" href="skill.html">→ 保有資格を見る</a>
+      <a class="link-chip" href="knowledge.html">→ ナレッジ・FAQを見る</a>
+    </div>`;
+
+  body.innerHTML = html;
+}
+
+function renderOverview() {
+  const rows = [];
+  COMMON_GRADES.slice().reverse().forEach(c => {
+    rows.push(`<tr><td>${c.g}等級</td><td class="left" colspan="2" style="color:var(--text3)">共通キャリアパス</td></tr>`);
+  });
+  const forkRows = FORK_GRADES.slice().reverse().map(f => `
+    <tr><td>${f.g}等級</td><td class="left">${escHTML(f.mgmt.title)}</td><td class="left">${escHTML(f.spec.title)}</td></tr>
+  `).join('');
+  document.getElementById('overviewBody').innerHTML = forkRows + rows.join('');
+}
+
+renderTracks();
+renderDetail();
+renderOverview();
+
+document.getElementById('loading').style.display = 'none';
+document.getElementById('app').classList.add('ready');
+</script>
+</body>
+</html>
