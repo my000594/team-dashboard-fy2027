@@ -53,6 +53,7 @@ async function init() {
     const text = new TextDecoder('utf-8').decode(buf).replace(/^﻿/, '');
     const infoRows = Papa.parse(text, { header: true, skipEmptyLines: true, dynamicTyping: true }).data;
 
+    const NEW_BADGE_DAYS = 3; // 開始日から何日間「NEW!」を表示するか（開始日を含む）
     const today = new Date();
     const today0 = new Date(today.getFullYear(), today.getMonth(), today.getDate());
     const parsedInfo = infoRows
@@ -71,10 +72,11 @@ async function init() {
     document.getElementById('subtitle').textContent =
       `${today.toLocaleDateString('ja-JP')} 時点 — 表示中 ${activeInfo.length}件 ／ アーカイブ ${archivedInfo.length}件`;
 
-    function infoItemHTML({ r, end }, archived) {
+    function infoItemHTML({ r, start, end }, archived) {
       const type = r['種別'] || 'info';
       const dotClass = type === 'deadline' ? 'info-deadline' : type === 'event' ? 'info-event' : 'info-info';
       let dueText, dueClass;
+      let isNew = false;
       if (archived) {
         dueText = `終了 〜${end.getFullYear()}/${end.getMonth()+1}/${end.getDate()}`;
         dueClass = 'info-due-archived';
@@ -82,11 +84,14 @@ async function init() {
         const diff = Math.ceil((end - today0) / (1000*60*60*24));
         dueClass = diff <= 7 ? 'info-due-urgent' : 'info-due-normal';
         dueText = diff <= 7 ? `残${diff}日（〜${end.getFullYear()}/${end.getMonth()+1}/${end.getDate()}）` : `〜${end.getFullYear()}/${end.getMonth()+1}/${end.getDate()}`;
+        const daysSinceStart = Math.floor((today0 - start) / (1000*60*60*24));
+        isNew = daysSinceStart >= 0 && daysSinceStart < NEW_BADGE_DAYS;
       }
       return `<div class="info-item" onclick="this.classList.toggle('open')">
         <span class="info-dot ${dotClass}"></span>
         <div class="info-main">
           <div class="info-title-row">
+            ${isNew ? '<span class="info-new-badge">NEW!</span>' : ''}
             <span class="info-title">${escapeHTML(r['タイトル'] || '')}</span>
             <span class="info-due-badge ${dueClass}">${dueText}</span>
             <span class="info-chevron">›</span>

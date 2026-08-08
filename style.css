@@ -257,6 +257,11 @@ body {
 .info-due-urgent   { background: var(--red-dim);  color: var(--red); }
 .info-due-normal   { background: var(--blue-dim); color: var(--blue); }
 .info-due-archived { background: var(--bg3); color: var(--text3); font-weight: 500; }
+.info-new-badge {
+  display: inline-block; font-size: 10px; font-weight: 700;
+  padding: 2px 9px; border-radius: 999px; font-family: var(--mono); flex-shrink: 0;
+  background: var(--purple-dim); color: var(--purple);
+}
 
 /* ── Markdown本文（インフォメーション本文・ナレッジ記事/回答で共通使用） ──
    描画はmd.jsのmd2html()が担当。長文を読ませる前提で行長を制限している。 */

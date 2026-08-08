@@ -135,6 +135,7 @@ async function init() {
       return null;
     }
     const INFO_TOP_LIMIT = 5;
+    const NEW_BADGE_DAYS = 3; // 開始日から何日間「NEW!」を表示するか（開始日を含む）
     const infoCard = document.getElementById('infoCard');
     const infoList = document.getElementById('infoList');
     const today0 = new Date(today.getFullYear(), today.getMonth(), today.getDate());
@@ -152,16 +153,19 @@ async function init() {
 
     if (activeInfo.length > 0) {
       infoCard.style.display = '';
-      infoList.innerHTML = activeInfo.slice(0, INFO_TOP_LIMIT).map(({ r, end }) => {
+      infoList.innerHTML = activeInfo.slice(0, INFO_TOP_LIMIT).map(({ r, start, end }) => {
         const type = r['種別'] || 'info';
         const dotClass = type === 'deadline' ? 'info-deadline' : type === 'event' ? 'info-event' : 'info-info';
         const diff = Math.ceil((end - today0) / (1000*60*60*24));
         const dueClass = diff <= 7 ? 'info-due-urgent' : 'info-due-normal';
         const dueText = diff <= 7 ? `残${diff}日（〜${end.getFullYear()}/${end.getMonth()+1}/${end.getDate()}）` : `〜${end.getFullYear()}/${end.getMonth()+1}/${end.getDate()}`;
+        const daysSinceStart = Math.floor((today0 - start) / (1000*60*60*24));
+        const isNew = daysSinceStart >= 0 && daysSinceStart < NEW_BADGE_DAYS;
         return `<div class="info-item" onclick="this.classList.toggle('open')">
           <span class="info-dot ${dotClass}"></span>
           <div class="info-main">
             <div class="info-title-row">
+              ${isNew ? '<span class="info-new-badge">NEW!</span>' : ''}
               <span class="info-title">${escapeHTML(r['タイトル'] || '')}</span>
               <span class="info-due-badge ${dueClass}">${dueText}</span>
               <span class="info-chevron">›</span>

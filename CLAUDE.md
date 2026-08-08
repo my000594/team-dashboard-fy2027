@@ -170,6 +170,7 @@ team-dashboard-fy2027/
 ### index.html（トップ）
 - 4ファイルを並行fetch：3se_report.csv / sales.csv / member_master.csv / info.csv
 - インフォメーション：期間内のものだけ、期限近い順に**最大5件**表示（残7日以内は赤バッジ）。6件目以降がある場合は「他N件 → インフォメーションですべて見る」リンクをinfo.htmlへ表示
+- 開始日から`NEW_BADGE_DAYS`（現在3日間・開始日を含む）以内の項目には紫の「NEW!」バッジをタイトル前に表示する。定数はindex.html・info.htmlそれぞれのスクリプト内に個別定義（md.jsのような共通ファイルには置いていない）。日数を変える場合は両ページの`NEW_BADGE_DAYS`を両方書き換えること
 - 課員数は member_master.csv の在籍者数から取得
 - 3SE件数は月別列を直接合算（calcTotal関数）
 - 売上は sales.csv の実績>0の行を集計
@@ -178,6 +179,7 @@ team-dashboard-fy2027/
 - `data/info.csv`をfetchし、index.htmlと同じロジックで期間内の全件を表示（件数制限なし）
 - 右上の「アーカイブ」ボタンで、終了日を過ぎた項目一覧（新しい順）に切り替え表示。もう一度押すと現在の表示に戻る
 - 本文はMarkdown対応（`md.js`の`md2html()`を使用。index.html・knowledge.htmlと共通。以前は3ページに同じ関数をコピーして持っていたが、md.jsに一本化した）
+- 「NEW!」バッジ表示ロジックはindex.htmlと同じ（開始日から`NEW_BADGE_DAYS`日以内。詳細はindex.htmlセクション参照）。アーカイブ表示中の項目には出さない
 - ナビゲーションの並びは トップ → インフォメーション → メンバー → ... の順
 
 ### member.html（メンバー）
