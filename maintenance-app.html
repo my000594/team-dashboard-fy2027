@@ -133,6 +133,7 @@ body{
     <span class="sync-text">今すぐNotion同期を実行</span>
   </button>
   <div id="syncMsg" class="msg" style="display:none"></div>
+  <div id="syncLastStatus" class="sync-desc" style="margin-top:-.5rem">前回の同期：確認中...</div>
 
   <button id="settingsToggle" class="settings-toggle">⚙ 詳細設定・トークン設定</button>
 
@@ -347,17 +348,32 @@ function showSyncMsg(text, type) {
   m.style.display = text ? 'block' : 'none';
 }
 
+// 追跡中のdispatchが残っていれば「同期状況を再確認」ボタンに、無ければ通常の実行ボタンに戻す。
+// 実行中にバックグラウンドへ回してタイムアウト表示が出た後も、このボタンでその場から手動再確認できるようにする
+// （GitHub Actionsのタブを開きに行かなくても状況を追えるようにするための導線）
 function resetSyncBtn() {
   busy = false;
-  const btn = el('syncBtn');
-  btn.disabled = false;
-  btn.innerHTML = `<span class="sync-icon">🔄</span><span class="sync-text">今すぐNotion同期を実行</span>`;
   const toggleBtn = el('toggleBtn');
   if (toggleBtn) toggleBtn.disabled = false;
+  renderSyncButtonState();
+}
+
+function renderSyncButtonState() {
+  const btn = el('syncBtn');
+  btn.disabled = false;
+  const pending = getSyncPending();
+  if (pending && Date.now() - pending.dispatchedAt <= SYNC_STALE_MS) {
+    btn.innerHTML = `<span class="sync-icon">🔎</span><span class="sync-text">同期状況を再確認</span>`;
+    btn.onclick = () => resumeSyncIfPending();
+  } else {
+    btn.innerHTML = `<span class="sync-icon">🔄</span><span class="sync-text">今すぐNotion同期を実行</span>`;
+    btn.onclick = runSync;
+  }
 }
 
 const SYNC_PENDING_KEY = 'sync_app_pending';
 const SYNC_STALE_MS = 20 * 60 * 1000; // 20分以上前のdispatchは追跡を諦める（放棄扱い）
+const SYNC_LAST_KEY = 'sync_last_result'; // 直近の同期結果（GitHub Actionsを開かずに確認できるようにするためのキャッシュ）
 
 function getSyncPending() {
   try { return JSON.parse(localStorage.getItem(SYNC_PENDING_KEY) || 'null'); }
@@ -365,9 +381,47 @@ function getSyncPending() {
 }
 function setSyncPending(obj) {
   try { localStorage.setItem(SYNC_PENDING_KEY, JSON.stringify(obj)); } catch (e) { /* 容量超過等は無視 */ }
+  renderSyncButtonState();
 }
 function clearSyncPending() {
   localStorage.removeItem(SYNC_PENDING_KEY);
+  renderSyncButtonState();
+}
+
+// 「前回の同期」表示。実行中のdispatchを自分が追跡できているかどうかに関係なく、GitHub側の最新の
+// 完了済みrunを直接問い合わせて表示する。これが「GitHub Actionsのタブを見に行かなくても確認できる」手段になる
+function fmtSyncTime(iso) {
+  return new Date(iso).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+function renderLastSyncStatus(text) {
+  const elx = el('syncLastStatus');
+  if (elx) elx.textContent = '前回の同期：' + text;
+}
+function cacheLastSyncResult(conclusion, finishedAt) {
+  try { localStorage.setItem(SYNC_LAST_KEY, JSON.stringify({ conclusion, finishedAt })); } catch (e) { /* ignore */ }
+}
+async function refreshLastSyncStatus() {
+  const token = getToken();
+  if (!token) { renderLastSyncStatus('トークン未設定のため確認できません'); return; }
+  try {
+    const data = await ghApi(`/repos/${OWNER}/${REPO}/actions/workflows/${SYNC_WORKFLOW_FILE}/runs?status=completed&per_page=1`, token);
+    const run = (data.workflow_runs || [])[0];
+    if (!run) { renderLastSyncStatus('実行履歴がありません'); return; }
+    cacheLastSyncResult(run.conclusion, run.updated_at);
+    const icon = run.conclusion === 'success' ? '✅' : '⚠️';
+    renderLastSyncStatus(`${icon} ${run.conclusion === 'success' ? '成功' : '失敗/一部失敗'}（${fmtSyncTime(run.updated_at)}・毎日6:00 JST自動実行含む）`);
+  } catch (e) {
+    // キャッシュがあればそれだけでも出す（オフライン・トークン失効直後など）
+    try {
+      const cached = JSON.parse(localStorage.getItem(SYNC_LAST_KEY) || 'null');
+      if (cached) {
+        const icon = cached.conclusion === 'success' ? '✅' : '⚠️';
+        renderLastSyncStatus(`${icon}（前回確認時点・最新は未取得）${fmtSyncTime(cached.finishedAt)}`);
+        return;
+      }
+    } catch (e2) { /* ignore */ }
+    renderLastSyncStatus('取得できませんでした');
+  }
 }
 
 function renderSyncBusy(text) {
@@ -435,14 +489,20 @@ async function runSync() {
 // スマホでアプリをバックグラウンドに回す・閉じるとJSの実行自体が止まり、ポーリングが
 // 続行できないことがある。進捗をlocalStorageに逐次保存し、アプリを開き直した時（init）や
 // タブが再度前面に来た時（visibilitychange）に、保存済みの状態から確認を再開できるようにしている。
-// これにより「実行が続いているのに毎回GitHub Actionsタブを見に行かされる」状態を避ける
+// これにより「実行が続いているのに毎回GitHub Actionsタブを見に行かされる」状態を避ける。
+//
+// 待ち時間の目安：sync-notion.ymlはconcurrencyグループで同時実行を1つに制限しているため、
+// 前の実行（毎日6:00 JSTの自動実行や、直前の手動実行）がまだ動いていると新しいrunはキューで
+// 待たされる。加えてNotion API不調時は30秒間隔で最大3回リトライする。これらが重なると数分かかる
+// ことがあるため、検出90秒・完了確認10分というかなり余裕を持たせた時間で待つ
+// （2026-08-09：以前は検出60秒・完了確認2分で、実際には成功しているのに時間切れ表示が出ていたため延長）
 async function trackSync(pending, token) {
   let { dispatchedAt, runId } = pending;
   showSyncMsg(runId ? '実行状況を確認しています...' : '実行を検出しています...', 'info');
   renderSyncBusy(runId ? '確認中...' : '実行を検出中...');
 
   if (!runId) {
-    for (let i = 0; i < 20 && !runId; i++) {
+    for (let i = 0; i < 30 && !runId; i++) {
       try {
         const run = await findRunSince(dispatchedAt, token);
         if (run) runId = run.id;
@@ -451,39 +511,46 @@ async function trackSync(pending, token) {
     }
     if (!runId) {
       // 送信自体は成功しているため「失敗した」とは案内しない。pendingは消さずに残し、
-      // 次回このアプリを開いた時・前面に戻した時に自動で確認を再開する
-      showSyncMsg('送信は完了していますが、実行の検出に時間がかかっています。少ししてからこのアプリを開き直すと確認を再開します', 'error');
+      // 次回このアプリを開いた時・前面に戻した時、または下のボタンから手動で確認を再開できる
+      showSyncMsg('送信は完了していますが、実行の検出に時間がかかっています。下のボタンから再確認するか、少ししてからこのアプリを開き直してください', 'error');
       resetSyncBtn();
       return;
     }
     setSyncPending({ dispatchedAt, runId });
   }
 
-  renderSyncBusy('実行中...');
-  for (let i = 0; i < 40; i++) {
+  const COMPLETION_TRIES = 120; // 5秒間隔 × 120回 ＝ 最大10分待つ
+  for (let i = 0; i < COMPLETION_TRIES; i++) {
     try {
       const data = await ghApi(`/repos/${OWNER}/${REPO}/actions/runs/${runId}`, token);
       if (data.status === 'completed') {
         clearSyncPending();
+        cacheLastSyncResult(data.conclusion, data.updated_at);
         if (data.conclusion === 'success') {
+          renderLastSyncStatus(`✅ 成功（${fmtSyncTime(data.updated_at)}）`);
           showSyncMsg('同期が完了しました', 'ok');
         } else {
+          renderLastSyncStatus(`⚠️ 失敗/一部失敗（${fmtSyncTime(data.updated_at)}）`);
           showSyncMsg('一部失敗した可能性があります（成功したデータベース分は反映済み）。詳細はGitHub Actionsのログを確認してください', 'error');
         }
         resetSyncBtn();
         return;
       }
+      const elapsedMin = Math.round((i * 5) / 60 * 10) / 10;
+      renderSyncBusy(`実行中...（${data.status === 'in_progress' ? '処理中' : 'キュー待ち'}・約${elapsedMin}分経過）`);
     } catch (e) { /* retry */ }
-    await new Promise(r => setTimeout(r, 3000));
+    await new Promise(r => setTimeout(r, 5000));
   }
   // ここでもpendingは消さない。実際にはバックグラウンドで動いている可能性が高いため、
-  // 開き直した時・前面に戻した時に再確認させる
-  showSyncMsg('実行確認に時間がかかっています。少ししてからこのアプリを開き直すと確認を再開します', 'error');
+  // 開き直した時・前面に戻した時、または下のボタンから手動で再確認させる
+  showSyncMsg('実行確認に時間がかかっています。下のボタンから再確認するか、少ししてからこのアプリを開き直してください', 'error');
   resetSyncBtn();
 }
 
-// アプリを開いた時／再度前面に表示された時に、追跡中の同期があれば自動的に確認を再開する
+// アプリを開いた時／再度前面に表示された時、または「同期状況を再確認」ボタンから、
+// 追跡中の同期があれば確認を再開する
 async function resumeSyncIfPending() {
+  if (busy) return;
   const pending = getSyncPending();
   if (!pending) return;
   if (Date.now() - pending.dispatchedAt > SYNC_STALE_MS) {
@@ -491,15 +558,19 @@ async function resumeSyncIfPending() {
     return;
   }
   const token = getToken();
-  if (!token || busy) return;
+  if (!token) {
+    showSyncMsg('先に「⚙ 詳細設定・トークン設定」からトークンを設定してください', 'error');
+    el('settingsPanel').classList.add('open');
+    return;
+  }
   await trackSync(pending, token);
 }
 
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') resumeSyncIfPending();
+  if (document.visibilityState === 'visible') { resumeSyncIfPending(); refreshLastSyncStatus(); }
 });
 
-el('syncBtn').onclick = runSync;
+renderSyncButtonState();
 
 // 設定パネル
 el('settingsToggle').onclick = () => el('settingsPanel').classList.toggle('open');
@@ -517,6 +588,18 @@ el('clearBtn').onclick = () => {
 
 fetchStatus();
 resumeSyncIfPending();
+
+// 「前回の同期」はキャッシュがあれば即座に表示し、その裏でGitHubへ最新状況を問い合わせて上書きする
+(() => {
+  try {
+    const cached = JSON.parse(localStorage.getItem(SYNC_LAST_KEY) || 'null');
+    if (cached) {
+      const icon = cached.conclusion === 'success' ? '✅' : '⚠️';
+      renderLastSyncStatus(`${icon} ${cached.conclusion === 'success' ? '成功' : '失敗/一部失敗'}（${fmtSyncTime(cached.finishedAt)}）`);
+    }
+  } catch (e) { /* ignore */ }
+})();
+refreshLastSyncStatus();
 </script>
 </body>
 </html>
