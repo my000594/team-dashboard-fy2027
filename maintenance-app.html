@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="robots" content="noindex, nofollow, noarchive">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>メンテナンス切替</title>
+<title>管理者ツール</title>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="mobile-web-app-capable" content="yes">
@@ -98,11 +98,21 @@ body{
 .confirm-btn.cancel{background:var(--bg3);color:var(--text2);border:.5px solid var(--border2)}
 .confirm-btn.ok.start{background:var(--amber);color:#1a1206}
 .confirm-btn.ok.stop{background:var(--green);color:#08160e}
+.section-divider{width:100%;font-size:12px;font-weight:600;color:var(--text2);letter-spacing:.03em;padding-top:.75rem;border-top:1px solid var(--border);display:flex;align-items:center;gap:6px}
+.sync-desc{width:100%;font-size:11px;color:var(--text3);line-height:1.5;margin-top:-.5rem}
+.sync-btn{
+  width:100%;padding:1rem;border-radius:16px;cursor:pointer;
+  background:linear-gradient(160deg,#0f1f3a,#081020);border:1px solid rgba(59,130,246,.35);color:var(--blue);
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  font-family:var(--font);font-size:15px;font-weight:700;transition:transform .1s, opacity .2s;
+}
+.sync-btn:active{transform:scale(.97)}
+.sync-btn:disabled{opacity:.5;cursor:default}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <div class="app-title">🔧 メンテナンス切替 <span style="color:var(--text3);font-weight:400">／ 第1ライン Dashboard</span></div>
+  <div class="app-title">🛠️ 管理者ツール <span style="color:var(--text3);font-weight:400">／ 第1ライン Dashboard</span></div>
 
   <div class="status-card">
     <div id="statusLabel" class="status-label"><span class="status-dot unknown"></span>確認中...</div>
@@ -115,6 +125,14 @@ body{
   </button>
 
   <div id="msg" class="msg" style="display:none"></div>
+
+  <div class="section-divider">📥 Notion同期</div>
+  <div class="sync-desc">Notion上の最新データを取得し、data/配下のCSVを再生成します（通常は毎日6:00 JSTに自動実行されるので、急ぎ反映したい時だけ使用）</div>
+  <button id="syncBtn" class="sync-btn">
+    <span class="sync-icon">🔄</span>
+    <span class="sync-text">今すぐNotion同期を実行</span>
+  </button>
+  <div id="syncMsg" class="msg" style="display:none"></div>
 
   <button id="settingsToggle" class="settings-toggle">⚙ 詳細設定・トークン設定</button>
 
@@ -148,6 +166,7 @@ body{
 const OWNER = 'my000594';
 const REPO = 'team-dashboard-fy2027';
 const WORKFLOW_FILE = 'maintenance.yml';
+const SYNC_WORKFLOW_FILE = 'sync-notion.yml';
 const TOKEN_KEY = 'maint_app_gh_pat';
 
 const el = id => document.getElementById(id);
@@ -245,6 +264,7 @@ async function toggle(nextActive) {
   busy = true;
   const btn = el('toggleBtn');
   btn.disabled = true;
+  el('syncBtn').disabled = true;
   btn.innerHTML = `<span class="spinner"></span><span class="toggle-text">送信中...</span>`;
   showMsg('GitHub Actionsに送信しています...', 'info');
 
@@ -282,6 +302,7 @@ async function toggle(nextActive) {
   } catch (e) {
     showMsg(e.message, 'error');
     busy = false;
+    el('syncBtn').disabled = false;
     fetchStatus();
   }
 }
@@ -296,14 +317,136 @@ async function waitForReflect(expectedActive) {
         showMsg('反映されました', 'ok');
         renderStatus(!!data.active, data.message);
         busy = false;
+        el('syncBtn').disabled = false;
         return;
       }
     } catch (e) { /* retry */ }
   }
   showMsg('反映確認がタイムアウトしました。GitHub Actionsの実行状況を確認してください', 'error');
   busy = false;
+  el('syncBtn').disabled = false;
   fetchStatus();
 }
+
+async function ghApi(path, token) {
+  const res = await fetch(`https://api.github.com${path}`, {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Accept': 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28',
+    },
+  });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  return res.json();
+}
+
+function showSyncMsg(text, type) {
+  const m = el('syncMsg');
+  m.textContent = text;
+  m.className = 'msg' + (type ? ' ' + type : '');
+  m.style.display = text ? 'block' : 'none';
+}
+
+function resetSyncBtn() {
+  busy = false;
+  const btn = el('syncBtn');
+  btn.disabled = false;
+  btn.innerHTML = `<span class="sync-icon">🔄</span><span class="sync-text">今すぐNotion同期を実行</span>`;
+  const toggleBtn = el('toggleBtn');
+  if (toggleBtn) toggleBtn.disabled = false;
+}
+
+async function runSync() {
+  if (busy) return;
+  const token = getToken();
+  if (!token) {
+    showSyncMsg('先に「⚙ 詳細設定・トークン設定」からトークンを設定してください', 'error');
+    el('settingsPanel').classList.add('open');
+    return;
+  }
+  busy = true;
+  const btn = el('syncBtn');
+  btn.disabled = true;
+  el('toggleBtn').disabled = true;
+  btn.innerHTML = `<span class="spinner"></span><span>送信中...</span>`;
+  showSyncMsg('GitHub Actionsに送信しています...', 'info');
+
+  // dispatchesのAPIは実行したrunのIDを返さないため、送信直前の実行一覧を記録しておき、
+  // 直後に増えたrunを新規実行として特定する（時刻比較だとクライアント/サーバのクロックずれで
+  // 取りこぼす可能性があるため）
+  let beforeIds = new Set();
+  try {
+    const before = await ghApi(`/repos/${OWNER}/${REPO}/actions/workflows/${SYNC_WORKFLOW_FILE}/runs?per_page=5`, token);
+    beforeIds = new Set((before.workflow_runs || []).map(r => r.id));
+  } catch (e) { /* 取得失敗しても続行（新規run検出がやや遅れるだけ） */ }
+
+  try {
+    const res = await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/actions/workflows/${SYNC_WORKFLOW_FILE}/dispatches`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2022-11-28',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ ref: 'main' }),
+    });
+
+    if (!res.ok) {
+      let detail = '';
+      try { detail = (await res.json()).message || ''; } catch (e) { /* ignore */ }
+      if (res.status === 401) throw new Error(`トークンが無効です（⚙から再設定してください）${detail ? ' / ' + detail : ''}`);
+      if (res.status === 403) throw new Error(`権限不足です（Actions:write権限・対象リポジトリの選択を確認）${detail ? ' / ' + detail : ''}`);
+      if (res.status === 404) throw new Error(`ワークフローが見つかりません（リポジトリ名・ファイル名を確認）${detail ? ' / ' + detail : ''}`);
+      throw new Error(`GitHub API エラー（HTTP ${res.status}）${detail ? ' / ' + detail : ''}`);
+    }
+
+    showSyncMsg('送信しました。実行状況を確認しています...', 'info');
+    await waitForSyncRun(beforeIds, token);
+  } catch (e) {
+    showSyncMsg(e.message, 'error');
+    resetSyncBtn();
+  }
+}
+
+async function waitForSyncRun(beforeIds, token) {
+  let runId = null;
+  for (let i = 0; i < 10 && !runId; i++) {
+    await new Promise(r => setTimeout(r, 2000));
+    try {
+      const data = await ghApi(`/repos/${OWNER}/${REPO}/actions/workflows/${SYNC_WORKFLOW_FILE}/runs?per_page=5`, token);
+      const match = (data.workflow_runs || []).find(r => !beforeIds.has(r.id));
+      if (match) runId = match.id;
+    } catch (e) { /* retry */ }
+  }
+  if (!runId) {
+    showSyncMsg('実行の確認がタイムアウトしました。GitHub Actionsのタブで確認してください', 'error');
+    resetSyncBtn();
+    return;
+  }
+
+  const btn = el('syncBtn');
+  for (let i = 0; i < 40; i++) {
+    try {
+      const data = await ghApi(`/repos/${OWNER}/${REPO}/actions/runs/${runId}`, token);
+      if (data.status === 'completed') {
+        if (data.conclusion === 'success') {
+          showSyncMsg('同期が完了しました', 'ok');
+        } else {
+          showSyncMsg('一部失敗した可能性があります（成功したデータベース分は反映済み）。詳細はGitHub Actionsのログを確認してください', 'error');
+        }
+        resetSyncBtn();
+        return;
+      }
+      btn.innerHTML = `<span class="spinner"></span><span>実行中...(${data.status === 'in_progress' ? '処理中' : '待機中'})</span>`;
+    } catch (e) { /* retry */ }
+    await new Promise(r => setTimeout(r, 3000));
+  }
+  showSyncMsg('完了確認がタイムアウトしました。GitHub Actionsの実行状況を確認してください', 'error');
+  resetSyncBtn();
+}
+
+el('syncBtn').onclick = runSync;
 
 // 設定パネル
 el('settingsToggle').onclick = () => el('settingsPanel').classList.toggle('open');

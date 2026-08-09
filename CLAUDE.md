@@ -284,14 +284,15 @@ LINE_COLORS・LINE_META・LINE_LABEL_MAP定数はmember.html内に定義。
 - 「ステータス」が「予定」の項目には「予定」バッジを表示し、確定前の将来予定（年間表彰の発表など）も年表に置ける設計にしている
 - 日付列はinfo.csvと同じく`YYYY-MM-DD`のISO形式のままCSVに出力している（sales.csv・meeting_plan.csvのように日本語表記に変換していない）。`new Date()`でそのままパースできるため、sales.htmlで踏んだ「日本語日付文字列だとInvalid Dateになる」問題を最初から回避している
 
-### maintenance-app.html（メンテナンス切替アプリ・課長専用）
+### maintenance-app.html（課長専用・管理者ツール。メンテナンス切替＋Notion同期）
 - nav.jsを読み込まない完全に独立したページ。`NAV_ITEMS`にも載せていないため、部下向けダッシュボードのメニューには一切表示されない
 - スマホのホーム画面に追加すると、ブラウザのアドレスバー無しでアプリのように起動する（`apple-mobile-web-app-capable`等のメタタグ＋data URIのmanifest/アイコンで対応。画像ファイルは追加していない）
-- 中身はGitHub REST APIを直接ブラウザから呼び出し、`.github/workflows/maintenance.yml`をworkflow_dispatchでトリガーするだけの単一ページ。バックエンドは持たない
-- 認証は**GitHubのPersonal Access Token（PAT）をこのページ内で入力し、ブラウザのlocalStorageに保存する方式**。トークンはリポジトリのソースコード・git履歴には一切含まれない。ページ自体は誰でもURLを知っていれば開けるが、トークンを持っていない限り操作はできない
-- 想定するトークン：このリポジトリ（`my000594/team-dashboard-fy2027`）のみに絞ったfine-grained PATで、権限は「Actions: Read and write」のみ（Contents権限は付与しない）。漏洩してもコードの読み書き・削除はできず、ワークフローのトリガーのみ可能な設計
-- ボタンは1つ：現在の状態（`data/maintenance.json`をfetchして判定）に応じて「メンテナンスを開始」／「メンテナンスを解除」のどちらかを表示する。タップ即実行ではなく、誤操作防止のため必ず確認画面（開始／解除どちらも）を挟んでから実行し、GitHub Actionsにdispatchした後は`data/maintenance.json`が実際に切り替わるまで数秒間隔でポーリングして反映を確認する
-- 詳細設定（開始時のメッセージ・復旧見込み）は折りたたみ式。空欄なら`.github/workflows/maintenance.yml`側で前回の内容を維持する仕様と対応している
+- 中身はGitHub REST APIを直接ブラウザから呼び出し、対象のワークフローをworkflow_dispatchでトリガーするだけの単一ページ。バックエンドは持たない
+- 認証は**GitHubのPersonal Access Token（PAT）をこのページ内で入力し、ブラウザのlocalStorageに保存する方式**。トークンはリポジトリのソースコード・git履歴には一切含まれない。ページ自体は誰でもURLを知っていれば開けるが、トークンを持っていない限り操作はできない。2つの機能（メンテナンス切替・Notion同期）は同じトークン・同じ設定パネルを共用する
+- 想定するトークン：このリポジトリ（`my000594/team-dashboard-fy2027`）のみに絞ったfine-grained PATで、権限は「Actions: Read and write」のみ（Contents権限は付与しない）。漏洩してもコードの読み書き・削除はできず、ワークフローのトリガー・実行状況の閲覧のみ可能な設計
+- **メンテナンス切替**：現在の状態（`data/maintenance.json`をfetchして判定）に応じて「メンテナンスを開始」／「メンテナンスを解除」のどちらかを表示する大きいボタン。タップ即実行ではなく、誤操作防止のため必ず確認画面（開始／解除どちらも）を挟んでから`.github/workflows/maintenance.yml`をdispatchし、`data/maintenance.json`が実際に切り替わるまで数秒間隔でポーリングして反映を確認する。詳細設定（開始時のメッセージ・復旧見込み）は折りたたみ式で、空欄なら前回の内容を維持する仕様と対応している
+- **Notion同期**（2026-08-09追加）：「今すぐNotion同期を実行」ボタンをタップすると`.github/workflows/sync-notion.yml`をdispatchする。メンテナンス切替と異なり部下への公開状態には影響しない操作のため確認画面は挟まない。dispatch APIは実行したworkflow runのIDを返さないため、送信直前に実行一覧を記録しておき、直後に増えたrunを新規実行として特定して追跡する（時刻比較だとクライアント/サーバのクロックずれで取りこぼす可能性があるため、この差分検出方式にした）。runが`completed`になるまでGitHub Actions APIをポーリングし、`conclusion`が`success`か否かで結果メッセージを出し分ける（失敗時も、sync-notion.mjs側の`section()`ラッパーにより成功したデータベース分は反映済みである旨を案内）
+- メンテナンス切替とNotion同期はどちらも同じ`busy`フラグで排他制御し、一方の実行中はもう一方のボタンも無効化する（同時多重実行の防止）
 - GitHub REST APIはトークン認証リクエストに対してCORSを許可しているため、ブラウザから直接`fetch`で呼び出せる
 
 ---
