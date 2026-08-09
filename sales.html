@@ -109,6 +109,7 @@
 </div>
 
 <script src="nav.js"></script>
+<script src="data.js"></script>
 <script>
 const MONTH_ORDER = ['8月','9月','10月','11月','12月','1月','2月','3月','4月','5月','6月','7月'];
 const CUST_COLORS = ['#3b82f6','#22c55e','#f59e0b','#a78bfa','#f87171','#22d3ee','#fb923c','#e879f9','#4ade80','#facc15','#60a5fa'];
@@ -141,9 +142,7 @@ function buildCustChart(id, data, color) {
 
 async function init() {
   try {
-    const res  = await fetch('data/sales.csv');
-    const buf  = await res.arrayBuffer();
-    const text = new TextDecoder('utf-8').decode(buf).replace(/^\uFEFF/, '');
+    const { text } = await fetchCSVText('data/sales.csv');
     const rows = Papa.parse(text, { header:true, skipEmptyLines:true, dynamicTyping:true }).data;
 
     // 顧客別・月別に整理

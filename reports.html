@@ -96,6 +96,7 @@
 </div>
 
 <script src="nav.js"></script>
+<script src="data.js"></script>
 <script>
 const MONTHS = ['8月','9月','10月','11月','12月','1月','2月','3月','4月','5月','6月','7月'];
 const Q_COLS  = ['1Q','2Q','3Q','4Q'];
@@ -106,9 +107,7 @@ function escHTML(s) {
 
 async function init() {
   try {
-    const res  = await fetch('data/3se_report.csv');
-    const buf  = await res.arrayBuffer();
-    const text = new TextDecoder('utf-8').decode(buf).replace(/^\uFEFF/, '');
+    const { text } = await fetchCSVText('data/3se_report.csv');
     const all  = Papa.parse(text, { header:true, skipEmptyLines:true, dynamicTyping:true }).data;
 
     const MONTH_KEYS = ['8月','9月','10月','11月','12月','1月','2月','3月','4月','5月','6月','7月'];

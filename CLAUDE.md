@@ -69,6 +69,7 @@ team-dashboard-fy2027/
 ├── style.css           全ページ共通スタイル（ダークテーマ）
 ├── nav.js              左サイドバーナビ＋メンテナンス制御
 ├── md.js               本文のMarkdown描画共通レンダラ（index/info/knowledgeで共用）
+├── data.js             CSV取得共通ヘルパー（sessionStorageに5分キャッシュ。CSVをfetchする全ページで共用）
 ├── robots.txt           検索エンジン避け（全ページDisallow）
 ├── scripts/
 │   └── sync-notion.mjs Notion APIからdata/配下のCSVを自動生成するスクリプト
@@ -160,6 +161,17 @@ team-dashboard-fy2027/
 
 ---
 
+## CSV取得共通ヘルパー（data.js）
+
+`data/`配下のCSVをfetchする全ページ（index/info/member/reports/sales/meetings/chronicle/skill/knowledge）が共用する`fetchCSVText(path)`を提供する（2026-08-09追加）。ページ遷移の多いこのダッシュボードで、同じCSV（`member_master.csv`等）を毎回fetchし直すことによる体感速度の低下を避けるための共通化。
+
+- `fetchCSVText(path)`は`{ ok, status, text }`を返す非同期関数。fetch＋BOM除去済みのテキストを取得し、成功時（`ok`）のみ`sessionStorage`に5分間（`CSV_CACHE_MS`）キャッシュする。キャッシュヒット時はfetchを行わずキャッシュしたエントリをそのまま返す
+- Papa.parseは呼び出し側（各ページ）が担当する。`dynamicTyping`等のパースオプションはページごとに異なるため、data.js側では固定しない
+- Notion同期は1日単位でしか更新されないため、5分程度のキャッシュによる鮮度への影響はほぼ無い
+- `maintenance-app.html`が読む`data/maintenance.json`はこのヘルパーの対象外（即時反映が必要なため`cache:'no-store'`で都度fetchする方針を維持）。`nav.js`の`maintenance.json`fetchも同様に対象外
+
+---
+
 ## ナビゲーション・メンテナンス（nav.js）
 
 - ページ読み込み時に `data/maintenance.json` をfetch
@@ -233,7 +245,8 @@ LINE_COLORS・LINE_META・LINE_LABEL_MAP定数はmember.html内に定義。
 - 表示順はNotion側の「表示順」（Number）プロパティ昇順。CSVには出力されずNotion同期時のソートにのみ使う。未設定の行は末尾に回る（member_master.csv・skill.csvと同じ仕組み）
 - キーワード検索対象：タイトル・本文・タグ（子Q&Aにヒットした場合は親記事ごと浮上）
 - 「親ナレッジ」リレーション（Notionの同DBへのセルフリレーション）を持つ：大きな記事AにQ&A（A'・A''）を紐づける親子構造。子Q&AはCSVの「親ナレッジ」列に親のタイトルが入り、ダッシュボード上では記事カード内の「関連Q&A」セクションにネスト表示される。子Q&Aはトップレベルに表示されない。カテゴリフィルターのカウントは親記事（トップレベル）のみで計算する
-- **注意：双方向リレーション（Notionの双方向設定オン）で作成した場合、Notionが親記事にも子→親の逆参照を自動書き込みする。** sync-notion.mjs は被参照数の非対称性（子の被参照数 < 親の被参照数）で方向を判定している。子が1件のみのケースは判定できず、双方ともトップレベル扱いになる。完全に動作させるには「親ナレッジ」リレーションの双方向設定をオフにすること（Notion上で親記事側の逆参照エントリを手動削除も必要）
+- 親子の向きはNotion側の「子Q&Aである」チェックボックスで明示的に判定する（2026-08-09追加）。「親ナレッジ」リレーションは双方向設定のため、双方向back-fillにより親記事側にも子への逆参照が自動で入るが、このチェックボックスがオンのページだけを子として扱うため、被参照数の非対称性に頼る必要はない。**新しく子Q&Aを作成する際は、「親ナレッジ」に親を設定するだけでなく「子Q&Aである」に必ずチェックを入れること**（チェックを忘れるとトップレベル記事として扱われてしまう）
+- 以前は被参照数の非対称性（子の被参照数 < 親の被参照数）で方向を推測していたが、子が1件のみのケースで双方向back-fillと区別できない既知の限界があったため、明示フラグに置き換えた
 
 ### meetings.html（ライン別会議実施計画）
 - 「方針」セクションはNotionのページ本文（DB外のテキスト）のためハードコーディング。方針が変わったら手動で書き換えが必要
@@ -340,6 +353,7 @@ LINE_COLORS・LINE_META・LINE_LABEL_MAP定数はmember.html内に定義。
 - article本文はMarkdown記法で入力（Notionでも同様）。改行を含むため**必ずダブルクォートで囲む**
 - Notion公式エクスポートは上記のクォート処理を自動で行うため通常は意識不要。手動でCSVを編集する場合のみ注意
 - バッチ判定キー：ヘッダーに「種別」「カテゴリ」「タグ」が含まれる
+- Notion側には上記の他に「子Q&Aである」チェックボックスが存在する（CSVには出力されない）。sync-notion.mjsが「親ナレッジ」の親子判定にのみ使う内部用フラグで、詳細はknowledge.htmlセクション参照
 
 ### data/meeting_plan.csv（Notionエクスポート）
 ```
@@ -428,6 +442,8 @@ Notionを手動エクスポートせず、GitHub ActionsからNotion APIを直�
 ③ scripts/sync-notion.mjs がNotion APIから最新データを取得しdata/配下のCSVを再生成
 ④ 変更があれば自動でcommit・push → Cloudflare Pagesが自動デプロイ
 ```
+
+- Notion API呼び出しの一時的な不調・ネットワーク瞬断に備え、`.github/workflows/sync-notion.yml`は`sync-notion.mjs`の実行失敗時に30秒間隔で最大3回リトライする（2026-08-09追加）。スクリプトはNotionから再取得してCSVを上書きするだけの冪等な処理のため、リトライしても副作用はない。3回とも失敗した場合のみワークフローが失敗として終了する
 
 - 対象データベースID（`scripts/sync-notion.mjs`内`DB`定数）：
   - member: 社会情報インフラ部_第1ライン

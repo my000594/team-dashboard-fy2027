@@ -26,6 +26,7 @@
 </div>
 
 <script src="nav.js"></script>
+<script src="data.js"></script>
 <script>
 const IMG_BASE = 'data/members/';
 // Notionの「所属ライン」列は上司名ベースの表記（誰の配下か）。会社組織上の名称に変換する。
@@ -206,9 +207,7 @@ window.switchTab = switchTab;
 
 async function init() {
   try {
-    const res = await fetch('data/members/member_master.csv');
-    const buf = await res.arrayBuffer();
-    const text = new TextDecoder('utf-8').decode(buf).replace(/^\uFEFF/, '');
+    const { text } = await fetchCSVText('data/members/member_master.csv');
     const rows = Papa.parse(text, { header:true, skipEmptyLines:true, dynamicTyping:false }).data;
 
     members = rows.filter(r=>(r['ステータス']||'').trim()==='在籍').map(r=>({
@@ -233,9 +232,7 @@ async function init() {
     renderContent();
 
     try {
-      const orgRes = await fetch('data/org_chart.csv');
-      const orgBuf = await orgRes.arrayBuffer();
-      const orgText = new TextDecoder('utf-8').decode(orgBuf).replace(/^﻿/, '');
+      const { text: orgText } = await fetchCSVText('data/org_chart.csv');
       const orgRows = Papa.parse(orgText, { header:true, skipEmptyLines:true }).data.filter(r => r['リンク']);
       renderOrgChart(orgRows);
     } catch (e) { /* 組織構成図は補助情報のため、取得失敗してもメンバー一覧の表示は継続する */ }

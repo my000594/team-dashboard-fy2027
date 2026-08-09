@@ -68,6 +68,7 @@
 </div>
 
 <script src="nav.js"></script>
+<script src="data.js"></script>
 <script>
 function escHTML(s) {
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -194,9 +195,7 @@ function render() {
 
 async function init() {
   try {
-    const res = await fetch('data/chronicle.csv');
-    const buf = await res.arrayBuffer();
-    const text = new TextDecoder('utf-8').decode(buf).replace(/^﻿/, '');
+    const { text } = await fetchCSVText('data/chronicle.csv');
     const rows = Papa.parse(text, { header: true, skipEmptyLines: true }).data;
 
     allRows = rows.map(r => {

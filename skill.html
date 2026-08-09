@@ -133,6 +133,7 @@
 </div>
 
 <script src="nav.js"></script>
+<script src="data.js"></script>
 <script>
 const TABS = [
   { id:'matrix', label:'マトリクス' },
@@ -461,15 +462,14 @@ window.filterSkills = filterSkills;
 
 async function init() {
   try {
-    const [skillRes, memberRes, certRes] = await Promise.all([
-      fetch('data/skill.csv'),
-      fetch('data/members/member_master.csv'),
-      fetch('data/certifications.csv'),
+    const [skillR, memberR, certR] = await Promise.all([
+      fetchCSVText('data/skill.csv'),
+      fetchCSVText('data/members/member_master.csv'),
+      fetchCSVText('data/certifications.csv'),
     ]);
-    if (!skillRes.ok) throw new Error(`data/skill.csv が見つかりません（HTTP ${skillRes.status}）`);
-    if (!memberRes.ok) throw new Error(`data/members/member_master.csv が見つかりません（HTTP ${memberRes.status}）`);
-    const skillText = new TextDecoder('utf-8').decode(await skillRes.arrayBuffer()).replace(/^﻿/, '');
-    const rows = Papa.parse(skillText, { header: true, skipEmptyLines: true }).data
+    if (!skillR.ok) throw new Error(`data/skill.csv が見つかりません（HTTP ${skillR.status}）`);
+    if (!memberR.ok) throw new Error(`data/members/member_master.csv が見つかりません（HTTP ${memberR.status}）`);
+    const rows = Papa.parse(skillR.text, { header: true, skipEmptyLines: true }).data
       .map(r => {
         const skill = (r['スキル名']||'').trim();
         const sub = (r['サブカテゴリ']||'').trim();
@@ -487,8 +487,7 @@ async function init() {
       .filter(r => r.name && r.skill);
 
     // メンバーの並びはmember_master.csv（＝メンバー一覧の表示順）に固定し、スキルデータの入力状況に左右されない
-    const memberText = new TextDecoder('utf-8').decode(await memberRes.arrayBuffer()).replace(/^﻿/, '');
-    const masterOrder = Papa.parse(memberText, { header: true, skipEmptyLines: true }).data
+    const masterOrder = Papa.parse(memberR.text, { header: true, skipEmptyLines: true }).data
       .filter(r => (r['ステータス']||'').trim() === '在籍')
       .map(r => (r['氏名']||'').trim());
 
@@ -501,9 +500,8 @@ async function init() {
     certNames = [];
     certByMember = {};
     certMeta = {};
-    if (certRes.ok) {
-      const certText = new TextDecoder('utf-8').decode(await certRes.arrayBuffer()).replace(/^﻿/, '');
-      const certRows = Papa.parse(certText, { header: true, skipEmptyLines: true }).data
+    if (certR.ok) {
+      const certRows = Papa.parse(certR.text, { header: true, skipEmptyLines: true }).data
         .map(r => ({
           name: (r['氏名']||'').trim(),
           cert: (r['資格名']||'').trim(),

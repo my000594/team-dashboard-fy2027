@@ -23,10 +23,16 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Notionからdata/配下のCSVを再生成
+      - name: Notionからdata/配下のCSVを再生成（失敗時は最大3回リトライ）
         env:
           NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
-        run: node scripts/sync-notion.mjs
+        run: |
+          for i in 1 2 3; do
+            node scripts/sync-notion.mjs && exit 0
+            echo "::warning::sync-notion.mjs が失敗しました（試行 $i/3）"
+            sleep 30
+          done
+          exit 1
 
       - name: 変更があればコミット・push
         if: ${{ !cancelled() }}

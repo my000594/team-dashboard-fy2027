@@ -34,6 +34,7 @@
 
 <script src="nav.js"></script>
 <script src="md.js"></script>
+<script src="data.js"></script>
 <script>
 // 開始日・終了日は「2026/08/01」「2026年8月1日」「2026-08-01」いずれの表記でも比較できるようDate化する
 function parseDateFlexible(str) {
@@ -48,9 +49,7 @@ function parseDateFlexible(str) {
 
 async function init() {
   try {
-    const res = await fetch('data/info.csv');
-    const buf = await res.arrayBuffer();
-    const text = new TextDecoder('utf-8').decode(buf).replace(/^﻿/, '');
+    const { text } = await fetchCSVText('data/info.csv');
     const infoRows = Papa.parse(text, { header: true, skipEmptyLines: true, dynamicTyping: true }).data;
 
     const NEW_BADGE_DAYS = 3; // 開始日から何日間「NEW!」を表示するか（開始日を含む）

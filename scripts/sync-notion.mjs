@@ -89,6 +89,7 @@ const getRichText    = (p) => (p?.rich_text || []).map(t => t.plain_text).join('
 const getSelect      = (p) => p?.select?.name || '';
 const getStatus      = (p) => p?.status?.name || '';
 const getMultiSelect = (p) => (p?.multi_select || []).map(o => o.name);
+const getCheckbox    = (p) => p?.checkbox === true;
 const getNumber      = (p) => p?.number ?? 0;
 const getDateStart   = (p) => p?.date?.start || '';
 // files型プロパティからリンクだけを取り出す（Notionアップロードのfile.urlは期限付きプリサインURLである点に注意）
@@ -375,32 +376,21 @@ async function main() {
   await section('knowledge.csv', async () => {
     console.log('== knowledge.csv ==');
     const knowledgePages = await notionQuery(DB.knowledge);
-    assertProperties(knowledgePages, ['タイトル','種別','カテゴリ','質問','回答・本文','サマリー','タグ','更新日','親ナレッジ'], 'knowledge.csv');
+    assertProperties(knowledgePages, ['タイトル','種別','カテゴリ','質問','回答・本文','サマリー','タグ','更新日','親ナレッジ','子Q&Aである'], 'knowledge.csv');
     // ページID → タイトルのマップ（「親ナレッジ」リレーション解決用）
     const pageTitleMap = new Map();
     for (const page of knowledgePages) {
       pageTitleMap.set(page.id, getTitle(page.properties['タイトル']));
     }
-    // 各ページへの被参照数を集計。
-    // 「親ナレッジ」を双方向リレーションで作成した場合、Notionが親記事にも子→親の逆参照を自動書き込みする。
-    // 「自分より被参照数が多いページを指している」= 真の子、という非対称性で方向を判定する。
-    const inboundCount = new Map();
-    for (const page of knowledgePages) {
-      for (const r of (page.properties['親ナレッジ']?.relation || [])) {
-        inboundCount.set(r.id, (inboundCount.get(r.id) || 0) + 1);
-      }
-    }
     const knowledgeRows = knowledgePages.map(page => {
       const props = page.properties;
-      const parentRel = props['親ナレッジ']?.relation || [];
-      // 指先の被参照数が自分の被参照数より多い場合のみ「真の親」とみなす。
-      // 同数の場合（子が1件のケース）は双方向back-fillと区別できないため親なしとして扱う。
-      const myInbound = inboundCount.get(page.id) || 0;
-      const targetId = parentRel[0]?.id;
-      const targetInbound = targetId ? (inboundCount.get(targetId) || 0) : 0;
-      const parentTitle = (targetId && targetInbound > myInbound)
-        ? (pageTitleMap.get(targetId) || '')
-        : '';
+      // 「子Q&Aである」チェックボックスが立っているページだけ、「親ナレッジ」リレーションの
+      // 参照先を実の親として採用する（2026-08-09追加）。以前は被参照数の非対称性で親子の
+      // 向きを推測していたが、子が1件のみのケースで双方向リレーションの自動back-fillと
+      // 区別できない既知の限界があったため、明示フラグに置き換えた。
+      const isChild = getCheckbox(props['子Q&Aである']);
+      const targetId = (props['親ナレッジ']?.relation || [])[0]?.id;
+      const parentTitle = (isChild && targetId) ? (pageTitleMap.get(targetId) || '') : '';
       return {
         __order: props['表示順']?.number ?? null,
         'タイトル': getTitle(props['タイトル']),
