@@ -356,6 +356,39 @@ function resetSyncBtn() {
   if (toggleBtn) toggleBtn.disabled = false;
 }
 
+const SYNC_PENDING_KEY = 'sync_app_pending';
+const SYNC_STALE_MS = 20 * 60 * 1000; // 20分以上前のdispatchは追跡を諦める（放棄扱い）
+
+function getSyncPending() {
+  try { return JSON.parse(localStorage.getItem(SYNC_PENDING_KEY) || 'null'); }
+  catch (e) { return null; }
+}
+function setSyncPending(obj) {
+  try { localStorage.setItem(SYNC_PENDING_KEY, JSON.stringify(obj)); } catch (e) { /* 容量超過等は無視 */ }
+}
+function clearSyncPending() {
+  localStorage.removeItem(SYNC_PENDING_KEY);
+}
+
+function renderSyncBusy(text) {
+  busy = true;
+  const btn = el('syncBtn');
+  btn.disabled = true;
+  el('toggleBtn').disabled = true;
+  btn.innerHTML = `<span class="spinner"></span><span>${text}</span>`;
+}
+
+// dispatchedAt以降に作られたworkflow_dispatch起点のrunのうち最も古いものを「自分のrun」とみなす。
+// sync-notion.ymlはconcurrencyグループで同時実行を1つに制限しているため、直後に増えたrunは
+// ほぼ確実に自分がキューに入れたものになる（15秒のクロックずれ許容つき）
+async function findRunSince(dispatchedAtMs, token) {
+  const data = await ghApi(`/repos/${OWNER}/${REPO}/actions/workflows/${SYNC_WORKFLOW_FILE}/runs?event=workflow_dispatch&per_page=10`, token);
+  const candidates = (data.workflow_runs || [])
+    .filter(r => new Date(r.created_at).getTime() >= dispatchedAtMs - 15000)
+    .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+  return candidates[0] || null;
+}
+
 async function runSync() {
   if (busy) return;
   const token = getToken();
@@ -364,21 +397,9 @@ async function runSync() {
     el('settingsPanel').classList.add('open');
     return;
   }
-  busy = true;
-  const btn = el('syncBtn');
-  btn.disabled = true;
-  el('toggleBtn').disabled = true;
-  btn.innerHTML = `<span class="spinner"></span><span>送信中...</span>`;
+  const dispatchedAt = Date.now();
+  renderSyncBusy('送信中...');
   showSyncMsg('GitHub Actionsに送信しています...', 'info');
-
-  // dispatchesのAPIは実行したrunのIDを返さないため、送信直前の実行一覧を記録しておき、
-  // 直後に増えたrunを新規実行として特定する（時刻比較だとクライアント/サーバのクロックずれで
-  // 取りこぼす可能性があるため）
-  let beforeIds = new Set();
-  try {
-    const before = await ghApi(`/repos/${OWNER}/${REPO}/actions/workflows/${SYNC_WORKFLOW_FILE}/runs?per_page=5`, token);
-    beforeIds = new Set((before.workflow_runs || []).map(r => r.id));
-  } catch (e) { /* 取得失敗しても続行（新規run検出がやや遅れるだけ） */ }
 
   try {
     const res = await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/actions/workflows/${SYNC_WORKFLOW_FILE}/dispatches`, {
@@ -401,35 +422,49 @@ async function runSync() {
       throw new Error(`GitHub API エラー（HTTP ${res.status}）${detail ? ' / ' + detail : ''}`);
     }
 
-    showSyncMsg('送信しました。実行状況を確認しています...', 'info');
-    await waitForSyncRun(beforeIds, token);
+    // dispatch自体はこの時点で受理済み＝送信は成功が確定している。以降は実行状況の「確認」であり、
+    // ここから先タイムアウトしても「送信に失敗した」わけではない
+    setSyncPending({ dispatchedAt, runId: null });
+    await trackSync({ dispatchedAt, runId: null }, token);
   } catch (e) {
     showSyncMsg(e.message, 'error');
     resetSyncBtn();
   }
 }
 
-async function waitForSyncRun(beforeIds, token) {
-  let runId = null;
-  for (let i = 0; i < 10 && !runId; i++) {
-    await new Promise(r => setTimeout(r, 2000));
-    try {
-      const data = await ghApi(`/repos/${OWNER}/${REPO}/actions/workflows/${SYNC_WORKFLOW_FILE}/runs?per_page=5`, token);
-      const match = (data.workflow_runs || []).find(r => !beforeIds.has(r.id));
-      if (match) runId = match.id;
-    } catch (e) { /* retry */ }
-  }
+// スマホでアプリをバックグラウンドに回す・閉じるとJSの実行自体が止まり、ポーリングが
+// 続行できないことがある。進捗をlocalStorageに逐次保存し、アプリを開き直した時（init）や
+// タブが再度前面に来た時（visibilitychange）に、保存済みの状態から確認を再開できるようにしている。
+// これにより「実行が続いているのに毎回GitHub Actionsタブを見に行かされる」状態を避ける
+async function trackSync(pending, token) {
+  let { dispatchedAt, runId } = pending;
+  showSyncMsg(runId ? '実行状況を確認しています...' : '実行を検出しています...', 'info');
+  renderSyncBusy(runId ? '確認中...' : '実行を検出中...');
+
   if (!runId) {
-    showSyncMsg('実行の確認がタイムアウトしました。GitHub Actionsのタブで確認してください', 'error');
-    resetSyncBtn();
-    return;
+    for (let i = 0; i < 20 && !runId; i++) {
+      try {
+        const run = await findRunSince(dispatchedAt, token);
+        if (run) runId = run.id;
+      } catch (e) { /* retry */ }
+      if (!runId) await new Promise(r => setTimeout(r, 3000));
+    }
+    if (!runId) {
+      // 送信自体は成功しているため「失敗した」とは案内しない。pendingは消さずに残し、
+      // 次回このアプリを開いた時・前面に戻した時に自動で確認を再開する
+      showSyncMsg('送信は完了していますが、実行の検出に時間がかかっています。少ししてからこのアプリを開き直すと確認を再開します', 'error');
+      resetSyncBtn();
+      return;
+    }
+    setSyncPending({ dispatchedAt, runId });
   }
 
-  const btn = el('syncBtn');
+  renderSyncBusy('実行中...');
   for (let i = 0; i < 40; i++) {
     try {
       const data = await ghApi(`/repos/${OWNER}/${REPO}/actions/runs/${runId}`, token);
       if (data.status === 'completed') {
+        clearSyncPending();
         if (data.conclusion === 'success') {
           showSyncMsg('同期が完了しました', 'ok');
         } else {
@@ -438,13 +473,31 @@ async function waitForSyncRun(beforeIds, token) {
         resetSyncBtn();
         return;
       }
-      btn.innerHTML = `<span class="spinner"></span><span>実行中...(${data.status === 'in_progress' ? '処理中' : '待機中'})</span>`;
     } catch (e) { /* retry */ }
     await new Promise(r => setTimeout(r, 3000));
   }
-  showSyncMsg('完了確認がタイムアウトしました。GitHub Actionsの実行状況を確認してください', 'error');
+  // ここでもpendingは消さない。実際にはバックグラウンドで動いている可能性が高いため、
+  // 開き直した時・前面に戻した時に再確認させる
+  showSyncMsg('実行確認に時間がかかっています。少ししてからこのアプリを開き直すと確認を再開します', 'error');
   resetSyncBtn();
 }
+
+// アプリを開いた時／再度前面に表示された時に、追跡中の同期があれば自動的に確認を再開する
+async function resumeSyncIfPending() {
+  const pending = getSyncPending();
+  if (!pending) return;
+  if (Date.now() - pending.dispatchedAt > SYNC_STALE_MS) {
+    clearSyncPending();
+    return;
+  }
+  const token = getToken();
+  if (!token || busy) return;
+  await trackSync(pending, token);
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') resumeSyncIfPending();
+});
 
 el('syncBtn').onclick = runSync;
 
@@ -463,6 +516,7 @@ el('clearBtn').onclick = () => {
 };
 
 fetchStatus();
+resumeSyncIfPending();
 </script>
 </body>
 </html>
