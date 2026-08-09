@@ -210,17 +210,50 @@ function setupYouWidget({ memberRows, seRows, calcTotal, skillText, certText }) 
     .filter(Boolean);
   if (!youMembers.length) return;
 
-  // 得意スキル＝評価データが1件以上入っている時期のうち最新のものにおける、最もレベルの高いスキル（skill.htmlと同じ既定時期ロジック）
+  // 得意なスキル分野＝評価データが1件以上入っている時期のうち最新のもの（skill.htmlと同じ既定時期ロジック）における、
+  // 分野（サブカテゴリ。無ければカテゴリ）ごとの平均レベルが最も高い分野。skill.htmlのレーダーチャート「総合」タブと
+  // 同じ計算方法（未評価スキル＝レベル0も含めて平均するため、その分野の網羅度も反映される）
   const skillRows = skillText ? Papa.parse(skillText, { header: true, skipEmptyLines: true }).data : [];
   const periodsWithData = YOU_SKILL_PERIODS.filter(p => skillRows.some(r => (+r[p]||0) > 0));
   const skillPeriod = periodsWithData.length ? periodsWithData[periodsWithData.length - 1] : YOU_SKILL_PERIODS[0];
-  const bestSkillByMember = {};
+
+  // スキル定義（氏名を無視して重複排除）を分野ごとにグルーピング
+  const skillDefMap = new Map();
+  skillRows.forEach(r => {
+    const skillName = (r['スキル名']||'').trim();
+    if (!skillName) return;
+    const sub = (r['サブカテゴリ']||'').trim();
+    const cat = (r['カテゴリ']||'').trim();
+    const key = skillName + '||' + sub;
+    if (!skillDefMap.has(key)) skillDefMap.set(key, { key, field: sub || cat || '未分類' });
+  });
+  const fieldGroups = new Map(); // 分野名 -> スキル定義の配列
+  skillDefMap.forEach(def => {
+    if (!fieldGroups.has(def.field)) fieldGroups.set(def.field, []);
+    fieldGroups.get(def.field).push(def);
+  });
+
+  // 氏名×スキルkey -> 対象時期のレベル
+  const levelByMemberSkill = {};
   skillRows.forEach(r => {
     const name = (r['氏名']||'').trim();
-    const level = +r[skillPeriod] || 0;
-    if (!name || level <= 0) return;
-    const cur = bestSkillByMember[name];
-    if (!cur || level > cur.level) bestSkillByMember[name] = { name: (r['スキル名']||'').trim(), level };
+    const skillName = (r['スキル名']||'').trim();
+    if (!name || !skillName) return;
+    const sub = (r['サブカテゴリ']||'').trim();
+    const key = skillName + '||' + sub;
+    (levelByMemberSkill[name] ??= {})[key] = +r[skillPeriod] || 0;
+  });
+
+  const bestFieldByMember = {};
+  youMembers.forEach(name => {
+    const levels = levelByMemberSkill[name] || {};
+    let best = null;
+    fieldGroups.forEach((items, field) => {
+      const sum = items.reduce((s, it) => s + (levels[it.key] || 0), 0);
+      const avg = items.length ? Math.round((sum / items.length) * 10) / 10 : 0;
+      if (avg > 0 && (!best || avg > best.avg)) best = { field, avg };
+    });
+    if (best) bestFieldByMember[name] = best;
   });
 
   const certRows = certText ? Papa.parse(certText, { header: true, skipEmptyLines: true }).data : [];
@@ -248,16 +281,18 @@ function setupYouWidget({ memberRows, seRows, calcTotal, skillText, certText }) 
     document.getElementById('youName').textContent = name;
 
     const se = seByMember[name];
-    const skill = bestSkillByMember[name];
+    const field = bestFieldByMember[name];
     const certs = certCountByMember[name] || 0;
     const q = encodeURIComponent(name);
 
     const seHTML = se
       ? `<span class="you-mini-stat-value ${se.ok ? '' : 'warn'}">${se.count}件</span><span class="you-mini-stat-sub ${se.ok ? 'green' : 'red'}">（${se.ok ? '達成' : '未達成'}）</span>`
       : `<span class="you-mini-stat-value">ー</span>`;
-    const skillHTML = skill
-      ? `<span class="you-mini-stat-value">${escapeHTML(skill.name)}</span><span class="you-mini-stat-sub">Lv.${skill.level}</span>`
+    const fieldHTML = field
+      ? `<span class="you-mini-stat-value">${escapeHTML(field.field)}</span><span class="you-mini-stat-sub">平均Lv.${field.avg}</span>`
       : `<span class="you-mini-stat-value">評価データなし</span>`;
+    // レーダーチャートの分野タブへ直接飛べるよう&groupも付ける（skill.html側が分野名と一致すればそのタブを自動選択）
+    const skillHref = `skill.html?member=${q}&tab=radar` + (field ? `&group=${encodeURIComponent(field.field)}` : '');
 
     const seDot = se ? `<span class="dot ${se.ok ? 'green' : 'red'}"></span>` : '';
     document.getElementById('youStats').innerHTML = `
@@ -265,9 +300,9 @@ function setupYouWidget({ memberRows, seRows, calcTotal, skillText, certText }) 
         <span class="you-mini-stat-label">${seDot}3SEレポート提出件数</span>
         <span class="you-mini-stat-value-row">${seHTML}</span>
       </a>
-      <a class="you-mini-stat stat-skill" href="skill.html?member=${q}&tab=radar" title="スキルマップ（本人のレーダー表示）へ">
-        <span class="you-mini-stat-label">⭐ 得意スキル</span>
-        <span class="you-mini-stat-value-row">${skillHTML}</span>
+      <a class="you-mini-stat stat-skill" href="${skillHref}" title="スキルマップ（本人の得意分野レーダー表示）へ">
+        <span class="you-mini-stat-label">⭐ 得意なスキル分野</span>
+        <span class="you-mini-stat-value-row">${fieldHTML}</span>
       </a>
       <a class="you-mini-stat stat-cert" href="skill.html?member=${q}#certifications" title="スキルマップ（保有資格一覧）へ">
         <span class="you-mini-stat-label">📜 保有資格</span>

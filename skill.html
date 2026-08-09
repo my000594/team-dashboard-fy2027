@@ -587,10 +587,12 @@ async function init() {
     renderMatrix();
     renderCertMatrix();
 
-    // トップページの「あなたの状況」ウィジェットからの遷移（?member=氏名&tab=radar、または#certifications）を反映する
+    // トップページの「あなたの状況」ウィジェットからの遷移（?member=氏名&tab=radar&group=分野名、または#certifications）を反映する
     const urlParams = new URLSearchParams(location.search);
     renderMemberChips(urlParams.get('member'));
     if (urlParams.get('tab') && TABS.some(t => t.id === urlParams.get('tab'))) switchTab(urlParams.get('tab'));
+    const groupParam = urlParams.get('group');
+    if (groupParam && groups.some(g => g.key === groupParam)) switchRadarGroup(groupParam);
 
     document.getElementById('loading').style.display = 'none';
     document.getElementById('app').classList.add('ready');
