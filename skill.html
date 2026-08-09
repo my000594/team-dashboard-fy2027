@@ -94,7 +94,7 @@
       <div id="mobileSkillList" class="mobile-only"></div>
     </div>
 
-    <div class="card" style="margin-top:1.25rem">
+    <div class="card" id="certifications" style="margin-top:1.25rem">
       <div class="card-title">💯 保有資格</div>
       <div class="tabs desktop-only" id="certViewTabs" style="margin-bottom:10px"></div>
       <div style="display:flex;gap:14px;font-size:11px;color:var(--text2);margin-bottom:10px;flex-wrap:wrap">
@@ -420,10 +420,11 @@ function buildMemberChips(containerId) {
   });
 }
 
-function renderMemberChips() {
+// initialを渡すと（URLの?member=から呼ばれる想定）その人を初期選択にする。名簿に無い/未指定なら先頭の人
+function renderMemberChips(initial) {
   buildMemberChips('memberChips');
   buildMemberChips('mobileMatrixChips');
-  if (members.length) selectMember(members[0]);
+  if (members.length) selectMember(initial && members.includes(initial) ? initial : members[0]);
 }
 
 function filterSkills(q) {
@@ -585,10 +586,18 @@ async function init() {
 
     renderMatrix();
     renderCertMatrix();
-    renderMemberChips();
+
+    // トップページの「あなたの状況」ウィジェットからの遷移（?member=氏名&tab=radar、または#certifications）を反映する
+    const urlParams = new URLSearchParams(location.search);
+    renderMemberChips(urlParams.get('member'));
+    if (urlParams.get('tab') && TABS.some(t => t.id === urlParams.get('tab'))) switchTab(urlParams.get('tab'));
 
     document.getElementById('loading').style.display = 'none';
     document.getElementById('app').classList.add('ready');
+
+    if (location.hash === '#certifications') {
+      document.getElementById('certifications')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
   } catch(e) {
     document.getElementById('loading').innerHTML = `<div style="color:var(--red);font-size:13px">⚠ data/skill.csv が読み込めませんでした<br><small style="color:var(--text3)">${e.message}</small></div>`;
   }

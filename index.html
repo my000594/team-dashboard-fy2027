@@ -25,6 +25,89 @@
 .summary-card-footer { margin-top: .75rem; padding-top: .75rem; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: flex-end; }
 .summary-stat { font-family: var(--mono); font-size: 20px; font-weight: 700; }
 .summary-stat-label { font-size: 11px; color: var(--text3); margin-top: 1px; }
+
+/* ── 「あなたの状況」ウィジェット ──────────────────────────
+   ページ見出しと同じ行の右側に配置。名前ブロック・各指標（3SEレポート提出件数／得意スキル／保有資格）は
+   幅を固定しており、選ぶ人によってウィジェット全体の横幅が変動しない。各指標は関連ページへのリンクになっている。
+   ラベルを上段・値＋補足を下段に分けているのは、1行にまとめると値がラベルの続きとして詰め込まれて
+   変な位置で折り返るため（値の行に列の全幅を使わせる）。
+   ────────────────────────────────────────────────── */
+.you-mini{ position:relative }
+@media (max-width:560px){ .you-mini{ width:100% } }
+.you-mini-card{
+  display:flex; align-items:center; flex-wrap:nowrap; gap:0;
+  background:var(--bg2); border:1px solid var(--border); border-radius:var(--radius-lg);
+  padding:.7rem 1rem;
+}
+@media (max-width:560px){ .you-mini-card{ flex-direction:column; align-items:flex-start; flex-wrap:wrap } }
+.you-mini-head{
+  display:flex; align-items:center; gap:10px; flex:0 0 168px;
+  background:var(--bg3); border:1px solid var(--border2); border-radius:10px;
+  padding:.45rem .7rem .45rem .45rem; cursor:pointer; font-family:var(--font);
+  transition:border-color .15s, color .15s;
+}
+@media (max-width:560px){ .you-mini-head{ flex:1 1 auto; width:100% } }
+.you-mini-head:hover{ border-color:rgba(59,130,246,.45) }
+.you-mini-avatar{
+  width:32px; height:32px; border-radius:9px; flex-shrink:0;
+  background:var(--blue-dim); border:1px solid rgba(59,130,246,.4); color:var(--blue);
+  display:inline-flex; align-items:center; justify-content:center; font-size:13px; font-weight:700;
+}
+.you-mini-headtext{ display:flex; flex-direction:column; gap:2px; text-align:left; min-width:0 }
+.you-mini-name{ font-size:14.5px; font-weight:700; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
+.you-mini-hint{ font-size:10.5px; color:var(--text3); white-space:nowrap }
+.you-mini-caret-wrap{
+  width:22px; height:22px; border-radius:50%; flex-shrink:0;
+  background:var(--bg2); border:1px solid var(--border2); color:var(--text2);
+  display:flex; align-items:center; justify-content:center; font-size:9.5px;
+  transition:transform .15s, background .15s, color .15s;
+}
+.you-mini-head:hover .you-mini-caret-wrap{ background:var(--blue-dim); color:var(--blue); border-color:rgba(59,130,246,.4) }
+.you-mini-head.open .you-mini-caret-wrap{ transform:rotate(180deg) }
+.you-mini-vdiv{ width:1px; height:32px; background:var(--border); margin:0 18px; flex-shrink:0 }
+@media (max-width:560px){ .you-mini-vdiv{ display:none } }
+.you-mini-stats{ display:flex; align-items:center; gap:22px; flex-wrap:nowrap }
+@media (max-width:560px){
+  .you-mini-stats{ display:none; flex-direction:column; align-items:flex-start; gap:10px; width:100%; margin-top:12px }
+  .you-mini-card.expanded .you-mini-stats{ display:flex }
+}
+.you-mini-stat{
+  display:flex; flex-direction:column; gap:3px; font-size:13px; flex:0 0 auto;
+  text-decoration:none; color:inherit; padding:5px 7px; margin:-5px -7px; border-radius:8px;
+  transition:background .15s;
+}
+.you-mini-stat:hover{ background:var(--bg3) }
+.you-mini-stat.stat-se{ flex-basis:180px }
+.you-mini-stat.stat-skill{ flex-basis:230px }
+.you-mini-stat.stat-cert{ flex-basis:100px }
+@media (max-width:560px){
+  .you-mini-stat, .you-mini-stat.stat-se, .you-mini-stat.stat-skill, .you-mini-stat.stat-cert{ flex-basis:auto; width:100% }
+}
+.you-mini-stat-label{ display:flex; align-items:center; gap:4px; color:var(--text3); font-size:11.5px; white-space:nowrap }
+.you-mini-stat-value-row{ display:flex; align-items:baseline; gap:7px; flex-wrap:wrap }
+.you-mini-stat-value{ font-weight:700; color:var(--text) }
+.you-mini-stat-value.warn{ color:var(--red) }
+.you-mini-stat-sub{ font-size:11px; color:var(--text3); white-space:nowrap }
+.you-mini-stat-sub.green{ color:var(--green) } .you-mini-stat-sub.red{ color:var(--red) }
+.you-mini-stat .dot{ width:6px; height:6px; border-radius:50%; flex-shrink:0 }
+.you-mini-stat .dot.green{ background:var(--green) } .you-mini-stat .dot.red{ background:var(--red) }
+.you-mini-dropdown{
+  display:none; position:absolute; top:100%; left:0; right:0; margin-top:6px; z-index:20;
+  background:var(--bg2); border:1px solid var(--border2); border-radius:var(--radius); padding:11px;
+  box-shadow:0 10px 28px rgba(0,0,0,.45);
+}
+.you-mini-dropdown.open{ display:block }
+@media (max-width:560px){
+  .you-mini-dropdown{ position:static; margin-top:10px; box-shadow:none; border-color:var(--border); padding:10px 0 0; border-top:1px solid var(--border); border-radius:0 }
+}
+.you-mini-dropdown-label{ font-size:10px; color:var(--text3); padding:1px 4px 7px }
+.you-mini-chip-list{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px }
+.you-mini-chip{ padding:5px 10px; border-radius:999px; border:.5px solid var(--border); cursor:pointer; font-size:11.5px; color:var(--text2); background:transparent; font-family:var(--font); transition:.15s }
+.you-mini-chip:hover{ border-color:var(--border2); color:var(--text) }
+.you-mini-chip.sel{ background:var(--blue-dim); color:var(--blue); border-color:rgba(59,130,246,.4) }
+.you-mini-dropdown-foot{ font-size:10px; color:var(--text3); line-height:1.5; padding-top:7px; border-top:1px solid var(--border) }
+.you-mini-reset{ font-size:10px; color:var(--text3); background:none; border:none; text-decoration:underline; cursor:pointer; font-family:var(--font); padding:0; margin-top:3px }
+.you-mini-reset:hover{ color:var(--text2) }
 </style>
 </head>
 <body>
@@ -33,9 +116,38 @@
 <div id="app">
 <main class="main">
 
-  <div class="page-header">
-    <h1>社会情報インフラ部 第1ライン ダッシュボード</h1>
-    <p id="subtitle">FY2027</p>
+  <div class="page-header" style="display:flex;align-items:center;justify-content:space-between;gap:1.5rem;flex-wrap:wrap">
+    <div>
+      <h1>社会情報インフラ部 第1ライン ダッシュボード</h1>
+      <p id="subtitle">FY2027</p>
+    </div>
+
+    <div class="you-mini" id="youMini" style="display:none">
+      <div class="card-title" style="margin-bottom:6px">🙋 あなたの状況</div>
+      <div class="you-mini-card" id="youCard">
+        <button class="you-mini-head" id="youMiniHead" aria-haspopup="true" aria-expanded="false">
+          <span class="you-mini-avatar" id="youAvatar">?</span>
+          <span class="you-mini-headtext">
+            <span class="you-mini-name" id="youName">選択してください</span>
+            <span class="you-mini-hint">タップで詳細・切替</span>
+          </span>
+          <span class="you-mini-caret-wrap">▾</span>
+        </button>
+
+        <span class="you-mini-vdiv"></span>
+
+        <div class="you-mini-stats" id="youStats"></div>
+
+        <div class="you-mini-dropdown" id="youDropdown">
+          <div class="you-mini-dropdown-label">表示する人を選択</div>
+          <div class="you-mini-chip-list" id="youChips"></div>
+          <div class="you-mini-dropdown-foot">
+            <span id="youFootNote">初回だけ選ぶと、次回から自動でこの人の状況が表示されます（このブラウザに記憶）</span><br>
+            <button class="you-mini-reset" id="youReset" style="display:none">記憶をリセット</button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- インフォメーション -->
@@ -86,13 +198,153 @@ function calcTenure(joinStr) {
   return years + '年' + months + 'ヶ月';
 }
 
+// スキルマップの評価時期。新しい時期が追加されたらskill.html内のPERIODSと合わせて追記すること
+const YOU_SKILL_PERIODS = ['2026年8月','2026年11月','2027年2月','2027年5月'];
+
+// 「あなたの状況」ウィジェットのセットアップ。skill.html・certifications.csvが未取得/空でも
+// ダッシュボード本体には影響しないよう、この関数の中で完結させる
+function setupYouWidget({ memberRows, seRows, calcTotal, skillText, certText }) {
+  const youMembers = memberRows
+    .filter(r => (r['ステータス']||'').trim() === '在籍')
+    .map(r => (r['氏名']||'').trim())
+    .filter(Boolean);
+  if (!youMembers.length) return;
+
+  // 得意スキル＝評価データが1件以上入っている時期のうち最新のものにおける、最もレベルの高いスキル（skill.htmlと同じ既定時期ロジック）
+  const skillRows = skillText ? Papa.parse(skillText, { header: true, skipEmptyLines: true }).data : [];
+  const periodsWithData = YOU_SKILL_PERIODS.filter(p => skillRows.some(r => (+r[p]||0) > 0));
+  const skillPeriod = periodsWithData.length ? periodsWithData[periodsWithData.length - 1] : YOU_SKILL_PERIODS[0];
+  const bestSkillByMember = {};
+  skillRows.forEach(r => {
+    const name = (r['氏名']||'').trim();
+    const level = +r[skillPeriod] || 0;
+    if (!name || level <= 0) return;
+    const cur = bestSkillByMember[name];
+    if (!cur || level > cur.level) bestSkillByMember[name] = { name: (r['スキル名']||'').trim(), level };
+  });
+
+  const certRows = certText ? Papa.parse(certText, { header: true, skipEmptyLines: true }).data : [];
+  const certCountByMember = {};
+  certRows.forEach(r => {
+    const name = (r['氏名']||'').trim();
+    if (!name) return;
+    certCountByMember[name] = (certCountByMember[name] || 0) + 1;
+  });
+
+  const seByMember = {};
+  seRows.forEach(r => {
+    const name = (r['社員番号']||'').trim(); // 3se_report.csvのタイトル列。実体は氏名
+    if (!name) return;
+    seByMember[name] = { count: calcTotal(r), ok: r['達成状況'] === '達成' };
+  });
+
+  const STORE_KEY = 'you_widget_member';
+  const head = document.getElementById('youMiniHead');
+  const card = document.getElementById('youCard');
+  const dropdown = document.getElementById('youDropdown');
+
+  function renderYou(name) {
+    document.getElementById('youAvatar').textContent = name.charAt(0);
+    document.getElementById('youName').textContent = name;
+
+    const se = seByMember[name];
+    const skill = bestSkillByMember[name];
+    const certs = certCountByMember[name] || 0;
+    const q = encodeURIComponent(name);
+
+    const seHTML = se
+      ? `<span class="you-mini-stat-value ${se.ok ? '' : 'warn'}">${se.count}件</span><span class="you-mini-stat-sub ${se.ok ? 'green' : 'red'}">（${se.ok ? '達成' : '未達成'}）</span>`
+      : `<span class="you-mini-stat-value">ー</span>`;
+    const skillHTML = skill
+      ? `<span class="you-mini-stat-value">${escapeHTML(skill.name)}</span><span class="you-mini-stat-sub">Lv.${skill.level}</span>`
+      : `<span class="you-mini-stat-value">評価データなし</span>`;
+
+    const seDot = se ? `<span class="dot ${se.ok ? 'green' : 'red'}"></span>` : '';
+    document.getElementById('youStats').innerHTML = `
+      <a class="you-mini-stat stat-se" href="reports.html" title="3SEレポートページへ">
+        <span class="you-mini-stat-label">${seDot}3SEレポート提出件数</span>
+        <span class="you-mini-stat-value-row">${seHTML}</span>
+      </a>
+      <a class="you-mini-stat stat-skill" href="skill.html?member=${q}&tab=radar" title="スキルマップ（本人のレーダー表示）へ">
+        <span class="you-mini-stat-label">⭐ 得意スキル</span>
+        <span class="you-mini-stat-value-row">${skillHTML}</span>
+      </a>
+      <a class="you-mini-stat stat-cert" href="skill.html?member=${q}#certifications" title="スキルマップ（保有資格一覧）へ">
+        <span class="you-mini-stat-label">📜 保有資格</span>
+        <span class="you-mini-stat-value-row"><span class="you-mini-stat-value">${certs}件</span></span>
+      </a>
+    `;
+  }
+
+  function selectMember(name, { persist } = { persist: true }) {
+    if (!youMembers.includes(name)) return;
+    document.querySelectorAll('.you-mini-chip').forEach(c => c.classList.toggle('sel', c.textContent === name));
+    renderYou(name);
+    if (persist) {
+      localStorage.setItem(STORE_KEY, name);
+      document.getElementById('youFootNote').textContent = `「${name}」として記憶しています。次回からこのブラウザで自動的に表示されます`;
+      document.getElementById('youReset').style.display = 'inline-block';
+    }
+  }
+
+  function buildChips() {
+    const wrap = document.getElementById('youChips');
+    wrap.innerHTML = '';
+    youMembers.forEach(name => {
+      const b = document.createElement('button');
+      b.className = 'you-mini-chip';
+      b.textContent = name;
+      b.onclick = (e) => { e.stopPropagation(); selectMember(name); closeDropdownOnly(); };
+      wrap.appendChild(b);
+    });
+  }
+
+  // 「名前選択パネル（ドロップダウン）」の開閉と「指標の表示（モバイルのみ）」の開閉は別々の状態として持つ。
+  // ヘッダーをタップした時は両方を一緒に開閉するが、名前を選んだ時はドロップダウンだけを閉じ、
+  // モバイルで開いている指標はそのまま表示し続ける（見たいのは切替後の中身のため）
+  function setDropdownOpen(open) {
+    head.classList.toggle('open', open);
+    dropdown.classList.toggle('open', open);
+    head.setAttribute('aria-expanded', String(open));
+  }
+  function setStatsExpanded(open) { card.classList.toggle('expanded', open); }
+  function closeDropdownOnly() { setDropdownOpen(false); }
+
+  head.onclick = (e) => {
+    e.stopPropagation();
+    const opening = !dropdown.classList.contains('open');
+    setDropdownOpen(opening);
+    setStatsExpanded(opening);
+  };
+  document.addEventListener('click', (e) => {
+    if (!document.getElementById('youMini').contains(e.target)) {
+      setDropdownOpen(false);
+      setStatsExpanded(false);
+    }
+  });
+  document.getElementById('youReset').onclick = (e) => {
+    e.stopPropagation();
+    localStorage.removeItem(STORE_KEY);
+    document.getElementById('youFootNote').textContent = '初回だけ選ぶと、次回から自動でこの人の状況が表示されます（このブラウザに記憶）';
+    document.getElementById('youReset').style.display = 'none';
+  };
+
+  buildChips();
+  const saved = localStorage.getItem(STORE_KEY);
+  const initial = saved && youMembers.includes(saved) ? saved : youMembers[0];
+  selectMember(initial, { persist: !!saved });
+  document.getElementById('youMini').style.display = '';
+}
+
 async function init() {
   try {
-    const [seRows, salesRows, memberRows, infoRows] = await Promise.all([
+    const [seRows, salesRows, memberRows, infoRows, skillR, certR] = await Promise.all([
       fetchCSV('data/3se_report.csv'),
       fetchCSV('data/sales.csv'),
       fetchCSV('data/members/member_master.csv'),
       fetchCSV('data/info.csv'),
+      fetchCSVText('data/skill.csv'),
+      fetchCSVText('data/certifications.csv'),
     ]);
 
     const active = seRows.filter(r => !String(r['備考']||'').match(/異動|退職/));
@@ -101,6 +353,10 @@ async function init() {
     const seTotal   = seRows.reduce((s,r)=>s+calcTotal(r), 0);
     const seAchieved = active.filter(r=>r['達成状況']==='達成').length;
     const memberCount = memberRows.filter(r=>(r['ステータス']||'').trim()==='在籍').length;
+
+    // ── 「あなたの状況」ウィジェット ──
+    // skill.csv・certifications.csvは取得できなくてもダッシュボード本体の表示は継続する（skill.htmlと同じ方針）
+    setupYouWidget({ memberRows, seRows, calcTotal, skillText: skillR.ok ? skillR.text : '', certText: certR.ok ? certR.text : '' });
 
     // 売上集計
     const today = new Date();
