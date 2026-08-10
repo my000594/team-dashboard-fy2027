@@ -49,9 +49,38 @@
 <div id="app">
 <main class="main">
 
-  <div class="page-header">
-    <h1>キャリアロードマップ</h1>
-    <p>会社の職務要件・昇格基準（3SEシステム部・情報戦略グループ）をもとにした、等級ごとの現在地と次のステップの確認ツール</p>
+  <div class="page-header with-you">
+    <div>
+      <h1>キャリアロードマップ</h1>
+      <p>会社の職務要件・昇格基準（3SEシステム部・情報戦略グループ）をもとにした、等級ごとの現在地と次のステップの確認ツール</p>
+    </div>
+
+    <div class="you-mini" id="youMini" style="display:none">
+      <div class="card-title" style="margin-bottom:6px">🙋 あなたの状況</div>
+      <div class="you-mini-card" id="youCard">
+        <button class="you-mini-head" id="youMiniHead" aria-haspopup="true" aria-expanded="false">
+          <span class="you-mini-avatar" id="youAvatar">?</span>
+          <span class="you-mini-headtext">
+            <span class="you-mini-name" id="youName">選択してください</span>
+            <span class="you-mini-hint">タップで詳細・切替</span>
+          </span>
+          <span class="you-mini-caret-wrap">▾</span>
+        </button>
+
+        <span class="you-mini-vdiv"></span>
+
+        <div class="you-mini-stats" id="youStats"></div>
+
+        <div class="you-mini-dropdown" id="youDropdown">
+          <div class="you-mini-dropdown-label">表示する人を選択</div>
+          <div class="you-mini-chip-list" id="youChips"></div>
+          <div class="you-mini-dropdown-foot">
+            <span id="youFootNote">初回だけ選ぶと、次回から自動でこの人の状況が表示されます（このブラウザに記憶）</span><br>
+            <button class="you-mini-reset" id="youReset" style="display:none">記憶をリセット</button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div class="card" style="margin-bottom:1.5rem;background:var(--blue-dim);border-color:rgba(59,130,246,.3)">
@@ -105,7 +134,10 @@
 </main>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js" integrity="sha384-D/t0ZMqQW31H3az8ktEiNb39wyKnS82iFY52QPACM+IjKW3jDUhyIgh2PApRqJZs" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script src="nav.js"></script>
+<script src="data.js"></script>
+<script src="you-widget.js"></script>
 <script>
 function escHTML(s) {
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));

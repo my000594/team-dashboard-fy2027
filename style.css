@@ -376,3 +376,90 @@ body {
 .chip:hover { border-color: var(--border2); }
 .chip-name { font-weight: 500; color: var(--text); }
 .chip-sub  { font-size: 10px; color: var(--text2); }
+
+/* ── 「あなたの状況」ウィジェット ──────────────────────────
+   全ページ共通（you-widget.js）。ページ見出しと同じ行の右側に配置。名前ブロック・各指標
+   （3SEレポート提出件数／得意スキル／保有資格）は幅を固定しており、選ぶ人によってウィジェット
+   全体の横幅が変動しない。各指標は関連ページへのリンクになっている。
+   ラベルを上段・値＋補足を下段に分けているのは、1行にまとめると値がラベルの続きとして詰め込まれて
+   変な位置で折り返るため（値の行に列の全幅を使わせる）。
+   ────────────────────────────────────────────────── */
+.you-mini{ position:relative }
+@media (max-width:560px){ .you-mini{ width:100% } }
+.you-mini-card{
+  display:flex; align-items:center; flex-wrap:nowrap; gap:0;
+  background:var(--bg2); border:1px solid var(--border); border-radius:var(--radius-lg);
+  padding:.7rem 1rem;
+}
+@media (max-width:560px){ .you-mini-card{ flex-direction:column; align-items:flex-start; flex-wrap:wrap } }
+.you-mini-head{
+  display:flex; align-items:center; gap:10px; flex:0 0 168px;
+  background:var(--bg3); border:1px solid var(--border2); border-radius:10px;
+  padding:.45rem .7rem .45rem .45rem; cursor:pointer; font-family:var(--font);
+  transition:border-color .15s, color .15s;
+}
+@media (max-width:560px){ .you-mini-head{ flex:1 1 auto; width:100% } }
+.you-mini-head:hover{ border-color:rgba(59,130,246,.45) }
+.you-mini-avatar{
+  width:32px; height:32px; border-radius:9px; flex-shrink:0;
+  background:var(--blue-dim); border:1px solid rgba(59,130,246,.4); color:var(--blue);
+  display:inline-flex; align-items:center; justify-content:center; font-size:13px; font-weight:700;
+}
+.you-mini-headtext{ display:flex; flex-direction:column; gap:2px; text-align:left; min-width:0 }
+.you-mini-name{ font-size:14.5px; font-weight:700; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
+.you-mini-hint{ font-size:10.5px; color:var(--text3); white-space:nowrap }
+.you-mini-caret-wrap{
+  width:22px; height:22px; border-radius:50%; flex-shrink:0;
+  background:var(--bg2); border:1px solid var(--border2); color:var(--text2);
+  display:flex; align-items:center; justify-content:center; font-size:9.5px;
+  transition:transform .15s, background .15s, color .15s;
+}
+.you-mini-head:hover .you-mini-caret-wrap{ background:var(--blue-dim); color:var(--blue); border-color:rgba(59,130,246,.4) }
+.you-mini-head.open .you-mini-caret-wrap{ transform:rotate(180deg) }
+.you-mini-vdiv{ width:1px; height:32px; background:var(--border); margin:0 18px; flex-shrink:0 }
+@media (max-width:560px){ .you-mini-vdiv{ display:none } }
+.you-mini-stats{ display:flex; align-items:center; gap:22px; flex-wrap:nowrap }
+@media (max-width:560px){
+  .you-mini-stats{ display:none; flex-direction:column; align-items:flex-start; gap:10px; width:100%; margin-top:12px }
+  .you-mini-card.expanded .you-mini-stats{ display:flex }
+}
+.you-mini-stat{
+  display:flex; flex-direction:column; gap:3px; font-size:13px; flex:0 0 auto;
+  text-decoration:none; color:inherit; padding:5px 7px; margin:-5px -7px; border-radius:8px;
+  transition:background .15s;
+}
+.you-mini-stat:hover{ background:var(--bg3) }
+.you-mini-stat.stat-se{ flex-basis:180px }
+.you-mini-stat.stat-skill{ flex-basis:230px }
+.you-mini-stat.stat-cert{ flex-basis:100px }
+@media (max-width:560px){
+  .you-mini-stat, .you-mini-stat.stat-se, .you-mini-stat.stat-skill, .you-mini-stat.stat-cert{ flex-basis:auto; width:100% }
+}
+.you-mini-stat-label{ display:flex; align-items:center; gap:4px; color:var(--text3); font-size:11.5px; white-space:nowrap }
+.you-mini-stat-value-row{ display:flex; align-items:baseline; gap:7px; flex-wrap:wrap }
+.you-mini-stat-value{ font-weight:700; color:var(--text) }
+.you-mini-stat-value.warn{ color:var(--red) }
+.you-mini-stat-sub{ font-size:11px; color:var(--text3); white-space:nowrap }
+.you-mini-stat-sub.green{ color:var(--green) } .you-mini-stat-sub.red{ color:var(--red) }
+.you-mini-stat .dot{ width:6px; height:6px; border-radius:50%; flex-shrink:0 }
+.you-mini-stat .dot.green{ background:var(--green) } .you-mini-stat .dot.red{ background:var(--red) }
+.you-mini-dropdown{
+  display:none; position:absolute; top:100%; left:0; right:0; margin-top:6px; z-index:20;
+  background:var(--bg2); border:1px solid var(--border2); border-radius:var(--radius); padding:11px;
+  box-shadow:0 10px 28px rgba(0,0,0,.45);
+}
+.you-mini-dropdown.open{ display:block }
+@media (max-width:560px){
+  .you-mini-dropdown{ position:static; margin-top:10px; box-shadow:none; border-color:var(--border); padding:10px 0 0; border-top:1px solid var(--border); border-radius:0 }
+}
+.you-mini-dropdown-label{ font-size:10px; color:var(--text3); padding:1px 4px 7px }
+.you-mini-chip-list{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px }
+.you-mini-chip{ padding:5px 10px; border-radius:999px; border:.5px solid var(--border); cursor:pointer; font-size:11.5px; color:var(--text2); background:transparent; font-family:var(--font); transition:.15s }
+.you-mini-chip:hover{ border-color:var(--border2); color:var(--text) }
+.you-mini-chip.sel{ background:var(--blue-dim); color:var(--blue); border-color:rgba(59,130,246,.4) }
+.you-mini-dropdown-foot{ font-size:10px; color:var(--text3); line-height:1.5; padding-top:7px; border-top:1px solid var(--border) }
+.you-mini-reset{ font-size:10px; color:var(--text3); background:none; border:none; text-decoration:underline; cursor:pointer; font-family:var(--font); padding:0; margin-top:3px }
+.you-mini-reset:hover{ color:var(--text2) }
+
+/* ── page-header内でウィジェットを右側に並べるレイアウト（.you-miniを含むページで使用） ── */
+.page-header.with-you{ display:flex; align-items:center; justify-content:space-between; gap:1.5rem; flex-wrap:wrap }

@@ -70,6 +70,7 @@ team-dashboard-fy2027/
 ├── nav.js              左サイドバーナビ＋メンテナンス制御
 ├── md.js               本文のMarkdown描画共通レンダラ（index/info/knowledgeで共用）
 ├── data.js             CSV取得共通ヘルパー（sessionStorageに5分キャッシュ。CSVをfetchする全ページで共用）
+├── you-widget.js        「あなたの状況」ウィジェット共通スクリプト（全ページのpage-headerで共用）
 ├── robots.txt           検索エンジン避け（全ページDisallow）
 ├── scripts/
 │   └── sync-notion.mjs Notion APIからdata/配下のCSVを自動生成するスクリプト
@@ -163,12 +164,33 @@ team-dashboard-fy2027/
 
 ## CSV取得共通ヘルパー（data.js）
 
-`data/`配下のCSVをfetchする全ページ（index/info/member/reports/sales/meetings/chronicle/skill/knowledge）が共用する`fetchCSVText(path)`を提供する（2026-08-09追加）。ページ遷移の多いこのダッシュボードで、同じCSV（`member_master.csv`等）を毎回fetchし直すことによる体感速度の低下を避けるための共通化。
+`data/`配下のCSVをfetchする全ページ（index/info/member/reports/sales/meetings/chronicle/skill/knowledge/career）が共用する`fetchCSVText(path)`を提供する（2026-08-09追加）。ページ遷移の多いこのダッシュボードで、同じCSV（`member_master.csv`等）を毎回fetchし直すことによる体感速度の低下を避けるための共通化。
 
 - `fetchCSVText(path)`は`{ ok, status, text }`を返す非同期関数。fetch＋BOM除去済みのテキストを取得し、成功時（`ok`）のみ`sessionStorage`に5分間（`CSV_CACHE_MS`）キャッシュする。キャッシュヒット時はfetchを行わずキャッシュしたエントリをそのまま返す
 - Papa.parseは呼び出し側（各ページ）が担当する。`dynamicTyping`等のパースオプションはページごとに異なるため、data.js側では固定しない
 - Notion同期は1日単位でしか更新されないため、5分程度のキャッシュによる鮮度への影響はほぼ無い
 - `maintenance-app.html`が読む`data/maintenance.json`はこのヘルパーの対象外（即時反映が必要なため`cache:'no-store'`で都度fetchする方針を維持）。`nav.js`の`maintenance.json`fetchも同様に対象外
+- career.htmlは自ページのデータはCSVではなくハードコーディングのため本来data.js不要だが、後述の`you-widget.js`が`fetchCSVText`に依存するため2026-08-11に読み込みを追加した
+
+---
+
+## 「あなたの状況」ウィジェット（you-widget.js）
+
+ページ見出しと同じ行の右側（`.page-header.with-you`）に配置する自分専用ミニダッシュボード。**maintenance-app.htmlを除く全ページ**（トップ含む）で同じ見た目・同じ挙動になるよう、2026-08-11にindex.html専用の実装からyou-widget.js（`data.js`と同様、nav.jsの直後で読み込む共通スクリプト）に切り出した。誰が見ているか分からない（ログイン機構がない）ため、初回だけ手動で名前を選ばせ、以降は`localStorage`（キー`you_widget_member`。全ページ共通のキーのため、どのページで選んでも他ページに引き継がれる）に記憶して自動表示する方式。
+
+- 各ページのHTML側は`id="youMini"`以下の同一マークアップ（`.page-header`直下）を置くだけでよい。ページ本体のスクリプトからの呼び出しは不要で、you-widget.js自身が`#youMini`の有無を見て自動初期化する（無ければ何もしない）
+- `member_master.csv`・`3se_report.csv`・`skill.csv`・`certifications.csv`をyou-widget.js自身がfetchする（各ページ本体が読むデータとは独立）。`fetchCSVText`の5分キャッシュにより、ページ本体側で同じCSVを既に読んでいても実質の二重fetchにはならない
+- 表示する3指標：
+  - **3SEレポート提出件数**：`3se_report.csv`から`社員番号`列（実体は氏名）で本人の行を検索し、月別列直接合算の件数と`達成状況`列をバッジ表示。クリックで`reports.html`へ
+  - **得意なスキル分野**：`skill.csv`の分野（サブカテゴリ。無ければカテゴリ）ごとに、評価時期が「データが1件以上入っている時期のうち最新のもの」（skill.htmlの既定期間ロジックと同じ）における平均レベルを算出し、最も高い分野を表示（未評価スキル＝レベル0も含めて平均する。skill.htmlのレーダーチャート「総合」タブと同じ計算方法）。クリックで`skill.html?member=氏名&tab=radar&group=分野名`へ（本人選択＋レーダーチャートタブ＋該当分野タブが自動で開く）。全分野で平均0（未評価）の場合は「評価データなし」と表示
+  - **保有資格**：`certifications.csv`から本人の行数をカウント。**資格分野に「研修」という文字列を含む行は資格そのものではなく研修受講の記録のためカウントに含めない**（一覧側＝skill.htmlの💯保有資格カードには残す。2026-08-11変更）。クリックで`skill.html?member=氏名#certifications`へ（本人選択＋💯保有資格カードまで自動スクロール）
+  - 名前ブロック・各指標はそれぞれ幅を固定（CSSの`flex-basis`）しており、選ぶ人によって値の長さが変わってもウィジェット全体の横幅は変動しない（値がその幅に収まらない場合は折り返す。省略記号は使わない）。ラベルを上段・値＋補足を下段に分けているのは、1行にまとめると値がラベルの続きとして詰め込まれて変な位置で折り返っていたため
+  - メンバー切替の候補一覧（ドロップダウン）は`position:absolute`のオーバーレイ表示にしており、開いてもウィジェット自体の高さ・下のカードの位置は動かない。名前を選ぶとこの切替パネルだけが閉じ、指標の表示状態（モバイルの展開有無）はさわらない
+  - モバイル（〜560px）は名前部分だけの1行に折りたたみ、タップすると指標＋切替リストがまとめて下に展開する（`page-header`がflex-wrapで折り返すため、タイトル下に自然に回り込む）
+  - `skill.csv`・`certifications.csv`が取得できなくてもページ本体の表示は継続する（該当の指標は「評価データなし」等のフォールバック表示になる）。`member_master.csv`・`3se_report.csv`が取得できない場合はウィジェット自体を表示しない
+- CSS（`.you-mini*`）はstyle.cssに集約。ページ見出し行を横並びにする`.page-header.with-you`もstyle.cssで定義しているため、ウィジェットを置くページの`.page-header`には`with-you`クラスを付けるだけでよい
+- 新しいページを追加してウィジェットも置く場合は、他ページの`.page-header.with-you`ブロックと同じマークアップをコピーし、`<script src="data.js">`の直後に`<script src="you-widget.js">`を追加すればよい（Papaparse本体のCDN読み込みも必要）
+- スキルマップの評価時期（`YOU_SKILL_PERIODS`）はyou-widget.js内にも定義がある。新しい時期が追加されたらskill.html内の`PERIODS`・scripts/sync-notion.mjsの`SKILL_PERIODS`と合わせて追記すること（3箇所目）
 
 ---
 
@@ -183,20 +205,12 @@ team-dashboard-fy2027/
 ## ページ別詳細
 
 ### index.html（トップ）
-- 6ファイルを並行fetch：3se_report.csv / sales.csv / member_master.csv / info.csv / skill.csv / certifications.csv（後2つは「あなたの状況」ウィジェット用）
+- 4ファイルを並行fetch：3se_report.csv / sales.csv / member_master.csv / info.csv（「あなたの状況」ウィジェットは自前でCSVを取得するため含まない。詳細は「あなたの状況」ウィジェット（you-widget.js）節を参照）
 - インフォメーション：期間内のものだけ、期限近い順に**最大5件**表示（残7日以内は赤バッジ）。6件目以降がある場合は「他N件 → インフォメーションですべて見る」リンクをinfo.htmlへ表示
 - 開始日から`NEW_BADGE_DAYS`（現在3日間・開始日を含む）以内の項目には紫の「NEW!」バッジをタイトル前に表示する。定数はindex.html・info.htmlそれぞれのスクリプト内に個別定義（md.jsのような共通ファイルには置いていない）。日数を変える場合は両ページの`NEW_BADGE_DAYS`を両方書き換えること
 - 課員数は member_master.csv の在籍者数から取得
 - 3SE件数は月別列を直接合算（calcTotal関数）
 - 売上は sales.csv の実績>0の行を集計
-- **「あなたの状況」ウィジェット**（2026-08-09追加）：ページ見出しと同じ行の右側に配置。誰が見ているか分からない（ログイン機構がない）ため、初回だけ手動で名前を選ばせ、以降は`localStorage`（キー`you_widget_member`）に記憶して自動表示する方式。表示する3指標：
-  - **3SEレポート提出件数**：`3se_report.csv`から`社員番号`列（実体は氏名）で本人の行を検索し、calcTotal関数の合算件数と`達成状況`列をバッジ表示。クリックで`reports.html`へ
-  - **得意なスキル分野**：`skill.csv`の分野（サブカテゴリ。無ければカテゴリ）ごとに、評価時期が「データが1件以上入っている時期のうち最新のもの」（skill.htmlの既定期間ロジックと同じ）における平均レベルを算出し、最も高い分野を表示（未評価スキル＝レベル0も含めて平均する。skill.htmlのレーダーチャート「総合」タブと同じ計算方法）。クリックで`skill.html?member=氏名&tab=radar&group=分野名`へ（本人選択＋レーダーチャートタブ＋該当分野タブが自動で開く。skill.html側の対応は同ページのセクション参照）。全分野で平均0（未評価）の場合は「評価データなし」と表示
-  - **保有資格**：`certifications.csv`から本人の行数をカウント。クリックで`skill.html?member=氏名#certifications`へ（本人選択＋💯保有資格カードまで自動スクロール）
-  - 名前ブロック・各指標はそれぞれ幅を固定（CSSの`flex-basis`）しており、選ぶ人によって値の長さが変わってもウィジェット全体の横幅は変動しない（値がその幅に収まらない場合は折り返す。省略記号は使わない）。ラベルを上段・値＋補足を下段に分けているのは、1行にまとめると値がラベルの続きとして詰め込まれて変な位置で折り返っていたため
-  - メンバー切替の候補一覧（ドロップダウン）は`position:absolute`のオーバーレイ表示にしており、開いてもウィジェット自体の高さ・下のカードの位置は動かない。名前を選ぶとこの切替パネルだけが閉じ、指標の表示状態（モバイルの展開有無）はさわらない
-  - モバイル（〜560px）は名前部分だけの1行に折りたたみ、タップすると指標＋切替リストがまとめて下に展開する（`page-header`がflex-wrapで折り返すため、タイトル下に自然に回り込む）
-  - `skill.csv`・`certifications.csv`が取得できなくてもダッシュボード本体の表示は継続する（該当の指標は「評価データなし」等のフォールバック表示になる）
 
 ### info.html（インフォメーション）
 - `data/info.csv`をfetchし、index.htmlと同じロジックで期間内の全件を表示（件数制限なし）
@@ -274,7 +288,7 @@ LINE_COLORS・LINE_META・LINE_LABEL_MAP定数はmember.html内に定義。
 - マトリクスタブ内に「💯 保有資格」カードを追加。`data/certifications.csv`が存在すれば資格名×メンバーのマトリクスを表示（無い/空でもスキルマップ本体の表示は壊れない）。詳細はdata/certifications.csvのデータフォーマット節を参照
 - 分野タブの先頭に「総合」を用意し、デフォルト表示はこれ。各分野（サブカテゴリ）に属するスキルレベルの単純平均を軸にした俯瞰表示で、個別スキルの内訳は各分野タブから確認する。平均値は未評価スキル（レベル0）も含めて算出するため、未評価が多い分野は低く出る点に注意
 - マトリクスタブは画面幅700px以下で表示を切り替える（`.desktop-only`/`.mobile-only`クラス＋メディアクエリ）。デスクトップは通常の横長マトリクス、モバイルは「メンバーを選択」チップ＋選んだ1人のスキル一覧（分野ごとにグルーピング）／保有資格一覧を縦一覧で表示する。メンバー×スキル・メンバー×資格を10列前後横に並べると狭い画面では窮屈になるための対応。このモバイル用チップとレーダータブのメンバーチップは`selectMember()`で連動しており、どちらで選んでもレーダー・モバイルのスキル一覧・資格一覧が同時に切り替わる。セルの中身（レベルドット・資格の保有状態）は`skillDotHTML()`/`certCellHTML()`としてデスクトップ表とモバイル一覧の両方から共通で呼び出している
-- **index.htmlの「あなたの状況」ウィジェットからの遷移をURLパラメータで受け取る**（2026-08-09追加）：`?member=氏名`で該当メンバーを初期選択（`renderMemberChips()`に渡す。名簿に無い/未指定なら従来通り先頭の人）、`&tab=radar`でレーダーチャートタブを自動で開く、`&group=分野名`でレーダーの分野タブを自動選択（`groups`配列に一致する`key`が無ければ無視し既定の「総合」のまま）、`#certifications`（保有資格カードの`id`）でそのカードまで自動スクロールする。組み合わせ自由（得意なスキル分野からは`?member=...&tab=radar&group=...`、保有資格からは`?member=...#certifications`で遷移してくる）
+- **「あなたの状況」ウィジェット（you-widget.js。全ページ共通）からの遷移をURLパラメータで受け取る**（2026-08-09追加、2026-08-11にウィジェット自体が全ページ共通化）：`?member=氏名`で該当メンバーを初期選択（`renderMemberChips()`に渡す。名簿に無い/未指定なら従来通り先頭の人）、`&tab=radar`でレーダーチャートタブを自動で開く、`&group=分野名`でレーダーの分野タブを自動選択（`groups`配列に一致する`key`が無ければ無視し既定の「総合」のまま）、`#certifications`（保有資格カードの`id`）でそのカードまで自動スクロールする。組み合わせ自由（得意なスキル分野からは`?member=...&tab=radar&group=...`、保有資格からは`?member=...#certifications`で遷移してくる）
 
 ### career.html（キャリアロードマップ）
 - 部下が「自分は次に何をすればいいか」を確認するためのキャリアナビ。データ源はNotion/CSVではなく、SYSホールディングスグループ「職務要件・昇格基準定義書」（更新日：2025年4月24日）の**3SEシステム部・情報戦略グループ列**を抜粋し、`career.html`内のJSオブジェクト（`COMMON_GRADES`／`FORK_GRADES`）に直接ハードコーディングしている（営業職・事務職等、他グループの基準はこのページには含まれない）

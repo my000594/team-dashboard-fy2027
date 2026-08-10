@@ -58,9 +58,38 @@
 <div id="loading"><div class="spinner"></div><span>スキルデータを読み込んでいます...</span></div>
 <div id="app">
 <main class="main">
-  <div class="page-header">
-    <h1>スキルマップ</h1>
-    <p id="subtitle">—</p>
+  <div class="page-header with-you">
+    <div>
+      <h1>スキルマップ</h1>
+      <p id="subtitle">—</p>
+    </div>
+
+    <div class="you-mini" id="youMini" style="display:none">
+      <div class="card-title" style="margin-bottom:6px">🙋 あなたの状況</div>
+      <div class="you-mini-card" id="youCard">
+        <button class="you-mini-head" id="youMiniHead" aria-haspopup="true" aria-expanded="false">
+          <span class="you-mini-avatar" id="youAvatar">?</span>
+          <span class="you-mini-headtext">
+            <span class="you-mini-name" id="youName">選択してください</span>
+            <span class="you-mini-hint">タップで詳細・切替</span>
+          </span>
+          <span class="you-mini-caret-wrap">▾</span>
+        </button>
+
+        <span class="you-mini-vdiv"></span>
+
+        <div class="you-mini-stats" id="youStats"></div>
+
+        <div class="you-mini-dropdown" id="youDropdown">
+          <div class="you-mini-dropdown-label">表示する人を選択</div>
+          <div class="you-mini-chip-list" id="youChips"></div>
+          <div class="you-mini-dropdown-foot">
+            <span id="youFootNote">初回だけ選ぶと、次回から自動でこの人の状況が表示されます（このブラウザに記憶）</span><br>
+            <button class="you-mini-reset" id="youReset" style="display:none">記憶をリセット</button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div class="tabs" id="tabs"></div>
@@ -134,6 +163,7 @@
 
 <script src="nav.js"></script>
 <script src="data.js"></script>
+<script src="you-widget.js"></script>
 <script>
 const TABS = [
   { id:'matrix', label:'マトリクス' },
@@ -513,7 +543,7 @@ async function init() {
           badges: (r['デジタルバッジ']||'').split(',').map(s => s.trim()).filter(Boolean),
           note: (r['備考']||'').trim(),
         }))
-        .filter(r => r.name && r.cert && !r.field.includes('研修'));
+        .filter(r => r.name && r.cert);
       certNames = [...new Set(certRows.map(r => r.cert))];
       certRows.forEach(r => {
         (certByMember[r.name] ??= {})[r.cert] = { acquired: r.acquired, expiry: r.expiry, badges: r.badges, note: r.note };
