@@ -513,7 +513,7 @@ async function init() {
           badges: (r['デジタルバッジ']||'').split(',').map(s => s.trim()).filter(Boolean),
           note: (r['備考']||'').trim(),
         }))
-        .filter(r => r.name && r.cert && r.field !== '研修');
+        .filter(r => r.name && r.cert && !r.field.includes('研修'));
       certNames = [...new Set(certRows.map(r => r.cert))];
       certRows.forEach(r => {
         (certByMember[r.name] ??= {})[r.cert] = { acquired: r.acquired, expiry: r.expiry, badges: r.badges, note: r.note };
