@@ -260,7 +260,7 @@ function setupYouWidget({ memberRows, seRows, calcTotal, skillText, certText }) 
   const certCountByMember = {};
   certRows.forEach(r => {
     const name = (r['氏名']||'').trim();
-    if (!name) return;
+    if (!name || (r['資格分野']||'').trim() === '研修') return;
     certCountByMember[name] = (certCountByMember[name] || 0) + 1;
   });
 
