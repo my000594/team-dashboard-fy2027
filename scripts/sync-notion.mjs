@@ -25,6 +25,7 @@ const DB = {
   skill:       'd94ebc91-0300-4476-b244-2da697341c25', // 📍 スキルマップ
   certification: 'b88a98ca-3014-4f63-9d23-95cafbea9048', // 💯 保有資格
   chronicle:   'a4c700d71a98421d874ee6789f9e6885', // 📖 ライン年表
+  reportArchive: 'fc02988a-d0f8-42a3-a00d-5722cf2ca036', // 📚 3SEレポート事例集
 };
 
 // データベースではなくページ本文（ブロック）から取得するもの
@@ -325,6 +326,32 @@ async function main() {
     await writeCsv('3se_report.csv',
       ['社員番号','達成状況','合計', ...MONTHS, '1Q','2Q','3Q','4Q','備考'],
       seRows);
+  });
+
+  await section('3se_report_archive.csv', async () => {
+    console.log('== 3se_report_archive.csv ==');
+    const archivePages = await notionQuery(DB.reportArchive);
+    assertProperties(archivePages, ['氏名','提出日','ファイルリンク'], '3se_report_archive.csv');
+    let unresolvedNameCount = 0;
+    const archiveRows = archivePages.map(page => {
+      const props = page.properties;
+      const dateIso = getDateStart(props['提出日']);
+      // 氏名はmember_masterへのリレーション。ID→氏名のマップはmember_masterセクションで構築したものを使う（chronicle.csvと同じ方式）
+      const relIds = (props['氏名']?.relation || []).map(r => r.id);
+      const names = relIds.map(id => memberNameById.get(id)).filter(Boolean);
+      unresolvedNameCount += relIds.length - names.length;
+      return {
+        dateIso,
+        '氏名': names.join(','),
+        '提出日': dateIso,
+        'ファイルリンク': props['ファイルリンク']?.url || '',
+      };
+    });
+    if (unresolvedNameCount > 0) {
+      console.warn(`  [WARN] 3se_report_archive.csv: 氏名リレーションが${unresolvedNameCount}件解決できませんでした（member_masterセクションの失敗、または対象メンバーページの削除・変更の可能性）`);
+    }
+    archiveRows.sort((a, b) => a.dateIso.localeCompare(b.dateIso));
+    await writeCsv('3se_report_archive.csv', ['氏名','提出日','ファイルリンク'], archiveRows);
   });
 
   await section('sales.csv', async () => {

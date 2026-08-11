@@ -10,6 +10,16 @@
 <link rel="stylesheet" href="style.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js" integrity="sha384-dug+JxfBvklEQdJ4AYuBBAIScUz0bVN73xpy273gcAwHjb3qI0fXmuYNaNfdyYJG" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js" integrity="sha384-D/t0ZMqQW31H3az8ktEiNb39wyKnS82iFY52QPACM+IjKW3jDUhyIgh2PApRqJZs" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<style>
+.filter-btn{font-size:12px;font-weight:500;padding:4px 12px;border-radius:999px;cursor:pointer;border:.5px solid var(--border);background:transparent;color:var(--text2);font-family:var(--font);transition:.15s}
+.filter-btn:hover{border-color:var(--border2);color:var(--text)}
+.filter-btn.active{background:var(--blue-dim);border-color:rgba(59,130,246,.4);color:var(--blue)}
+.report-who{display:flex;align-items:center;gap:9px}
+.report-avatar{width:26px;height:26px;border-radius:50%;background:var(--bg4);border:1px solid var(--border2);display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--text2);flex-shrink:0}
+.report-link{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:500;color:var(--blue);background:var(--blue-dim);border-radius:999px;padding:5px 12px;text-decoration:none;border:.5px solid transparent}
+.report-link:hover{border-color:var(--blue)}
+.report-date{font-family:var(--mono);color:var(--text2);white-space:nowrap}
+</style>
 </head>
 <body>
 <nav class="nav" id="nav"></nav>
@@ -121,6 +131,28 @@
       </table>
     </div>
   </div>
+
+  <div class="section-label">📚 レポート事例集</div>
+  <div class="card">
+    <div class="card-title">実際に提出されたレポート</div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:1.1rem">誰が・いつ・どんなレポートを出したかの実例。テーマ選びに迷ったら参考に。</div>
+    <div id="archiveContent">
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:1.1rem" id="archiveFilters"></div>
+      <div class="tbl-wrap">
+        <table class="tbl">
+          <thead>
+            <tr>
+              <th class="left" style="width:110px">提出日</th>
+              <th class="left">提出者</th>
+              <th class="left" style="width:150px">レポート</th>
+            </tr>
+          </thead>
+          <tbody id="archiveBody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div id="archiveEmpty" style="display:none;text-align:center;color:var(--text3);font-size:12px;padding:1.5rem 0">まだ登録されたレポートがありません</div>
+  </div>
 </main>
 </div>
 
@@ -225,6 +257,58 @@ async function init() {
   }
 }
 init();
+
+async function initReportArchive() {
+  const contentEl = document.getElementById('archiveContent');
+  const emptyEl   = document.getElementById('archiveEmpty');
+  const bodyEl    = document.getElementById('archiveBody');
+  const filtersEl = document.getElementById('archiveFilters');
+  try {
+    const { ok, text } = await fetchCSVText('data/3se_report_archive.csv');
+    const parsed = ok ? Papa.parse(text, { header:true, skipEmptyLines:true }).data : [];
+    const rows = parsed
+      .filter(r => r['氏名'] && r['提出日'])
+      .sort((a,b) => (b['提出日']||'').localeCompare(a['提出日']||''));
+
+    if (!rows.length) { contentEl.style.display='none'; emptyEl.style.display='block'; return; }
+
+    const names = [...new Set(rows.map(r=>r['氏名']))];
+    let active = 'すべて';
+
+    function render() {
+      const shown = active==='すべて' ? rows : rows.filter(r=>r['氏名']===active);
+      bodyEl.innerHTML = shown.map(r=>{
+        const d = new Date(r['提出日']);
+        const dispDate = isNaN(d) ? escHTML(r['提出日']) : d.toLocaleDateString('ja-JP');
+        const initial = escHTML(String(r['氏名']).trim().charAt(0));
+        return `<tr>
+          <td class="left report-date">${dispDate}</td>
+          <td class="left"><div class="report-who"><span class="report-avatar">${initial}</span><span>${escHTML(r['氏名'])}</span></div></td>
+          <td class="left"><a class="report-link" href="${escHTML(r['ファイルリンク']||'#')}" target="_blank" rel="noopener">PDFを見る ↗</a></td>
+        </tr>`;
+      }).join('');
+    }
+
+    filtersEl.innerHTML = ['すべて', ...names].map(n=>{
+      const count = n==='すべて' ? rows.length : rows.filter(r=>r['氏名']===n).length;
+      return `<button type="button" class="filter-btn${n===active?' active':''}" data-name="${escHTML(n)}">${escHTML(n)} (${count})</button>`;
+    }).join('');
+    filtersEl.querySelectorAll('.filter-btn').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        active = btn.dataset.name;
+        filtersEl.querySelectorAll('.filter-btn').forEach(b=>b.classList.toggle('active', b===btn));
+        render();
+      });
+    });
+
+    render();
+  } catch(e) {
+    contentEl.style.display='none';
+    emptyEl.textContent = 'レポート事例集の読み込みに失敗しました';
+    emptyEl.style.display='block';
+  }
+}
+initReportArchive();
 </script>
 </body>
 </html>
