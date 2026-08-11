@@ -98,6 +98,7 @@ body{
 .confirm-btn.cancel{background:var(--bg3);color:var(--text2);border:.5px solid var(--border2)}
 .confirm-btn.ok.start{background:var(--amber);color:#1a1206}
 .confirm-btn.ok.stop{background:var(--green);color:#08160e}
+.confirm-btn.ok.sync{background:var(--blue);color:#0a1526}
 .section-divider{width:100%;font-size:12px;font-weight:600;color:var(--text2);letter-spacing:.03em;padding-top:.75rem;border-top:1px solid var(--border);display:flex;align-items:center;gap:6px}
 .sync-desc{width:100%;font-size:11px;color:var(--text3);line-height:1.5;margin-top:-.5rem}
 .sync-btn{
@@ -367,8 +368,28 @@ function renderSyncButtonState() {
     btn.onclick = () => resumeSyncIfPending();
   } else {
     btn.innerHTML = `<span class="sync-icon">🔄</span><span class="sync-text">今すぐNotion同期を実行</span>`;
-    btn.onclick = runSync;
+    btn.onclick = confirmSync;
   }
+}
+
+// メンテナンス切替と同じく、誤タップで即実行されないよう確認画面を挟む。
+// 公開状態には影響しない操作だが、押してすぐ動く導線自体が誤操作の入口になるため、開始/解除と足並みを揃えた
+function confirmSync() {
+  const overlay = el('confirmOverlay');
+  const okBtn = el('confirmOk');
+
+  el('confirmIcon').textContent = '🔄';
+  el('confirmTitle').textContent = '今すぐNotion同期を実行しますか？';
+  el('confirmBody').textContent = 'Notion側の最新データでdata/配下のCSVが再生成されます。部下への公開状態には影響しません。';
+  okBtn.className = 'confirm-btn ok sync';
+  okBtn.textContent = '実行する';
+
+  overlay.classList.add('open');
+  el('confirmCancel').onclick = () => overlay.classList.remove('open');
+  okBtn.onclick = () => {
+    overlay.classList.remove('open');
+    runSync();
+  };
 }
 
 const SYNC_PENDING_KEY = 'sync_app_pending';
