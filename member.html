@@ -51,6 +51,7 @@
   <div class="tabs" id="tabs"></div>
   <div id="content"></div>
   <div id="orgChartSection"></div>
+  <div id="formerSection"></div>
 </main>
 </div>
 
@@ -227,11 +228,37 @@ function updateOrgChartSection() {
   </div>`;
 }
 
+let formerMembers = [];
+function renderFormerSection(list) {
+  formerMembers = list;
+  updateFormerSection();
+}
+function updateFormerSection() {
+  const el = document.getElementById('formerSection');
+  if (currentTab !== 'all' || !formerMembers.length) { el.innerHTML = ''; return; }
+  el.innerHTML = `<div class="section-label">履歴</div>
+    <details class="former">
+      <summary>
+        <span>🕘</span>
+        <span>異動・退職者</span>
+        <span class="former-count">${formerMembers.length}名</span>
+        <span class="former-chevron">▸</span>
+      </summary>
+      <div class="former-body">
+        ${formerMembers.map(m => `<div class="former-item">
+          <span class="former-name">${escHTML(m.name)}</span>
+          <span class="former-comment">${m.note ? escHTML(m.note) : '—'}</span>
+        </div>`).join('')}
+      </div>
+    </details>`;
+}
+
 function switchTab(id) {
   currentTab = id;
   document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active', t.dataset.id===id));
   renderContent();
   updateOrgChartSection();
+  updateFormerSection();
 }
 window.switchTab = switchTab;
 
@@ -260,6 +287,11 @@ async function init() {
       tabEl.innerHTML += `<button class="tab${t.id==='all'?' active':''}" data-id="${t.id}" onclick="switchTab('${t.id}')">${t.label}</button>`;
     });
     renderContent();
+
+    const formerRows = rows
+      .filter(r => { const s=(r['ステータス']||'').trim(); return s && s!=='在籍'; })
+      .map(r => ({ name:(r['氏名']||'').trim(), note:(r['備考']||'').trim() }));
+    renderFormerSection(formerRows);
 
     try {
       const { text: orgText } = await fetchCSVText('data/org_chart.csv');

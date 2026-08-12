@@ -518,14 +518,18 @@ async function init() {
       .filter(r => r.name && r.skill);
 
     // メンバーの並びはmember_master.csv（＝メンバー一覧の表示順）に固定し、スキルデータの入力状況に左右されない
-    const masterOrder = Papa.parse(memberR.text, { header: true, skipEmptyLines: true }).data
+    const masterRows = Papa.parse(memberR.text, { header: true, skipEmptyLines: true }).data;
+    const masterOrder = masterRows
       .filter(r => (r['ステータス']||'').trim() === '在籍')
       .map(r => (r['氏名']||'').trim());
+    // 異動・退職者を末尾フォールバックで復活させないための判定用（ステータスを問わずマスタに存在する全氏名）
+    const allMasterNames = new Set(masterRows.map(r => (r['氏名']||'').trim()));
 
     const namesInSkillData = [...new Set(rows.map(r => r.name))];
     members = masterOrder.filter(n => namesInSkillData.includes(n));
-    // メンバーマスタに見当たらない名前（表記ゆれ等）は末尾に出現順で残す
-    members = members.concat(namesInSkillData.filter(n => !members.includes(n)));
+    // メンバーマスタに一切見当たらない名前（表記ゆれ等）のみ末尾に出現順で残す。マスタに存在するが
+    // ステータスが在籍以外（異動・退職）の名前は、skill.csv側に行が残っていてもここでは復活させない
+    members = members.concat(namesInSkillData.filter(n => !members.includes(n) && !allMasterNames.has(n)));
 
     // 保有資格（任意データ。data/certifications.csvがまだ無い/空でもスキルマップ本体は表示できるようにする）
     certNames = [];

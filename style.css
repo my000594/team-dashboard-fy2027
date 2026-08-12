@@ -377,6 +377,44 @@ body {
 .chip-name { font-weight: 500; color: var(--text); }
 .chip-sub  { font-size: 10px; color: var(--text2); }
 
+/* ── 異動・退職者セクション（member.html） ──────────────────
+   ALLタブでのみ表示。既定は折りたたみ（在籍者一覧を主役に保つため）。
+   氏名＋Notion「備考」の一言コメントのみのシンプルな一覧で、日付・異動先等を
+   別項目に分解しない（正式な履歴の置き場はchronicle.htmlのライン年表）。
+   ────────────────────────────────────────────────── */
+details.former {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); overflow: hidden;
+}
+details.former summary {
+  list-style: none; cursor: pointer; padding: .9rem 1.1rem;
+  display: flex; align-items: center; gap: 10px;
+  font-size: 13px; color: var(--text2); user-select: none;
+}
+details.former summary::-webkit-details-marker { display: none; }
+details.former summary:hover { color: var(--text); }
+details.former .former-count {
+  font-family: var(--mono); font-size: 11px; color: var(--text3);
+  background: var(--bg3); border-radius: 999px; padding: 2px 9px;
+}
+details.former .former-chevron {
+  font-size: 11px; color: var(--text3); margin-left: auto; transition: transform .2s;
+}
+details.former[open] .former-chevron { transform: rotate(90deg); }
+details.former:focus-within { outline: 2px solid rgba(59,130,246,.5); outline-offset: -2px; }
+.former-body { padding: 0 1.1rem 1.1rem; }
+.former-item {
+  display: flex; align-items: baseline; gap: 14px;
+  padding: 10px 2px; border-bottom: .5px solid var(--border);
+}
+.former-item:last-child { border-bottom: none; }
+.former-name { flex: 0 0 148px; font-weight: 500; color: var(--text); font-size: 13px; }
+.former-comment { color: var(--text2); font-size: 12.5px; line-height: 1.7; }
+@media (max-width: 560px) {
+  .former-item { flex-direction: column; gap: 3px; }
+  .former-name { flex: none; }
+}
+
 /* ── 「あなたの状況」ウィジェット ──────────────────────────
    全ページ共通（you-widget.js）。ページ見出しと同じ行の右側に配置。名前ブロック・各指標
    （3SEレポート提出件数／得意スキル／保有資格）は幅を固定しており、選ぶ人によってウィジェット
