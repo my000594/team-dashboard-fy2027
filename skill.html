@@ -287,9 +287,12 @@ function skillDotHTML(v, cat, note) {
   return `<span class="skill-dot-empty">・</span>`;
 }
 
-// membersのうちteamRosterMembers（在籍名簿と一致した人）に含まれない人＝参考データ（百瀬さんのような、
-// ライン外の人のスキル・資格を試しに登録したもの）。名前を直接コードに書かず、名簿との一致有無だけで判定する
-function isRefMember(name) { return !teamRosterMembers.includes(name); }
+// 🍑ピンク表示の対象は名簿不一致による自動判定ではなく、明示的な名前リストで管理する（2026-08-18）。
+// 新規配属者は名簿（member_master.csv）登録前の一時的な期間だけmembers末尾に混ざることがあるが、
+// それは「参考データ」ではなく単なる登録待ちなので、自動でピンク扱いにはしたくないという判断。
+// 今後また参考値のみのメンバーが出た場合は、その都度ここに氏名を追記する運用
+const REFERENCE_MEMBERS = ['百瀬 陽一'];
+function isRefMember(name) { return REFERENCE_MEMBERS.includes(name); }
 
 function memberThHTML(m) {
   return isRefMember(m) ? `<th class="ref-col">🍑 ${esc(m)}</th>` : `<th>${esc(m)}</th>`;
