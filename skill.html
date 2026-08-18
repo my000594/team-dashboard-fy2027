@@ -33,8 +33,8 @@
 .member-chip.sel{background:var(--blue-dim);color:var(--blue);border-color:rgba(59,130,246,.4)}
 .member-chip.team-chip{font-weight:600;color:var(--purple);border-color:rgba(167,139,250,.4)}
 .member-chip.team-chip.sel{background:var(--purple-dim);color:var(--purple);border-color:rgba(167,139,250,.5)}
-/* 在籍名簿に無い参考メンバー（例：ライン外の人のスキルを試しに登録したケース）向けの目印。
-   名前を直接指定するのではなくteamRosterMembersとの一致有無で判定するため、対象が増えても自動的に付く */
+/* 参考メンバー（例：ライン外の人のスキルを試しに登録したケース）向けの目印。
+   対象はREFERENCE_MEMBERS（明示的な氏名リスト）で管理する。判定ロジックはskill.html末尾のJS側を参照 */
 .member-chip.ref-chip{font-weight:600;color:var(--pink);border-color:rgba(244,114,182,.4)}
 .member-chip.ref-chip.sel{background:var(--pink-dim);color:var(--pink);border-color:rgba(244,114,182,.55)}
 th.ref-col{background:var(--pink-dim);color:var(--pink)}
@@ -541,13 +541,19 @@ function showRadar(m) {
     }
   }
 
+  // 「その他（自由記入）」の書き換えで軸数が増え続ける分野（現状はプログラミング言語）は、
+  // 狭い画面だと軸ラベルが重なって読めなくなるため、軸数が多い＋画面が狭い場合はフォントを縮小する
+  const crowded = labels.length > 9;
+  const narrowScreen = window.innerWidth < 480;
+  const pointLabelSize = crowded && narrowScreen ? 8 : (crowded || narrowScreen) ? 9.5 : 11;
+
   if (radarChart) radarChart.destroy();
   radarChart = new Chart(document.getElementById('radarChart'), {
     type: 'radar',
     data: { labels, datasets },
     options: {
       responsive: true, maintainAspectRatio: false,
-      scales: { r: { min: 0, max: 5, ticks: { stepSize: 1, color: '#7f8fa8', backdropColor: 'transparent', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.08)' }, angleLines: { color: 'rgba(255,255,255,0.08)' }, pointLabels: { color: '#7f8fa8', font: { size: 11 } } } },
+      scales: { r: { min: 0, max: 5, ticks: { stepSize: 1, color: '#7f8fa8', backdropColor: 'transparent', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.08)' }, angleLines: { color: 'rgba(255,255,255,0.08)' }, pointLabels: { color: '#7f8fa8', font: { size: pointLabelSize } } } },
       plugins: { legend: { display: datasets.length > 1, labels: { color: '#94a3b8', font: { size: 11 }, boxWidth: 14, filter: item => item.text !== '最大' } } },
     },
   });
