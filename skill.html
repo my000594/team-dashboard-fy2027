@@ -187,6 +187,7 @@ const PERIODS = ['2026年8月','2026年11月','2027年2月','2027年5月'];
 const CAT_PALETTE = ['blue','green','amber','purple','cyan','red'];
 const OVERALL_GROUP = '__overall__'; // 「総合」タブ：分野（サブカテゴリ）ごとの平均レベルを表示
 const TEAM_KEY = '__team__'; // レーダーチャートの「チーム全体」擬似メンバー
+const OTHER_PLACEHOLDER_NAME = 'その他（自由記入）'; // 自由記入欄の書き換え検出・並び替えに使う元の項目名
 
 let members = [], skillList = [], dataByPeriod = {}, noteMap = {}, catColorMap = {}, categories = [], skillNameCounts = {};
 // membersのうちmember_master.csvの在籍名簿と実際に一致した人だけ（表記ゆれ救済等でmembers末尾に追加された、
@@ -280,6 +281,12 @@ function skillDotHTML(v, cat, note) {
   return `<span class="skill-dot-empty">・</span>`;
 }
 
+// 「その他（自由記入）」のまま誰も使っていない（現在の評価時期で全員未評価の）行は、マトリクス・モバイル一覧では
+// 空行になるだけなので非表示にする。書き換えられた項目（その他（Perl）等、上のskillList並び替え参照）は対象外
+function isEmptyOtherPlaceholder(s, data) {
+  return s.name === OTHER_PLACEHOLDER_NAME && members.every(m => !(data[m]?.[s.key] > 0));
+}
+
 function renderMatrix() {
   const legend = document.getElementById('matrixLegend');
   legend.innerHTML = categories.map(c => {
@@ -293,6 +300,7 @@ function renderMatrix() {
     '</tr></thead><tbody>';
   const data = dataMap();
   skillList.forEach(s => {
+    if (isEmptyOtherPlaceholder(s, data)) return;
     html += `<tr><td class="name-col">${esc(skillLabel(s))}</td>`;
     members.forEach(m => {
       const v = data[m]?.[s.key] || 0;
@@ -311,13 +319,14 @@ function renderMobileSkillList(m) {
   const data = dataMap();
   el.innerHTML = groups.map((g, i) => {
     const col = catColor(g.items[0]?.cat);
-    const rows = g.items.map(s => {
+    const items = g.items.filter(s => !isEmptyOtherPlaceholder(s, data));
+    const rows = items.map(s => {
       const v = data[m]?.[s.key] || 0;
       const note = noteMap[m]?.[s.key];
       return `<div class="mobile-row"><span class="mobile-row-name">${esc(skillLabel(s))}</span><div class="mobile-row-val">${skillDotHTML(v, s.cat, note)}</div></div>`;
     }).join('');
     return `<div class="group-section">
-      <div class="group-header" style="border-left-color:var(--${col})"><span class="group-title" style="color:var(--${col})">${esc(g.key)}</span><span class="group-count">${g.items.length}件</span></div>
+      <div class="group-header" style="border-left-color:var(--${col})"><span class="group-title" style="color:var(--${col})">${esc(g.key)}</span><span class="group-count">${items.length}件</span></div>
       <div>${rows}</div>
     </div>`;
   }).join('');
@@ -674,6 +683,34 @@ async function init() {
     const skillMap = new Map();
     rows.forEach(r => { if (!skillMap.has(r.key)) skillMap.set(r.key, { key: r.key, name: r.skill, cat: r.cat, sub: r.sub }); });
     skillList = [...skillMap.values()];
+
+    // 「その他（自由記入）」を具体的な名称（その他（Perl）等）に書き換えると、初出順ベースの構築では
+    // 元の位置から離れた（多くの場合いちばん後ろの）位置に来てしまう。誰が書き換えたかを問わず、
+    // 同じサブカテゴリの「その他（自由記入）」のすぐ後ろにまとまるよう並べ替える（該当者は今後も増える想定）
+    {
+      const isCustomOther = name => name !== OTHER_PLACEHOLDER_NAME && /^その他（.+）$/.test(name);
+      const mainSkills = [];
+      const customOthersBySub = new Map();
+      skillList.forEach(s => {
+        if (isCustomOther(s.name)) {
+          if (!customOthersBySub.has(s.sub)) customOthersBySub.set(s.sub, []);
+          customOthersBySub.get(s.sub).push(s);
+        } else {
+          mainSkills.push(s);
+        }
+      });
+      const reordered = [];
+      mainSkills.forEach(s => {
+        reordered.push(s);
+        if (s.name === OTHER_PLACEHOLDER_NAME && customOthersBySub.has(s.sub)) {
+          reordered.push(...customOthersBySub.get(s.sub));
+          customOthersBySub.delete(s.sub);
+        }
+      });
+      // そのサブカテゴリに「その他（自由記入）」自体が無い場合（通常は起きない想定）は末尾に残す
+      customOthersBySub.forEach(arr => reordered.push(...arr));
+      skillList = reordered;
+    }
 
     skillNameCounts = {};
     skillList.forEach(s => { skillNameCounts[s.name] = (skillNameCounts[s.name] || 0) + 1; });
