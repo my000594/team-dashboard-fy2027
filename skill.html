@@ -31,6 +31,8 @@
 .member-chip{padding:6px 12px;border-radius:999px;border:.5px solid var(--border);cursor:pointer;font-size:12px;color:var(--text2);background:transparent;font-family:var(--font);transition:.15s}
 .member-chip:hover{border-color:var(--border2);color:var(--text)}
 .member-chip.sel{background:var(--blue-dim);color:var(--blue);border-color:rgba(59,130,246,.4)}
+.member-chip.team-chip{font-weight:600;color:var(--purple);border-color:rgba(167,139,250,.4)}
+.member-chip.team-chip.sel{background:var(--purple-dim);color:var(--purple);border-color:rgba(167,139,250,.5)}
 .search-input{width:100%;padding:.65rem 1rem;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);font-size:14px;font-family:var(--font);outline:none;transition:border-color .2s;margin-bottom:1.25rem}
 .search-input:focus{border-color:var(--blue)}
 .search-input::placeholder{color:var(--text3)}
@@ -177,6 +179,7 @@ const TABS = [
 const PERIODS = ['2026年8月','2026年11月','2027年2月','2027年5月'];
 const CAT_PALETTE = ['blue','green','amber','purple','cyan','red'];
 const OVERALL_GROUP = '__overall__'; // 「総合」タブ：分野（サブカテゴリ）ごとの平均レベルを表示
+const TEAM_KEY = '__team__'; // レーダーチャートの「チーム全体」擬似メンバー
 
 let members = [], skillList = [], dataByPeriod = {}, noteMap = {}, catColorMap = {}, categories = [], skillNameCounts = {};
 let memberPeriodHasData = {}; // 時期ごとに「その人のヒアリングが実施済みか」。前回比較の点線を出すかの判定に使う
@@ -277,7 +280,7 @@ function renderMatrix() {
 // メンバーを1人選んで縦一覧で見るモバイル専用ビュー（分野＝サブカテゴリごとにグルーピング）
 function renderMobileSkillList(m) {
   const el = document.getElementById('mobileSkillList');
-  if (!el || !m) return;
+  if (!el || !m || m === TEAM_KEY) return; // 「チーム全体」はマトリクス側の集計を持たないため対象外
   const data = dataMap();
   el.innerHTML = groups.map((g, i) => {
     const col = catColor(g.items[0]?.cat);
@@ -398,44 +401,66 @@ function renderCertMatrix() {
   container.innerHTML = `<div style="overflow-x:auto"><table class="matrix-tbl">${certTableHeadHTML()}<tbody>${body}</tbody></table></div>`;
 }
 
+// メンバー（実在の1名）とTEAM_KEY（チーム全体）のどちらでも使えるよう、
+// 「軸ごとの値を求める関数」(axisVal)を1つ作り、個人・チーム集計の両方から呼び出す
 function showRadar(m) {
   selectedMember = m;
+  const isTeam = m === TEAM_KEY;
   const data = dataMap();
   const note = document.getElementById('radarNote');
-  let labels, vals, prevVals = null;
-
-  // 直前の評価時期（PERIODS配列上で1つ前）。本人のヒアリングがまだ無い時期なら比較線は出さない
-  const pIdx = PERIODS.indexOf(currentPeriod);
-  const prevPeriod = pIdx > 0 ? PERIODS[pIdx - 1] : null;
-  const hasPrev = !!(prevPeriod && memberPeriodHasData[prevPeriod]?.has(m));
-  const prevData = hasPrev ? dataByPeriod[prevPeriod] : null;
+  let labels, axisVal;
 
   if (currentGroup === OVERALL_GROUP) {
     // 分野（サブカテゴリ）ごとの平均レベルを軸にした俯瞰表示
     labels = groups.map(g => g.key);
-    vals = groups.map(g => {
-      const sum = g.items.reduce((acc, s) => acc + (data[m]?.[s.key] || 0), 0);
-      return Math.round((sum / g.items.length) * 10) / 10;
-    });
-    if (prevData) prevVals = groups.map(g => {
-      const sum = g.items.reduce((acc, s) => acc + (prevData[m]?.[s.key] || 0), 0);
+    axisVal = (name, d) => groups.map(g => {
+      const sum = g.items.reduce((acc, s) => acc + (d[name]?.[s.key] || 0), 0);
       return Math.round((sum / g.items.length) * 10) / 10;
     });
     note.textContent = '分野（サブカテゴリ）ごとの平均レベルを表示中。各項目の内訳は分野タブから確認できます。';
   } else {
     const items = (groups.find(g => g.key === currentGroup) || {}).items || skillList;
     labels = items.map(s => skillLabel(s));
-    vals = items.map(s => data[m]?.[s.key] || 0);
-    if (prevData) prevVals = items.map(s => prevData[m]?.[s.key] || 0);
+    axisVal = (name, d) => items.map(s => d[name]?.[s.key] || 0);
     note.textContent = '';
   }
 
-  const datasets = [{ label: m, data: vals, borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,.12)', borderWidth: 2, pointBackgroundColor: '#3b82f6', pointRadius: 4, order: 1 }];
-  if (prevVals) {
-    datasets.push({ label: `前回（${prevPeriod}）`, data: prevVals, borderColor: '#5c7494', backgroundColor: 'transparent', borderWidth: 1.5, borderDash: [5, 4], pointBackgroundColor: '#5c7494', pointRadius: 3, order: 2 });
-    const diff = Math.round((vals.reduce((a, b) => a + b, 0) - prevVals.reduce((a, b) => a + b, 0)) * 10) / 10;
-    const diffText = diff > 0 ? `合計 前回比 +${diff}` : diff < 0 ? `合計 前回比 ${diff}` : '合計 前回から変化なし';
-    note.textContent = (note.textContent ? note.textContent + '　' : '') + `点線＝${prevPeriod}の値。${diffText}`;
+  const datasets = [];
+
+  if (isTeam) {
+    // 分野（または個別スキル）ごとに、全員分の値から平均・最小・最大を算出
+    const perMember = members.map(name => axisVal(name, data));
+    const teamAvg = labels.map((_, i) => Math.round((perMember.reduce((a, r) => a + r[i], 0) / members.length) * 10) / 10);
+    const teamMin = labels.map((_, i) => Math.min(...perMember.map(r => r[i])));
+    const teamMax = labels.map((_, i) => Math.max(...perMember.map(r => r[i])));
+    // 「あなたの状況」ウィジェットが記憶している本人名があれば、チーム平均に重ねて比較できるようにする
+    const youName = localStorage.getItem('you_widget_member');
+    const youVals = (youName && members.includes(youName)) ? axisVal(youName, data) : null;
+
+    // 最大値（非表示の境界線）→最小値（最大値との間を塗って「ばらつき帯」にする）→平均線 の順で重ねる
+    datasets.push({ label: '最大', data: teamMax, borderWidth: 0, pointRadius: 0, backgroundColor: 'transparent', fill: false });
+    datasets.push({ label: 'ばらつき（最小〜最大）', data: teamMin, borderWidth: 0, pointRadius: 0, backgroundColor: 'rgba(59,130,246,.14)', fill: '-1' });
+    datasets.push({ label: `チーム平均（${members.length}名）`, data: teamAvg, borderColor: '#3b82f6', backgroundColor: 'transparent', borderWidth: 2.5, pointBackgroundColor: '#3b82f6', pointRadius: 4 });
+    if (youVals) {
+      datasets.push({ label: `あなた（${youName}）`, data: youVals, borderColor: '#a78bfa', backgroundColor: 'transparent', borderWidth: 2, borderDash: [6, 4], pointBackgroundColor: '#a78bfa', pointRadius: 3.5 });
+    }
+    note.textContent = (note.textContent ? note.textContent + '　' : '') +
+      `${members.length}名の平均。帯は最小〜最大のばらつき${youVals ? `／点線はあなた（${youName}）` : '（トップページ等で自分を選択済みなら、あなたの値も点線で重なります）'}`;
+  } else {
+    const vals = axisVal(m, data);
+    datasets.push({ label: m, data: vals, borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,.12)', borderWidth: 2, pointBackgroundColor: '#3b82f6', pointRadius: 4 });
+
+    // 直前の評価時期（PERIODS配列上で1つ前）。本人のヒアリングがまだ無い時期なら比較線は出さない
+    const pIdx = PERIODS.indexOf(currentPeriod);
+    const prevPeriod = pIdx > 0 ? PERIODS[pIdx - 1] : null;
+    const hasPrev = !!(prevPeriod && memberPeriodHasData[prevPeriod]?.has(m));
+    if (hasPrev) {
+      const prevVals = axisVal(m, dataByPeriod[prevPeriod]);
+      datasets.push({ label: `前回（${prevPeriod}）`, data: prevVals, borderColor: '#5c7494', backgroundColor: 'transparent', borderWidth: 1.5, borderDash: [5, 4], pointBackgroundColor: '#5c7494', pointRadius: 3 });
+      const diff = Math.round((vals.reduce((a, b) => a + b, 0) - prevVals.reduce((a, b) => a + b, 0)) * 10) / 10;
+      const diffText = diff > 0 ? `合計 前回比 +${diff}` : diff < 0 ? `合計 前回比 ${diff}` : '合計 前回から変化なし';
+      note.textContent = (note.textContent ? note.textContent + '　' : '') + `点線＝${prevPeriod}の値。${diffText}`;
+    }
   }
 
   if (radarChart) radarChart.destroy();
@@ -445,29 +470,45 @@ function showRadar(m) {
     options: {
       responsive: true, maintainAspectRatio: false,
       scales: { r: { min: 0, max: 5, ticks: { stepSize: 1, color: '#7f8fa8', backdropColor: 'transparent', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.08)' }, angleLines: { color: 'rgba(255,255,255,0.08)' }, pointLabels: { color: '#7f8fa8', font: { size: 11 } } } },
-      plugins: { legend: { display: !!prevVals, labels: { color: '#94a3b8', font: { size: 11 }, boxWidth: 14 } } },
+      plugins: { legend: { display: datasets.length > 1, labels: { color: '#94a3b8', font: { size: 11 }, boxWidth: 14, filter: item => item.text !== '最大' } } },
     },
   });
 }
 
 // メンバー選択は「レーダーチャート」タブのチップと、モバイル専用ビューのチップで共有する。
-// どちらで選んでも両方の表示（レーダー・モバイルのスキル一覧・資格一覧）が連動して切り替わる
+// どちらで選んでも両方の表示（レーダー・モバイルのスキル一覧・資格一覧）が連動して切り替わる。
+// 「チーム全体」はレーダーチャートタブのみの選択肢（マトリクス側に集計表示は無いため）なので、
+// 選択時はレーダーチャートのチップだけをsel状態にし、モバイルのスキル/資格一覧には触れない
 function selectMember(m) {
-  document.querySelectorAll('.member-chip').forEach(c => c.classList.toggle('sel', c.textContent === m));
+  const isTeam = m === TEAM_KEY;
+  document.querySelectorAll(isTeam ? '#memberChips .member-chip' : '.member-chip')
+    .forEach(c => c.classList.toggle('sel', c.dataset.member === m));
   showRadar(m);
-  renderMobileSkillList(m);
-  renderMobileCertList(m);
+  if (!isTeam) {
+    renderMobileSkillList(m);
+    renderMobileCertList(m);
+  }
 }
 window.selectMember = selectMember;
 
-function buildMemberChips(containerId) {
+// includeTeamをtrueにすると先頭に「チーム全体」チップを追加する（レーダーチャートタブのみで使用）
+function buildMemberChips(containerId, includeTeam) {
   const el = document.getElementById(containerId);
   if (!el) return;
   el.innerHTML = '';
-  members.forEach((m, i) => {
+  if (includeTeam) {
     const b = document.createElement('button');
-    b.className = 'member-chip' + (i === 0 ? ' sel' : '');
+    b.className = 'member-chip team-chip';
+    b.textContent = `👥 チーム全体（${members.length}名平均）`;
+    b.dataset.member = TEAM_KEY;
+    b.onclick = () => selectMember(TEAM_KEY);
+    el.appendChild(b);
+  }
+  members.forEach(m => {
+    const b = document.createElement('button');
+    b.className = 'member-chip';
     b.textContent = m;
+    b.dataset.member = m;
     b.onclick = () => selectMember(m);
     el.appendChild(b);
   });
@@ -475,7 +516,7 @@ function buildMemberChips(containerId) {
 
 // initialを渡すと（URLの?member=から呼ばれる想定）その人を初期選択にする。名簿に無い/未指定なら先頭の人
 function renderMemberChips(initial) {
-  buildMemberChips('memberChips');
+  buildMemberChips('memberChips', true);
   buildMemberChips('mobileMatrixChips');
   if (members.length) selectMember(initial && members.includes(initial) ? initial : members[0]);
 }
