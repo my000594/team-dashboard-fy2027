@@ -140,6 +140,10 @@
         document.getElementById('youFootNote').textContent = `「${name}」として記憶しています。次回からこのブラウザで自動的に表示されます`;
         document.getElementById('youReset').style.display = 'inline-block';
       }
+      // 他ページ側スクリプト（現状はskill.htmlの「チーム全体」レーダー）が、このウィジェットでの選択切り替えに
+      // 追従して再描画できるよう、選ぶたびに（初回表示時も含め）通知する。localStorageへの書き込み後に発火させないと、
+      // イベントを受け取った側がlocalStorageを読み直しても切り替え前の値のままになってしまう
+      window.dispatchEvent(new CustomEvent('you-widget-changed', { detail: { name } }));
     }
 
     function buildChips() {

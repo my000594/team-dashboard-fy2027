@@ -33,6 +33,9 @@
 .member-chip.sel{background:var(--blue-dim);color:var(--blue);border-color:rgba(59,130,246,.4)}
 .member-chip.team-chip{font-weight:600;color:var(--purple);border-color:rgba(167,139,250,.4)}
 .member-chip.team-chip.sel{background:var(--purple-dim);color:var(--purple);border-color:rgba(167,139,250,.5)}
+.mini-select{font-size:12px;padding:5px 10px;border-radius:999px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);font-family:var(--font);cursor:pointer}
+.mini-select:hover{border-color:var(--border2)}
+.mini-select:focus{outline:none;border-color:var(--border2)}
 .search-input{width:100%;padding:.65rem 1rem;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);font-size:14px;font-family:var(--font);outline:none;transition:border-color .2s;margin-bottom:1.25rem}
 .search-input:focus{border-color:var(--blue)}
 .search-input::placeholder{color:var(--text3)}
@@ -150,6 +153,10 @@
         <span style="font-size:11px;color:var(--text3)">分野</span>
         <div class="tabs" id="radarGroupTabs" style="margin-bottom:0"></div>
       </div>
+      <div id="teamCompareRow" style="display:none;align-items:center;gap:8px;margin-bottom:1rem;flex-wrap:wrap">
+        <span style="font-size:11px;color:var(--text3)">重ねて比較</span>
+        <select id="teamCompareSelect" class="mini-select" onchange="switchTeamCompare(this.value)"></select>
+      </div>
       <div id="radarNote" style="font-size:11px;color:var(--text2);margin-bottom:.75rem"></div>
       <div class="chart-wrap" style="height:320px"><canvas id="radarChart" role="img" aria-label="選択したメンバーのスキルレーダーチャート"></canvas></div>
     </div>
@@ -195,6 +202,9 @@ let currentPeriod = PERIODS[0];
 let currentGroup = null;
 let selectedMember = null;
 let radarChart = null;
+// チーム全体レーダーの比較線モード。'__auto__'＝「あなたの状況」の選択と連動、'__none__'＝重ねない、
+// それ以外＝手動で選んだメンバー名（you-widgetの選択とは独立に固定表示）
+let teamCompareMode = '__auto__';
 
 // Notion由来の自由記述テキストをHTML/属性値として安全に埋め込むためのエスケープ。
 // 資格名が2026-07-28にselectから自由記述（title）に変わり、備考等と合わせて引用符を含む入力があり得るため
@@ -243,6 +253,20 @@ function switchRadarGroup(key) {
   if (selectedMember) showRadar(selectedMember);
 }
 window.switchRadarGroup = switchRadarGroup;
+
+// チーム全体レーダーの比較線（点線）モードの切り替え。'__auto__'を選んでいる間は、この後
+// 「あなたの状況」ウィジェットの選択が変わるたびにyou-widget-changedイベント経由で自動的に再描画される
+function switchTeamCompare(value) {
+  teamCompareMode = value;
+  if (selectedMember === TEAM_KEY) showRadar(TEAM_KEY);
+}
+window.switchTeamCompare = switchTeamCompare;
+
+// you-widget.js側で「あなたの状況」の選択が変わった時に発火するイベント。チーム全体レーダーを表示中かつ
+// 比較モードが自動追従（__auto__）の時だけ再描画する（手動固定中や個人レーダー表示中は何もしない）
+window.addEventListener('you-widget-changed', () => {
+  if (selectedMember === TEAM_KEY && teamCompareMode === '__auto__') showRadar(TEAM_KEY);
+});
 
 // スキルレベルのドット＋備考のHTML断片。デスクトップのマトリクスセルとモバイルの縦一覧行の両方から使う
 function skillDotHTML(v, cat, note) {
@@ -427,25 +451,45 @@ function showRadar(m) {
 
   const datasets = [];
 
+  const compareRow = document.getElementById('teamCompareRow');
+  if (compareRow) compareRow.style.display = isTeam ? 'flex' : 'none';
+
   if (isTeam) {
+    const sel = document.getElementById('teamCompareSelect');
+    if (sel) sel.value = teamCompareMode;
+
     // 分野（または個別スキル）ごとに、全員分の値から平均・最小・最大を算出
     const perMember = members.map(name => axisVal(name, data));
     const teamAvg = labels.map((_, i) => Math.round((perMember.reduce((a, r) => a + r[i], 0) / members.length) * 10) / 10);
     const teamMin = labels.map((_, i) => Math.min(...perMember.map(r => r[i])));
     const teamMax = labels.map((_, i) => Math.max(...perMember.map(r => r[i])));
-    // 「あなたの状況」ウィジェットが記憶している本人名があれば、チーム平均に重ねて比較できるようにする
-    const youName = localStorage.getItem('you_widget_member');
-    const youVals = (youName && members.includes(youName)) ? axisVal(youName, data) : null;
+
+    // 比較線に使うメンバー名。'__auto__'なら「あなたの状況」の選択（localStorage）を毎回読み直すので、
+    // ウィジェット側の選択が変わった時にshowRadarが再実行されれば自動で切り替わる。それ以外は手動固定
+    let compareName = null;
+    if (teamCompareMode === '__auto__') {
+      const stored = localStorage.getItem('you_widget_member');
+      compareName = (stored && members.includes(stored)) ? stored : null;
+    } else if (teamCompareMode !== '__none__' && members.includes(teamCompareMode)) {
+      compareName = teamCompareMode;
+    }
+    const compareVals = compareName ? axisVal(compareName, data) : null;
 
     // 最大値（非表示の境界線）→最小値（最大値との間を塗って「ばらつき帯」にする）→平均線 の順で重ねる
     datasets.push({ label: '最大', data: teamMax, borderWidth: 0, pointRadius: 0, backgroundColor: 'transparent', fill: false });
     datasets.push({ label: 'ばらつき（最小〜最大）', data: teamMin, borderWidth: 0, pointRadius: 0, backgroundColor: 'rgba(59,130,246,.14)', fill: '-1' });
     datasets.push({ label: `チーム平均（${members.length}名）`, data: teamAvg, borderColor: '#3b82f6', backgroundColor: 'transparent', borderWidth: 2.5, pointBackgroundColor: '#3b82f6', pointRadius: 4 });
-    if (youVals) {
-      datasets.push({ label: `あなた（${youName}）`, data: youVals, borderColor: '#a78bfa', backgroundColor: 'transparent', borderWidth: 2, borderDash: [6, 4], pointBackgroundColor: '#a78bfa', pointRadius: 3.5 });
+    if (compareVals) {
+      datasets.push({ label: compareName, data: compareVals, borderColor: '#a78bfa', backgroundColor: 'transparent', borderWidth: 2, borderDash: [6, 4], pointBackgroundColor: '#a78bfa', pointRadius: 3.5 });
     }
-    note.textContent = (note.textContent ? note.textContent + '　' : '') +
-      `${members.length}名の平均。帯は最小〜最大のばらつき${youVals ? `／点線はあなた（${youName}）` : '（トップページ等で自分を選択済みなら、あなたの値も点線で重なります）'}`;
+
+    let overlayNote = '';
+    if (compareVals) {
+      overlayNote = `／点線は${compareName}${teamCompareMode === '__auto__' ? '（あなたの状況と連動）' : ''}`;
+    } else if (teamCompareMode === '__auto__') {
+      overlayNote = '（「あなたの状況」で自分を選ぶと点線で重なります。「重ねて比較」から任意のメンバーを固定表示することもできます）';
+    }
+    note.textContent = (note.textContent ? note.textContent + '　' : '') + `${members.length}名の平均。帯は最小〜最大のばらつき${overlayNote}`;
   } else {
     const vals = axisVal(m, data);
     datasets.push({ label: m, data: vals, borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,.12)', borderWidth: 2, pointBackgroundColor: '#3b82f6', pointRadius: 4 });
@@ -684,6 +728,11 @@ async function init() {
     CERT_VIEWS.forEach(v => {
       certViewTabEl.innerHTML += `<button class="tab${v.id === currentCertView ? ' active' : ''}" data-view="${v.id}" onclick="switchCertView('${v.id}')">${v.label}</button>`;
     });
+
+    const teamCompareSelectEl = document.getElementById('teamCompareSelect');
+    teamCompareSelectEl.innerHTML = `<option value="__none__">重ねない</option><option value="__auto__">自動（あなたの状況と連動）</option>` +
+      members.map(m => `<option value="${esc(m)}">${esc(m)}</option>`).join('');
+    teamCompareSelectEl.value = teamCompareMode;
 
     renderMatrix();
     renderCertMatrix();
