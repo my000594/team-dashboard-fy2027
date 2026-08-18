@@ -33,6 +33,12 @@
 .member-chip.sel{background:var(--blue-dim);color:var(--blue);border-color:rgba(59,130,246,.4)}
 .member-chip.team-chip{font-weight:600;color:var(--purple);border-color:rgba(167,139,250,.4)}
 .member-chip.team-chip.sel{background:var(--purple-dim);color:var(--purple);border-color:rgba(167,139,250,.5)}
+/* 在籍名簿に無い参考メンバー（例：ライン外の人のスキルを試しに登録したケース）向けの目印。
+   名前を直接指定するのではなくteamRosterMembersとの一致有無で判定するため、対象が増えても自動的に付く */
+.member-chip.ref-chip{font-weight:600;color:var(--pink);border-color:rgba(244,114,182,.4)}
+.member-chip.ref-chip.sel{background:var(--pink-dim);color:var(--pink);border-color:rgba(244,114,182,.55)}
+th.ref-col{background:var(--pink-dim);color:var(--pink)}
+.matrix-tbl td.ref-col-body{background:rgba(244,114,182,.045);border-left:2px solid rgba(244,114,182,.35)}
 .mini-select{font-size:12px;padding:5px 10px;border-radius:999px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);font-family:var(--font);cursor:pointer}
 .mini-select:hover{border-color:var(--border2)}
 .mini-select:focus{outline:none;border-color:var(--border2)}
@@ -281,6 +287,17 @@ function skillDotHTML(v, cat, note) {
   return `<span class="skill-dot-empty">・</span>`;
 }
 
+// membersのうちteamRosterMembers（在籍名簿と一致した人）に含まれない人＝参考データ（百瀬さんのような、
+// ライン外の人のスキル・資格を試しに登録したもの）。名前を直接コードに書かず、名簿との一致有無だけで判定する
+function isRefMember(name) { return !teamRosterMembers.includes(name); }
+
+function memberThHTML(m) {
+  return isRefMember(m) ? `<th class="ref-col">🍑 ${esc(m)}</th>` : `<th>${esc(m)}</th>`;
+}
+function memberTdOpen(m) {
+  return isRefMember(m) ? '<td class="ref-col-body">' : '<td>';
+}
+
 // 「その他（自由記入）」のまま誰も使っていない（現在の評価時期で全員未評価の）行は、マトリクス・モバイル一覧では
 // 空行になるだけなので非表示にする。書き換えられた項目（その他（Perl）等、上のskillList並び替え参照）は対象外
 function isEmptyOtherPlaceholder(s, data) {
@@ -296,7 +313,7 @@ function renderMatrix() {
 
   const table = document.getElementById('matrixTable');
   let html = '<thead><tr><th class="name-col">スキル</th>' +
-    members.map(m => `<th>${esc(m)}</th>`).join('') +
+    members.map(memberThHTML).join('') +
     '</tr></thead><tbody>';
   const data = dataMap();
   skillList.forEach(s => {
@@ -305,7 +322,7 @@ function renderMatrix() {
     members.forEach(m => {
       const v = data[m]?.[s.key] || 0;
       const note = noteMap[m]?.[s.key];
-      html += `<td>${skillDotHTML(v, s.cat, note)}</td>`;
+      html += `${memberTdOpen(m)}${skillDotHTML(v, s.cat, note)}</td>`;
     });
     html += '</tr>';
   });
@@ -375,7 +392,7 @@ function certCellHTML(rec) {
 // マトリクスの見出し行（資格・メンバー名）。区分別・分野別でも同じ1つのtableを使い回すため共通化
 function certTableHeadHTML() {
   return '<thead><tr><th class="name-col">資格</th>' +
-    members.map(m => `<th>${esc(m)}</th>`).join('') +
+    members.map(memberThHTML).join('') +
     '</tr></thead>';
 }
 
@@ -384,7 +401,7 @@ function certTableRowsHTML(certList) {
   return certList.map(cert => {
     let row = `<tr><td class="name-col">${esc(cert)}</td>`;
     members.forEach(m => {
-      row += `<td>${certCellHTML(certByMember[m]?.[cert])}</td>`;
+      row += `${memberTdOpen(m)}${certCellHTML(certByMember[m]?.[cert])}</td>`;
     });
     return row + '</tr>';
   }).join('');
@@ -564,8 +581,8 @@ function buildMemberChips(containerId, includeTeam) {
   }
   members.forEach(m => {
     const b = document.createElement('button');
-    b.className = 'member-chip';
-    b.textContent = m;
+    b.className = 'member-chip' + (isRefMember(m) ? ' ref-chip' : '');
+    b.textContent = isRefMember(m) ? `🍑 ${m}` : m;
     b.dataset.member = m;
     b.onclick = () => selectMember(m);
     el.appendChild(b);
@@ -776,7 +793,7 @@ async function init() {
 
     const teamCompareSelectEl = document.getElementById('teamCompareSelect');
     teamCompareSelectEl.innerHTML = `<option value="__none__">重ねない</option><option value="__auto__">自動（あなたの状況と連動）</option>` +
-      members.map(m => `<option value="${esc(m)}">${esc(m)}</option>`).join('');
+      members.map(m => `<option value="${esc(m)}">${isRefMember(m) ? '🍑 ' : ''}${esc(m)}</option>`).join('');
     teamCompareSelectEl.value = teamCompareMode;
 
     renderMatrix();
