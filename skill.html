@@ -189,6 +189,9 @@ const OVERALL_GROUP = '__overall__'; // 「総合」タブ：分野（サブカ�
 const TEAM_KEY = '__team__'; // レーダーチャートの「チーム全体」擬似メンバー
 
 let members = [], skillList = [], dataByPeriod = {}, noteMap = {}, catColorMap = {}, categories = [], skillNameCounts = {};
+// membersのうちmember_master.csvの在籍名簿と実際に一致した人だけ（表記ゆれ救済等でmembers末尾に追加された、
+// 名簿に無い人は含まない）。「チーム全体」レーダーの平均・最小・最大はこちらを使う（詳細はmembers代入箇所のコメント参照）
+let teamRosterMembers = [];
 let memberPeriodHasData = {}; // 時期ごとに「その人のヒアリングが実施済みか」。前回比較の点線を出すかの判定に使う
 let groups = [];
 let certNames = [], certByMember = {}, certMeta = {};
@@ -458,9 +461,11 @@ function showRadar(m) {
     const sel = document.getElementById('teamCompareSelect');
     if (sel) sel.value = teamCompareMode;
 
-    // 分野（または個別スキル）ごとに、全員分の値から平均・最小・最大を算出
-    const perMember = members.map(name => axisVal(name, data));
-    const teamAvg = labels.map((_, i) => Math.round((perMember.reduce((a, r) => a + r[i], 0) / members.length) * 10) / 10);
+    // 分野（または個別スキル）ごとに、在籍メンバー（teamRosterMembers）分の値から平均・最小・最大を算出。
+    // membersには表記ゆれ救済等で名簿に無い人（部長のスキルを試しに入れた等）が末尾に混ざることがあるため、
+    // それらをチーム平均に含めないようteamRosterMembersを使う（membersとの違いは代入箇所のコメント参照）
+    const perMember = teamRosterMembers.map(name => axisVal(name, data));
+    const teamAvg = labels.map((_, i) => Math.round((perMember.reduce((a, r) => a + r[i], 0) / teamRosterMembers.length) * 10) / 10);
     const teamMin = labels.map((_, i) => Math.min(...perMember.map(r => r[i])));
     const teamMax = labels.map((_, i) => Math.max(...perMember.map(r => r[i])));
 
@@ -478,7 +483,7 @@ function showRadar(m) {
     // 最大値（非表示の境界線）→最小値（最大値との間を塗って「ばらつき帯」にする）→平均線 の順で重ねる
     datasets.push({ label: '最大', data: teamMax, borderWidth: 0, pointRadius: 0, backgroundColor: 'transparent', fill: false });
     datasets.push({ label: 'ばらつき（最小〜最大）', data: teamMin, borderWidth: 0, pointRadius: 0, backgroundColor: 'rgba(59,130,246,.14)', fill: '-1' });
-    datasets.push({ label: `チーム平均（${members.length}名）`, data: teamAvg, borderColor: '#3b82f6', backgroundColor: 'transparent', borderWidth: 2.5, pointBackgroundColor: '#3b82f6', pointRadius: 4 });
+    datasets.push({ label: `チーム平均（${teamRosterMembers.length}名）`, data: teamAvg, borderColor: '#3b82f6', backgroundColor: 'transparent', borderWidth: 2.5, pointBackgroundColor: '#3b82f6', pointRadius: 4 });
     if (compareVals) {
       datasets.push({ label: compareName, data: compareVals, borderColor: '#a78bfa', backgroundColor: 'transparent', borderWidth: 2, borderDash: [6, 4], pointBackgroundColor: '#a78bfa', pointRadius: 3.5 });
     }
@@ -489,7 +494,7 @@ function showRadar(m) {
     } else if (teamCompareMode === '__auto__') {
       overlayNote = '（「あなたの状況」で自分を選ぶと点線で重なります。「重ねて比較」から任意のメンバーを固定表示することもできます）';
     }
-    note.textContent = (note.textContent ? note.textContent + '　' : '') + `${members.length}名の平均。帯は最小〜最大のばらつき${overlayNote}`;
+    note.textContent = (note.textContent ? note.textContent + '　' : '') + `${teamRosterMembers.length}名の平均。帯は最小〜最大のばらつき${overlayNote}`;
   } else {
     const vals = axisVal(m, data);
     datasets.push({ label: m, data: vals, borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,.12)', borderWidth: 2, pointBackgroundColor: '#3b82f6', pointRadius: 4 });
@@ -543,7 +548,7 @@ function buildMemberChips(containerId, includeTeam) {
   if (includeTeam) {
     const b = document.createElement('button');
     b.className = 'member-chip team-chip';
-    b.textContent = `👥 チーム全体（${members.length}名平均）`;
+    b.textContent = `👥 チーム全体（${teamRosterMembers.length}名平均）`;
     b.dataset.member = TEAM_KEY;
     b.onclick = () => selectMember(TEAM_KEY);
     el.appendChild(b);
@@ -635,7 +640,10 @@ async function init() {
 
     const namesInSkillData = [...new Set(rows.map(r => r.name))];
     members = masterOrder.filter(n => namesInSkillData.includes(n));
-    // メンバーマスタに一切見当たらない名前（表記ゆれ等）のみ末尾に出現順で残す。マスタに存在するが
+    teamRosterMembers = members; // 「チーム全体」の平均対象。この時点では在籍名簿と一致した人だけの配列
+    // メンバーマスタに一切見当たらない名前（表記ゆれ・部長など名簿対象外の人の一時入力等）のみ末尾に出現順で残す。
+    // マトリクス等では引き続き列として表示する（データが無言で消えるとNotion側の入力ミスに気付けないため）が、
+    // teamRosterMembersには含めないので「チーム全体」の平均・最小〜最大には混ざらない。マスタに存在するが
     // ステータスが在籍以外（異動・退職）の名前は、skill.csv側に行が残っていてもここでは復活させない
     members = members.concat(namesInSkillData.filter(n => !members.includes(n) && !allMasterNames.has(n)));
 
