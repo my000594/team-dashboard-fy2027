@@ -60,6 +60,24 @@
 .cat-group-header.open .cat-group-chevron{transform:rotate(90deg)}
 .cat-group-body{display:none}
 .cat-group-header.open + .cat-group-body{display:block}
+.digest-card{background:var(--bg2);border:1px solid rgba(167,139,250,.28);border-radius:var(--radius-lg);padding:1.1rem 1.25rem;margin-bottom:1.25rem;position:relative;overflow:hidden}
+.digest-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--purple),var(--cyan))}
+.digest-head{display:flex;align-items:baseline;gap:8px;margin-bottom:2px}
+.digest-title{font-size:12px;font-weight:700;color:var(--text)}
+.digest-count{font-size:10.5px;font-family:var(--mono);color:var(--purple);background:var(--purple-dim);border-radius:999px;padding:1px 8px}
+.digest-sub{font-size:11px;color:var(--text3);margin-bottom:.7rem}
+.digest-row{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:.5px solid var(--border);font-size:12.5px;cursor:pointer}
+.digest-row:last-child{border-bottom:none}
+.digest-row:hover .digest-item-title{color:var(--blue)}
+.digest-status{font-size:9.5px;font-weight:700;padding:1px 6px;border-radius:4px;flex-shrink:0;font-family:var(--mono)}
+.digest-status.new{background:var(--purple-dim);color:var(--purple)}
+.digest-status.upd{background:var(--cyan-dim);color:var(--cyan)}
+.digest-item-title{flex:1;min-width:0;color:var(--text);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:color .15s}
+.digest-time{font-size:10.5px;color:var(--text3);font-family:var(--mono);flex-shrink:0}
+.digest-more{font-size:11px;color:var(--text3);margin-top:2px}
+.item-update-badge{font-size:9.5px;font-weight:700;padding:1px 7px;border-radius:999px;font-family:var(--mono);letter-spacing:.02em;margin-right:6px;vertical-align:middle;display:inline-block}
+.item-update-badge.new{background:var(--purple-dim);color:var(--purple)}
+.item-update-badge.upd{background:var(--cyan-dim);color:var(--cyan)}
 </style>
 </head>
 <body>
@@ -100,6 +118,14 @@
       </div>
     </div>
   </div>
+  <div class="digest-card" id="digestCard" style="display:none">
+    <div class="digest-head">
+      <span class="digest-title">🆕 最近の更新</span>
+      <span class="digest-count" id="digestCount"></span>
+    </div>
+    <div class="digest-sub">前回のご確認以降に追加・更新された項目</div>
+    <div id="digestBody"></div>
+  </div>
   <div class="search-wrap">
     <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
     <input class="search-input" id="searchInput" type="text" placeholder="キーワードで検索..." autocomplete="off">
@@ -122,6 +148,98 @@ let childrenByParent = new Map();
 const esc = window.escapeHTML;
 
 function catColor(cat) { return catColorMap[cat] || 'blue'; }
+
+// ── 更新インジケーター ─────────────────────────────
+// 「更新日」を前回訪問時にlocalStorageへ記憶したタイトル→更新日と突き合わせ、
+// 差分がある項目だけをNEW/更新としてハイライトする。ブラウザをまたぐと引き継がれないため、
+// どちらでも更新日からUPDATE_BADGE_DAYS日を過ぎたら強制的に消えるようにして「消えないバッジ」を防ぐ。
+const UPDATE_BADGE_DAYS = 14;
+const UPDATE_SEEN_KEY = 'knowledge_seen_state';
+const UPDATE_DIGEST_LIMIT = 6;
+
+function daysSince(dateStr) {
+  const d = new Date(dateStr);
+  if (isNaN(d)) return null;
+  const today = new Date();
+  const today0 = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const d0 = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  return Math.floor((today0 - d0) / (1000*60*60*24));
+}
+
+function formatRelative(dateStr) {
+  const days = daysSince(dateStr);
+  if (days === 0) return '今日';
+  if (days === 1) return '1日前';
+  if (days < 7) return `${days}日前`;
+  return `${Math.floor(days/7)}週間前`;
+}
+
+// トップレベル項目にupdateStatus（'new'|'upd'|undefined）を付与し、対象一覧を返す。
+// 呼び出し時点のlocalStorage状態と比較した後、今回の内容を「見た状態」として書き戻す。
+function computeUpdateBadges(topLevel) {
+  let prevState = {};
+  try { prevState = JSON.parse(localStorage.getItem(UPDATE_SEEN_KEY) || '{}'); } catch(e) {}
+
+  const updates = [];
+  topLevel.forEach(item => {
+    if (!item.updated) return;
+    const days = daysSince(item.updated);
+    if (days === null || days < 0 || days > UPDATE_BADGE_DAYS) return;
+    const prevUpdated = prevState[item.title];
+    const status = prevUpdated === undefined ? 'new' : (prevUpdated !== item.updated ? 'upd' : null);
+    if (!status) return;
+    item.updateStatus = status;
+    updates.push(item);
+  });
+  updates.sort((a, b) => (b.updated || '').localeCompare(a.updated || ''));
+
+  const nextState = {};
+  topLevel.forEach(item => { if (item.updated) nextState[item.title] = item.updated; });
+  try { localStorage.setItem(UPDATE_SEEN_KEY, JSON.stringify(nextState)); } catch(e) {}
+
+  return updates;
+}
+
+function renderDigest(updates) {
+  const card = document.getElementById('digestCard');
+  if (!updates.length) { card.style.display = 'none'; return; }
+  card.style.display = 'block';
+  document.getElementById('digestCount').textContent = `${updates.length}件`;
+  const shown = updates.slice(0, UPDATE_DIGEST_LIMIT);
+  const overflow = updates.length - shown.length;
+  document.getElementById('digestBody').innerHTML =
+    shown.map(item => `
+      <div class="digest-row" data-title="${esc(item.title)}">
+        <span class="digest-status ${item.updateStatus}">${item.updateStatus === 'new' ? 'NEW' : '更新'}</span>
+        <span class="digest-item-title">${esc(item.title)}</span>
+        <span class="badge badge-${catColor(item.category)}">${esc(item.category)}</span>
+        <span class="digest-time">${formatRelative(item.updated)}</span>
+      </div>`).join('')
+    + (overflow > 0 ? `<div class="digest-more">ほか${overflow}件</div>` : '');
+  document.querySelectorAll('.digest-row').forEach(row => {
+    row.addEventListener('click', () => jumpToItem(row.dataset.title));
+  });
+}
+
+// 「最近の更新」から該当項目へジャンプ：カテゴリ絞り込みを解除し検索欄にタイトルを入れて開く
+function jumpToItem(title) {
+  currentCat = 'すべて';
+  document.querySelectorAll('.filter-btn').forEach((b, i) => b.classList.toggle('active', i === 0));
+  currentQuery = title;
+  document.getElementById('searchInput').value = title;
+  render();
+  requestAnimationFrame(() => {
+    const titleEl = [...document.querySelectorAll('.faq-card-title, .article-title')]
+      .find(el => el.textContent.trim() === title.trim() || el.textContent.includes(title));
+    if (!titleEl) return;
+    const card = titleEl.closest('.faq-card, .article-card');
+    if (!card) return;
+    card.classList.add('open');
+    const catHeader = card.closest('.cat-group')?.querySelector('.cat-group-header');
+    if (catHeader) catHeader.classList.add('open');
+    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  });
+}
 
 // 「親ナレッジ」が設定されている = 記事の子Q&A。
 // 種別=ナレッジ → 記事・ガイドセクション。種別=FAQ/手順 → Q&Aセクション。
@@ -165,7 +283,7 @@ function renderFaqCard(item, id) {
   return `
     <div class="faq-card" id="${id}">
       <div class="faq-header" onclick="document.getElementById('${id}').classList.toggle('open')">
-        <div class="faq-card-title">${esc(item.title)}</div>
+        <div class="faq-card-title">${item.updateStatus ? `<span class="item-update-badge ${item.updateStatus}">${item.updateStatus === 'new' ? 'NEW' : '更新'}</span>` : ''}${esc(item.title)}</div>
         <span class="faq-chevron">›</span>
       </div>
       <div class="faq-body">
@@ -214,7 +332,7 @@ function renderArticleCard(item, artId) {
     <div class="article-card" id="${artId}">
       <div class="article-header" onclick="document.getElementById('${artId}').classList.toggle('open')">
         <div>
-          <div class="article-title">${esc(item.title)}</div>
+          <div class="article-title">${item.updateStatus ? `<span class="item-update-badge ${item.updateStatus}">${item.updateStatus === 'new' ? 'NEW' : '更新'}</span>` : ''}${esc(item.title)}</div>
           <div class="article-summary">${summaryBadge}</div>
         </div>
         <span class="article-chevron">›</span>
@@ -337,6 +455,7 @@ async function init() {
     });
 
     document.getElementById('searchInput').addEventListener('input', e=>{ currentQuery=e.target.value; render(); });
+    renderDigest(computeUpdateBadges(topLevel));
     render();
 
     document.getElementById('loading').style.display = 'none';
