@@ -221,24 +221,25 @@ function renderDigest(updates) {
   });
 }
 
-// 「最近の更新」から該当項目へジャンプ：カテゴリ絞り込みを解除し検索欄にタイトルを入れて開く
+// 「最近の更新」から該当項目へジャンプ：カテゴリ絞り込み・検索キーワードは触らずリセットした状態で該当カードだけを開く
+// （検索欄にタイトルを入れて絞り込む方式だと、ジャンプ後に検索欄の文字列が残り続け、
+// 「すべて」タブ等を押しても意図せず絞り込まれたままになりバグに見えたため2026-08-19に変更）
 function jumpToItem(title) {
   currentCat = 'すべて';
+  currentQuery = '';
+  document.getElementById('searchInput').value = '';
   document.querySelectorAll('.filter-btn').forEach((b, i) => b.classList.toggle('active', i === 0));
-  currentQuery = title;
-  document.getElementById('searchInput').value = title;
   render();
-  requestAnimationFrame(() => {
-    const titleEl = [...document.querySelectorAll('.faq-card-title, .article-title')]
-      .find(el => el.textContent.trim() === title.trim() || el.textContent.includes(title));
-    if (!titleEl) return;
-    const card = titleEl.closest('.faq-card, .article-card');
-    if (!card) return;
-    card.classList.add('open');
-    const catHeader = card.closest('.cat-group')?.querySelector('.cat-group-header');
-    if (catHeader) catHeader.classList.add('open');
-    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  });
+  // render()はinnerHTMLの同期更新なので、直後にクエリしても新しいカードは既にDOM上にある
+  const titleEl = [...document.querySelectorAll('.faq-card-title, .article-title')]
+    .find(el => el.textContent.trim() === title.trim() || el.textContent.includes(title));
+  if (!titleEl) return;
+  const card = titleEl.closest('.faq-card, .article-card');
+  if (!card) return;
+  card.classList.add('open');
+  const catHeader = card.closest('.cat-group')?.querySelector('.cat-group-header');
+  if (catHeader) catHeader.classList.add('open');
+  card.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
 // 「親ナレッジ」が設定されている = 記事の子Q&A。
