@@ -61,7 +61,7 @@
 .cat-group-body{display:none}
 .cat-group-header.open + .cat-group-body{display:block}
 .digest-card{background:var(--bg2);border:1px solid rgba(167,139,250,.28);border-radius:var(--radius-lg);padding:1.1rem 1.25rem;margin-bottom:1.25rem;position:relative;overflow:hidden}
-.digest-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--purple),var(--cyan))}
+.digest-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--purple)}
 .digest-head{display:flex;align-items:baseline;gap:8px;margin-bottom:2px}
 .digest-title{font-size:12px;font-weight:700;color:var(--text)}
 .digest-count{font-size:10.5px;font-family:var(--mono);color:var(--purple);background:var(--purple-dim);border-radius:999px;padding:1px 8px}
@@ -69,15 +69,11 @@
 .digest-row{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:.5px solid var(--border);font-size:12.5px;cursor:pointer}
 .digest-row:last-child{border-bottom:none}
 .digest-row:hover .digest-item-title{color:var(--blue)}
-.digest-status{font-size:9.5px;font-weight:700;padding:1px 6px;border-radius:4px;flex-shrink:0;font-family:var(--mono)}
-.digest-status.new{background:var(--purple-dim);color:var(--purple)}
-.digest-status.upd{background:var(--cyan-dim);color:var(--cyan)}
+.digest-status{font-size:9.5px;font-weight:700;padding:1px 6px;border-radius:4px;flex-shrink:0;font-family:var(--mono);background:var(--purple-dim);color:var(--purple)}
 .digest-item-title{flex:1;min-width:0;color:var(--text);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:color .15s}
 .digest-time{font-size:10.5px;color:var(--text3);font-family:var(--mono);flex-shrink:0}
 .digest-more{font-size:11px;color:var(--text3);margin-top:2px}
-.item-update-badge{font-size:9.5px;font-weight:700;padding:1px 7px;border-radius:999px;font-family:var(--mono);letter-spacing:.02em;margin-right:6px;vertical-align:middle;display:inline-block}
-.item-update-badge.new{background:var(--purple-dim);color:var(--purple)}
-.item-update-badge.upd{background:var(--cyan-dim);color:var(--cyan)}
+.item-update-badge{font-size:9.5px;font-weight:700;padding:1px 7px;border-radius:999px;font-family:var(--mono);letter-spacing:.02em;margin-right:6px;vertical-align:middle;display:inline-block;background:var(--purple-dim);color:var(--purple)}
 </style>
 </head>
 <body>
@@ -123,7 +119,7 @@
       <span class="digest-title">🆕 最近の更新</span>
       <span class="digest-count" id="digestCount"></span>
     </div>
-    <div class="digest-sub">前回のご確認以降に追加・更新された項目</div>
+    <div class="digest-sub" id="digestSub">直近7日以内に追加・更新された項目</div>
     <div id="digestBody"></div>
   </div>
   <div class="search-wrap">
@@ -150,11 +146,15 @@ const esc = window.escapeHTML;
 function catColor(cat) { return catColorMap[cat] || 'blue'; }
 
 // ── 更新インジケーター ─────────────────────────────
-// 「更新日」を前回訪問時にlocalStorageへ記憶したタイトル→更新日と突き合わせ、
-// 差分がある項目だけをNEW/更新としてハイライトする。ブラウザをまたぐと引き継がれないため、
-// どちらでも更新日からUPDATE_BADGE_DAYS日を過ぎたら強制的に消えるようにして「消えないバッジ」を防ぐ。
-const UPDATE_BADGE_DAYS = 14;
-const UPDATE_SEEN_KEY = 'knowledge_seen_state';
+// 「更新日」からUPDATE_BADGE_DAYS日以内の項目を常に「最近の更新」として表示する固定ウィンドウ方式
+// （index.html/info.htmlのNEW_BADGE_DAYSと同じ考え方）。
+// 以前はlocalStorageに前回訪問時の状態を記憶し「自分がもう見たか」で出し分けていたが、
+// ページを開いただけで中身を読んだかに関わらず既読扱いになってしまい、管理側から見て
+// 「全員にちゃんと見えているか」が分からなくなるリスクがあったため、2026-08-19に
+// 誰が見ても・何度見ても同じ内容が一定期間表示され続けるこの方式へ変更した。
+// 引き換えに、この方式では「新規追加」と「既存項目の編集」を区別する手段がなくなる
+// （判断材料が更新日だけのため）。バッジは「更新」1種類に統一している。
+const UPDATE_BADGE_DAYS = 7;
 const UPDATE_DIGEST_LIMIT = 6;
 
 function daysSince(dateStr) {
@@ -170,33 +170,19 @@ function formatRelative(dateStr) {
   const days = daysSince(dateStr);
   if (days === 0) return '今日';
   if (days === 1) return '1日前';
-  if (days < 7) return `${days}日前`;
-  return `${Math.floor(days/7)}週間前`;
+  return `${days}日前`;
 }
 
-// トップレベル項目にupdateStatus（'new'|'upd'|undefined）を付与し、対象一覧を返す。
-// 呼び出し時点のlocalStorage状態と比較した後、今回の内容を「見た状態」として書き戻す。
-function computeUpdateBadges(topLevel) {
-  let prevState = {};
-  try { prevState = JSON.parse(localStorage.getItem(UPDATE_SEEN_KEY) || '{}'); } catch(e) {}
-
-  const updates = [];
-  topLevel.forEach(item => {
-    if (!item.updated) return;
+// トップレベル項目にisRecent=trueを付与し、対象一覧を返す（更新日の新しい順）。
+function computeRecentUpdates(topLevel) {
+  const updates = topLevel.filter(item => {
+    if (!item.updated) return false;
     const days = daysSince(item.updated);
-    if (days === null || days < 0 || days > UPDATE_BADGE_DAYS) return;
-    const prevUpdated = prevState[item.title];
-    const status = prevUpdated === undefined ? 'new' : (prevUpdated !== item.updated ? 'upd' : null);
-    if (!status) return;
-    item.updateStatus = status;
-    updates.push(item);
+    if (days === null || days < 0 || days > UPDATE_BADGE_DAYS) return false;
+    item.isRecent = true;
+    return true;
   });
   updates.sort((a, b) => (b.updated || '').localeCompare(a.updated || ''));
-
-  const nextState = {};
-  topLevel.forEach(item => { if (item.updated) nextState[item.title] = item.updated; });
-  try { localStorage.setItem(UPDATE_SEEN_KEY, JSON.stringify(nextState)); } catch(e) {}
-
   return updates;
 }
 
@@ -205,12 +191,13 @@ function renderDigest(updates) {
   if (!updates.length) { card.style.display = 'none'; return; }
   card.style.display = 'block';
   document.getElementById('digestCount').textContent = `${updates.length}件`;
+  document.getElementById('digestSub').textContent = `直近${UPDATE_BADGE_DAYS}日以内に追加・更新された項目`;
   const shown = updates.slice(0, UPDATE_DIGEST_LIMIT);
   const overflow = updates.length - shown.length;
   document.getElementById('digestBody').innerHTML =
     shown.map(item => `
       <div class="digest-row" data-title="${esc(item.title)}">
-        <span class="digest-status ${item.updateStatus}">${item.updateStatus === 'new' ? 'NEW' : '更新'}</span>
+        <span class="digest-status">更新</span>
         <span class="digest-item-title">${esc(item.title)}</span>
         <span class="badge badge-${catColor(item.category)}">${esc(item.category)}</span>
         <span class="digest-time">${formatRelative(item.updated)}</span>
@@ -284,7 +271,7 @@ function renderFaqCard(item, id) {
   return `
     <div class="faq-card" id="${id}">
       <div class="faq-header" onclick="document.getElementById('${id}').classList.toggle('open')">
-        <div class="faq-card-title">${item.updateStatus ? `<span class="item-update-badge ${item.updateStatus}">${item.updateStatus === 'new' ? 'NEW' : '更新'}</span>` : ''}${esc(item.title)}</div>
+        <div class="faq-card-title">${item.isRecent ? '<span class="item-update-badge">更新</span>' : ''}${esc(item.title)}</div>
         <span class="faq-chevron">›</span>
       </div>
       <div class="faq-body">
@@ -333,7 +320,7 @@ function renderArticleCard(item, artId) {
     <div class="article-card" id="${artId}">
       <div class="article-header" onclick="document.getElementById('${artId}').classList.toggle('open')">
         <div>
-          <div class="article-title">${item.updateStatus ? `<span class="item-update-badge ${item.updateStatus}">${item.updateStatus === 'new' ? 'NEW' : '更新'}</span>` : ''}${esc(item.title)}</div>
+          <div class="article-title">${item.isRecent ? '<span class="item-update-badge">更新</span>' : ''}${esc(item.title)}</div>
           <div class="article-summary">${summaryBadge}</div>
         </div>
         <span class="article-chevron">›</span>
@@ -456,7 +443,7 @@ async function init() {
     });
 
     document.getElementById('searchInput').addEventListener('input', e=>{ currentQuery=e.target.value; render(); });
-    renderDigest(computeUpdateBadges(topLevel));
+    renderDigest(computeRecentUpdates(topLevel));
     render();
 
     document.getElementById('loading').style.display = 'none';
