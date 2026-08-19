@@ -292,6 +292,8 @@ LINE_COLORS・LINE_META・LINE_LABEL_MAP定数はmember.html内に定義。
   - 「🆕 最近の更新」の直下に「🏆 人気ナレッジ」カード（`.digest-card`の見た目を流用し、アクセントカラーだけamberに変更）を新設し、👍数上位（`POPULAR_LIMIT`＝現在5件）を表示。1件も無ければセクション自体を非表示（最近の更新と同じ「無理に空状態を出さない」方針）。子Q&Aがランクインした場合は親記事名を小さく添える
   - ランキングの行クリックは既存の`jumpToItem()`をそのまま再利用。子Q&Aの場合、`.closest('.faq-card, .article-card')`が親の`.article-card`まで遡って見つかる性質を利用し、親記事を開いた上でさらに子カード（`.child-faq-card`）自体も開いてスクロールする
   - 本人特定は`Cf-Access-Authenticated-User-Email`ヘッダーを直接信用せず、`functions/api/_middleware.js`がAccessのJWT（`Cf-Access-Jwt-Assertion`）をWeb Crypto APIのみで自前検証（JWKS取得・署名検証・aud/iss/exp照合）してから`email`クレームを使う（Pagesプロジェクトにはプレビューデプロイ等Accessを経由しない入口があり得て、そこではヘッダーが偽装可能なため）。npmパッケージ（`@cloudflare/pages-plugin-cloudflare-access`）を使う実装を最初に試したが、ビルドコマンド未設定のためnpm installがスキップされビルドが失敗した経緯があり自前実装に切り替えた（詳細は技術スタック節）。JWT検証に必要な`TEAM_DOMAIN`・`POLICY_AUD`はCloudflare Pagesプロジェクトの環境変数として設定する（Production/Preview両方に必要）
+  - 👍ボタンは4案（サイズ違い・ラベル有無）をArtifactでモック比較した上で、「役に立った」ラベル付き・やや大きめのサイズ（`.vote-btn`: font-size 12.5px／padding 5px 13px／gap 6px）を採用（2026-08-19）。タグ類と同じ小ささだと押しにくいという指摘を受けての調整
+- **すべて開く／すべて閉じる**（2026-08-19追加）：検索欄の下・件数表示（`#resultCount`）の右側に配置。`expandAll()`は`.cat-group-header`・`.faq-card`・`.article-card`・`.child-faq-card`すべてに`open`クラスを付与し、カテゴリ見出しから子Q&Aまで一括で展開する。`collapseAll()`はその逆で、カテゴリ見出しごと閉じて初期表示（バッジのみ）に戻す（カードだけ閉じてカテゴリは開いたままにする案もあったが、「開く」の完全な逆操作になる方が直感的という判断で見出しごと閉じる仕様にした）。カテゴリ絞り込み中（`currentCat`が「すべて」以外）は`.cat-group-header`自体が存在しないため`expandAll()`はカード類のみに作用する。Ctrl+Fでのページ内検索や、全文を一度に見たいときの利用を想定
 
 ### meetings.html（ライン別会議実施計画）
 - 「方針」セクションはNotionのページ本文（DB外のテキスト）のためハードコーディング。方針が変わったら手動で書き換えが必要

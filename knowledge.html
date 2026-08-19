@@ -43,7 +43,12 @@
 .article-body{display:none;padding:0 1.25rem 1.25rem}
 .article-card.open .article-body{display:block}
 .empty{text-align:center;padding:3rem 1rem;color:var(--text3);font-size:13px}
-.result-count{font-size:12px;color:var(--text3);margin-bottom:1rem;font-family:var(--mono)}
+.result-count-row{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:1rem}
+.result-count{font-size:12px;color:var(--text3);font-family:var(--mono)}
+.expand-controls{display:flex;align-items:center;gap:6px}
+.toolbar-btn{font-size:11px;color:var(--text3);background:transparent;border:none;cursor:pointer;font-family:var(--mono);padding:0;transition:color .15s}
+.toolbar-btn:hover{color:var(--blue)}
+.toolbar-sep{font-size:11px;color:var(--border2)}
 .child-qa-section{margin-top:1.25rem;border-top:1px solid var(--border);padding-top:1rem}
 .child-qa-label{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.5rem}
 .child-faq-card{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:6px;overflow:hidden}
@@ -143,7 +148,14 @@
     <input class="search-input" id="searchInput" type="text" placeholder="キーワードで検索..." autocomplete="off">
   </div>
   <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:1.25rem" id="filters"></div>
-  <div class="result-count" id="resultCount"></div>
+  <div class="result-count-row">
+    <span class="result-count" id="resultCount"></span>
+    <span class="expand-controls">
+      <button type="button" class="toolbar-btn" onclick="expandAll()">すべて開く</button>
+      <span class="toolbar-sep">・</span>
+      <button type="button" class="toolbar-btn" onclick="collapseAll()">すべて閉じる</button>
+    </span>
+  </div>
   <div id="contentArea"></div>
 </main>
 </div>
@@ -488,6 +500,17 @@ function renderFlat(independentQA, articles) {
     html = `<div class="empty">該当するナレッジがありません</div>`;
   }
   return html;
+}
+
+// カテゴリ見出し・記事カード・Q&Aカード・子Q&Aをまとめて開閉する。
+// 「すべて閉じる」はカテゴリ見出しごと閉じ、初期表示（バッジのみ）に戻す。
+function expandAll() {
+  document.querySelectorAll('.cat-group-header').forEach(h => h.classList.add('open'));
+  document.querySelectorAll('.faq-card, .article-card, .child-faq-card').forEach(c => c.classList.add('open'));
+}
+function collapseAll() {
+  document.querySelectorAll('.faq-card, .article-card, .child-faq-card').forEach(c => c.classList.remove('open'));
+  document.querySelectorAll('.cat-group-header').forEach(h => h.classList.remove('open'));
 }
 
 function render() {
