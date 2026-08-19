@@ -78,7 +78,7 @@
 .digest-card.popular .digest-count{color:var(--amber);background:var(--amber-dim)}
 .digest-card.popular .digest-status{background:var(--amber-dim);color:var(--amber);font-family:var(--mono)}
 .digest-item-sub{font-size:10px;color:var(--text3);margin-left:6px;font-weight:400}
-.vote-btn{display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:2px 9px;border-radius:999px;border:1px solid var(--border2);background:var(--bg3);color:var(--text2);cursor:pointer;font-family:var(--mono);transition:.15s}
+.vote-btn{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;padding:5px 13px;border-radius:999px;border:1px solid var(--border2);background:var(--bg3);color:var(--text2);cursor:pointer;font-family:var(--mono);transition:.15s}
 .vote-btn:hover:not(:disabled){border-color:var(--amber)}
 .vote-btn.voted{background:var(--amber-dim);border-color:rgba(245,158,11,.4);color:var(--amber)}
 .vote-btn:disabled{opacity:.6;cursor:default}
@@ -187,7 +187,7 @@ function voteBtnHTML(item) {
   const key = item.title;
   const count = voteCounts[key] || 0;
   const voted = myVotes.has(key);
-  return `<button type="button" class="vote-btn${voted ? ' voted' : ''}" data-key="${esc(key)}" onclick="toggleVote(this)">👍 <span>${count}</span></button>`;
+  return `<button type="button" class="vote-btn${voted ? ' voted' : ''}" data-key="${esc(key)}" onclick="toggleVote(this)">👍 役に立った <span>${count}</span></button>`;
 }
 
 async function toggleVote(btn) {
