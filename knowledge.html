@@ -74,6 +74,14 @@
 .digest-time{font-size:10.5px;color:var(--text3);font-family:var(--mono);flex-shrink:0}
 .digest-more{font-size:11px;color:var(--text3);margin-top:2px}
 .item-update-badge{font-size:9.5px;font-weight:700;padding:1px 7px;border-radius:999px;font-family:var(--mono);letter-spacing:.02em;margin-right:6px;vertical-align:middle;display:inline-block;background:var(--purple-dim);color:var(--purple)}
+.digest-card.popular::before{background:var(--amber)}
+.digest-card.popular .digest-count{color:var(--amber);background:var(--amber-dim)}
+.digest-card.popular .digest-status{background:var(--amber-dim);color:var(--amber);font-family:var(--mono)}
+.digest-item-sub{font-size:10px;color:var(--text3);margin-left:6px;font-weight:400}
+.vote-btn{display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:2px 9px;border-radius:999px;border:1px solid var(--border2);background:var(--bg3);color:var(--text2);cursor:pointer;font-family:var(--mono);transition:.15s}
+.vote-btn:hover:not(:disabled){border-color:var(--amber)}
+.vote-btn.voted{background:var(--amber-dim);border-color:rgba(245,158,11,.4);color:var(--amber)}
+.vote-btn:disabled{opacity:.6;cursor:default}
 </style>
 </head>
 <body>
@@ -122,6 +130,14 @@
     <div class="digest-sub" id="digestSub">直近7日以内に追加・更新された項目</div>
     <div id="digestBody"></div>
   </div>
+  <div class="digest-card popular" id="popularCard" style="display:none">
+    <div class="digest-head">
+      <span class="digest-title">🏆 人気ナレッジ</span>
+      <span class="digest-count" id="popularCount"></span>
+    </div>
+    <div class="digest-sub">👍が多い順</div>
+    <div id="popularBody"></div>
+  </div>
   <div class="search-wrap">
     <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
     <input class="search-input" id="searchInput" type="text" placeholder="キーワードで検索..." autocomplete="off">
@@ -142,6 +158,83 @@ let allItems = [], currentCat = 'すべて', currentQuery = '';
 let catColorMap = {};
 let childrenByParent = new Map();
 const esc = window.escapeHTML;
+
+// ── 👍投票（Cloudflare Pages Functions + D1、/api/knowledge-votes） ──────
+// Notion同期とは完全に独立したデータ。API/D1未設定・取得失敗時はvotesAvailable=falseのままとなり、
+// 👍ボタン・人気ナレッジセクションを丸ごと非表示にするだけで、一覧・検索・フィルタ等の本体表示には影響させない。
+const POPULAR_LIMIT = 5;
+let voteCounts = {};
+let myVotes = new Set();
+let votesAvailable = false;
+
+async function loadVotes() {
+  try {
+    const res = await fetch('/api/knowledge-votes');
+    if (!res.ok) throw new Error('vote api error');
+    const data = await res.json();
+    voteCounts = data.counts || {};
+    myVotes = new Set(data.mine || []);
+    votesAvailable = true;
+  } catch (e) {
+    votesAvailable = false;
+    voteCounts = {};
+    myVotes = new Set();
+  }
+}
+
+function voteBtnHTML(item) {
+  if (!votesAvailable) return '';
+  const key = item.title;
+  const count = voteCounts[key] || 0;
+  const voted = myVotes.has(key);
+  return `<button type="button" class="vote-btn${voted ? ' voted' : ''}" data-key="${esc(key)}" onclick="toggleVote(this)">👍 <span>${count}</span></button>`;
+}
+
+async function toggleVote(btn) {
+  const key = btn.dataset.key;
+  btn.disabled = true;
+  try {
+    const res = await fetch('/api/knowledge-votes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ itemKey: key }),
+    });
+    if (!res.ok) throw new Error('vote failed');
+    const data = await res.json();
+    voteCounts[key] = data.count;
+    if (data.voted) myVotes.add(key); else myVotes.delete(key);
+    btn.classList.toggle('voted', data.voted);
+    btn.querySelector('span').textContent = data.count;
+    renderPopular();
+  } catch (e) {
+    // 失敗時は何もしない（次回の操作でまた試せる。カウント表示はAPIから取得した値のままなので不整合は残らない）
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// トップレベル記事・FAQ・子Q&Aすべてを対象に👍数上位を表示する
+function renderPopular() {
+  const card = document.getElementById('popularCard');
+  if (!votesAvailable) { card.style.display = 'none'; return; }
+  const ranked = allItems
+    .map(item => ({ item, count: voteCounts[item.title] || 0 }))
+    .filter(r => r.count > 0)
+    .sort((a, b) => b.count - a.count)
+    .slice(0, POPULAR_LIMIT);
+  if (!ranked.length) { card.style.display = 'none'; return; }
+  card.style.display = 'block';
+  document.getElementById('popularCount').textContent = `${ranked.length}件`;
+  document.getElementById('popularBody').innerHTML = ranked.map(({ item, count }) => `
+    <div class="digest-row" data-title="${esc(item.title)}">
+      <span class="digest-status">👍 ${count}</span>
+      <span class="digest-item-title">${esc(item.title)}${item.parentTitle ? `<span class="digest-item-sub">▸ ${esc(item.parentTitle)}</span>` : ''}</span>
+      <span class="badge badge-${catColor(item.category)}">${esc(item.category)}</span>
+    </div>`).join('');
+  document.querySelectorAll('#popularBody .digest-row').forEach(row => {
+    row.addEventListener('click', () => jumpToItem(row.dataset.title));
+  });
+}
 
 function catColor(cat) { return catColorMap[cat] || 'blue'; }
 
@@ -221,12 +314,16 @@ function jumpToItem(title) {
   const titleEl = [...document.querySelectorAll('.faq-card-title, .article-title')]
     .find(el => el.textContent.trim() === title.trim() || el.textContent.includes(title));
   if (!titleEl) return;
+  // 子Q&Aの場合、.closest()は親の.article-cardまで遡って見つかる（child-faq-cardは.faq-card/.article-cardではないため）。
+  // その場合は親記事だけでなく、子カード自体も開いてそちらへスクロールする。
+  const childCard = titleEl.closest('.child-faq-card');
   const card = titleEl.closest('.faq-card, .article-card');
   if (!card) return;
   card.classList.add('open');
+  if (childCard) childCard.classList.add('open');
   const catHeader = card.closest('.cat-group')?.querySelector('.cat-group-header');
   if (catHeader) catHeader.classList.add('open');
-  card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  (childCard || card).scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
 // 「親ナレッジ」が設定されている = 記事の子Q&A。
@@ -281,7 +378,10 @@ function renderFaqCard(item, id) {
           <span class="badge badge-${catColor(item.category)}">${esc(item.category)}</span>
           <span class="tag">${esc(item.type)}</span>
           ${(item.tags||[]).map(t=>`<span class="tag">${esc(t)}</span>`).join('')}
-          <span style="margin-left:auto;font-size:10px;color:var(--text3);font-family:var(--mono)">${esc(item.updated||'')}</span>
+          <span style="margin-left:auto;display:flex;align-items:center;gap:8px">
+            ${voteBtnHTML(item)}
+            <span style="font-size:10px;color:var(--text3);font-family:var(--mono)">${esc(item.updated||'')}</span>
+          </span>
         </div>
       </div>
     </div>`;
@@ -299,7 +399,10 @@ function renderChildFaqCard(child, id) {
         <div class="faq-a"><div class="faq-a-body"><div class="md-body">${md2html(child.body)}</div></div></div>
         <div class="faq-footer">
           ${(child.tags||[]).map(t=>`<span class="tag">${esc(t)}</span>`).join('')}
-          <span style="margin-left:auto;font-size:10px;color:var(--text3);font-family:var(--mono)">${esc(child.updated||'')}</span>
+          <span style="margin-left:auto;display:flex;align-items:center;gap:8px">
+            ${voteBtnHTML(child)}
+            <span style="font-size:10px;color:var(--text3);font-family:var(--mono)">${esc(child.updated||'')}</span>
+          </span>
         </div>
       </div>
     </div>`;
@@ -330,7 +433,10 @@ function renderArticleCard(item, artId) {
           <span class="badge badge-${catColor(item.category)}">${esc(item.category)}</span>
           <span class="tag">${esc(item.type)}</span>
           ${(item.tags||[]).map(t=>`<span class="tag">${esc(t)}</span>`).join('')}
-          <span style="margin-left:auto;font-size:10px;color:var(--text3);font-family:var(--mono)">${esc(item.updated||'')}</span>
+          <span style="margin-left:auto;display:flex;align-items:center;gap:8px">
+            ${voteBtnHTML(item)}
+            <span style="font-size:10px;color:var(--text3);font-family:var(--mono)">${esc(item.updated||'')}</span>
+          </span>
         </div>
         ${item.q ? `<div class="faq-q" style="margin-bottom:.75rem">${esc(item.q)}</div><div class="faq-a" style="margin-bottom:.75rem"><div class="faq-a-body"><div class="md-body">${md2html(item.body)}</div></div></div>` : `<div class="md-body">${md2html(item.body)}</div>`}
         ${childrenHtml}
@@ -396,7 +502,10 @@ function render() {
 
 async function init() {
   try {
-    const { text } = await fetchCSVText('data/knowledge.csv');
+    const [{ text }] = await Promise.all([
+      fetchCSVText('data/knowledge.csv'),
+      loadVotes(),
+    ]);
     const rows = Papa.parse(text, { header:true, skipEmptyLines:true }).data;
 
     allItems = rows.map((r,i) => ({
@@ -444,6 +553,7 @@ async function init() {
 
     document.getElementById('searchInput').addEventListener('input', e=>{ currentQuery=e.target.value; render(); });
     renderDigest(computeRecentUpdates(topLevel));
+    renderPopular();
     render();
 
     document.getElementById('loading').style.display = 'none';

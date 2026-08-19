@@ -72,8 +72,14 @@ team-dashboard-fy2027/
 ├── data.js             CSV取得共通ヘルパー（sessionStorageに5分キャッシュ。CSVをfetchする全ページで共用）
 ├── you-widget.js        「あなたの状況」ウィジェット共通スクリプト（全ページのpage-headerで共用）
 ├── robots.txt           検索エンジン避け（全ページDisallow）
+├── package.json         Cloudflare Pages Functions（functions/配下）専用の依存関係のみ。フロント（*.html/*.js）は引き続きビルド不要・依存なし
+├── functions/           Cloudflare Pages Functions（knowledge.htmlの👍投票API。詳細は後述）
+│   └── api/
+│       ├── _middleware.js    /api配下をCloudflare AccessのJWT検証で保護
+│       └── knowledge-votes.js ナレッジ👍投票のGET（集計取得）/POST（トグル）
 ├── scripts/
-│   └── sync-notion.mjs Notion APIからdata/配下のCSVを自動生成するスクリプト
+│   ├── sync-notion.mjs Notion APIからdata/配下のCSVを自動生成するスクリプト
+│   └── knowledge_votes_schema.sql 👍投票用D1データベースの初期スキーマ（Cloudflareダッシュボードで手動実行）
 ├── .github/workflows/
 │   ├── sync-notion.yml  上記スクリプトを実行するGitHub Actions（手動実行＋毎日自動実行）
 │   └── maintenance.yml  メンテナンスモードのON/OFFを手動実行（workflow_dispatch）で切り替えるGitHub Actions
@@ -113,7 +119,8 @@ team-dashboard-fy2027/
 - Chart.js 4.4.1（グラフ描画）
 - PapaParse 5.4.1（CSV読み込み）
 - Google Fonts（Noto Sans JP / DM Mono）
-- 外部CDNのみ、ビルド不要
+- 外部CDNのみ、ビルド不要（フロントエンド＝*.html/*.jsに限る）
+- **例外：Cloudflare Pages Functions（`functions/`）のみ、npm依存が1つ存在する**（`@cloudflare/pages-plugin-cloudflare-access`。knowledge.htmlの👍投票APIがCloudflare AccessのJWTを検証するために使用）。このダッシュボードは元々「Notion→CSV→git push→自動デプロイ」の完全な読み取り専用サイトだったが、👍投票機能で初めて即時の書き込みが必要になったため、2026-08-19にPages Functions＋D1というレイヤーを追加した。フロント側（*.html/*.js）の「ビルド不要」方針自体は変わっていない（Pages Functionsは静的サイトのビルドとは別工程で、Cloudflare Pagesがnpm依存を自動でインストール・バンドルする）
 
 ---
 
@@ -279,6 +286,13 @@ LINE_COLORS・LINE_META・LINE_LABEL_MAP定数はmember.html内に定義。
   - ダイジェストカードは該当項目が0件の時は非表示（無理に「更新はありません」等を出さない）。最大`UPDATE_DIGEST_LIMIT`（現在6件）まで表示し、超過分は「ほかN件」と件数のみ表示
   - ダイジェストの各行をクリックすると、カテゴリ絞り込み・検索キーワードをリセットした状態で該当カードを開き、スクロールする（`jumpToItem()`。検索欄にタイトルを入れて絞り込む実装だと、ジャンプ後も検索欄の文字列が残り続けカテゴリタブを押しても意図せず絞り込まれたままになる不具合があったため、検索欄には触れない方式にしている）
   - サイドナビ（nav.js）への未読ドット表示は見送った。nav.jsは全ページ共通の軽量スクリプトで、バッジのために全ページでknowledge.csvを追加fetchするコストに見合わないと判断したため、この更新インジケーターはknowledge.html内で完結させている
+- **👍投票・人気ナレッジランキング**（2026-08-19追加）：役に立ったナレッジに👍を付けられる機能。データはNotion同期とは完全に独立しており、Cloudflare Pages Functions（`functions/api/knowledge-votes.js`）＋D1（`votes`テーブル、データベース名`team-dashboard-fy2027-votes`）だけで完結する。集計キーはナレッジ項目のタイトル文字列（「親ナレッジ」列と同じくタイトル一致に依存する既存方式に合わせている。Notion側でタイトルを変更すると票がリセットされる既知の制約がある）
+  - トップレベルの記事・FAQだけでなく**子Q&Aも個別に投票対象**。各カードのフッター（タグ・更新日の並び）に👍ボタンを表示し、カウントと自分の投票状態（塗りつぶし表示）を示す。トグル可能（もう一度押すと取り消せる）
+  - `init()`で`data/knowledge.csv`と並行して`GET /api/knowledge-votes`を叩き、全項目の集計（`counts`）と本人の投票済み一覧（`mine`）を一括取得する（ページ内で1回だけ。カードごとのAPI呼び出しはしない）。投票のトグルは`POST /api/knowledge-votes`（body: `{itemKey}`）。反映は該当ボタンのDOMを直接更新するだけで、`render()`は呼ばない（全体再描画すると開いているカードのアコーディオンが閉じてしまうため）
+  - API未設定・取得失敗時（`votesAvailable=false`）は👍ボタン・後述のランキングセクションを丸ごと非表示にするだけで、一覧・検索・カテゴリフィルタ等の本体表示には一切影響させない（org_chart.csv・certifications.csv取得失敗時と同じ「失敗しても本体は継続」方針）
+  - 「🆕 最近の更新」の直下に「🏆 人気ナレッジ」カード（`.digest-card`の見た目を流用し、アクセントカラーだけamberに変更）を新設し、👍数上位（`POPULAR_LIMIT`＝現在5件）を表示。1件も無ければセクション自体を非表示（最近の更新と同じ「無理に空状態を出さない」方針）。子Q&Aがランクインした場合は親記事名を小さく添える
+  - ランキングの行クリックは既存の`jumpToItem()`をそのまま再利用。子Q&Aの場合、`.closest('.faq-card, .article-card')`が親の`.article-card`まで遡って見つかる性質を利用し、親記事を開いた上でさらに子カード（`.child-faq-card`）自体も開いてスクロールする
+  - 本人特定は`Cf-Access-Authenticated-User-Email`ヘッダーを直接信用せず、`functions/api/_middleware.js`が`@cloudflare/pages-plugin-cloudflare-access`でAccessのJWT（`Cf-Access-Jwt-Assertion`）を検証してから`email`クレームを使う（Pagesプロジェクトにはプレビューデプロイ等Accessを経由しない入口があり得て、そこではヘッダーが偽装可能なため）。JWT検証に必要な`TEAM_DOMAIN`・`POLICY_AUD`はCloudflare Pagesプロジェクトの環境変数として設定する
 
 ### meetings.html（ライン別会議実施計画）
 - 「方針」セクションはNotionのページ本文（DB外のテキスト）のためハードコーディング。方針が変わったら手動で書き換えが必要
@@ -490,6 +504,21 @@ FY2027年間MVP発表,2027-07-31,ライン内MVP,,上期・下期MVPの中から
 - Notion側データベース名：「📖 ライン年表」（「2027年7月期」ページ配下、他のDBと同階層）。データソースID: `63f880c1-e814-465e-a5c7-e4bf4e47cf9c`
 - このデータベースは手動バッチ運用の対象外（Notion API自動同期のみ対応、update_*.batなし）
 
+### D1: votesテーブル（`data/`配下のCSVではなくCloudflare D1）
+```sql
+CREATE TABLE votes (
+  item_key    TEXT NOT NULL,
+  voter_email TEXT NOT NULL,
+  created_at  TEXT NOT NULL,
+  PRIMARY KEY (item_key, voter_email)
+);
+```
+- knowledge.htmlの👍投票専用データ。ここまでの`data/*.csv`とは異なり**Notion同期の対象外**（Notionに対応するDBは存在しない）。データベース名: `team-dashboard-fy2027-votes`。スキーマ定義: `scripts/knowledge_votes_schema.sql`（Cloudflareダッシュボードで手動実行）
+- `item_key`：ナレッジ項目（トップレベル記事・FAQ・子Q&A）のタイトル文字列そのもの
+- `voter_email`：Cloudflare Accessで認証されたメールアドレス（`functions/api/_middleware.js`がJWTを検証して確定させる。詳細はknowledge.htmlセクション参照）
+- 1行＝1人×1項目の投票（取り消すと行ごと削除。同じ人が同じ項目に複数回投票することはない）
+- 読み書きは`functions/api/knowledge-votes.js`（GET=集計取得、POST=トグル）のみが行う
+
 ---
 
 ## データ更新フロー
@@ -602,3 +631,4 @@ Cloudflare PagesとGitHub（`my000594/team-dashboard-fy2027`）を連携済み�
 - 顔写真（氏名.png）の準備・配置
 - 実売上データへの置き換え（現在サンプル値）
 - デザインのさらなる洗練
+- 👍投票機能のCloudflare側インフラ構築（未完了）：D1データベース`team-dashboard-fy2027-votes`の作成＋`scripts/knowledge_votes_schema.sql`の実行、Pagesプロジェクトへの`DB`バインド（Production/Preview両方）、環境変数`TEAM_DOMAIN`・`POLICY_AUD`の設定。完了するまでknowledge.htmlの👍ボタン・人気ナレッジセクションは非表示のまま動作する
