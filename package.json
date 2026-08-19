@@ -1,8 +1,0 @@
-{
-  "name": "team-dashboard-fy2027-functions",
-  "private": true,
-  "description": "Cloudflare Pages Functions（/api配下）用の依存関係のみ。フロントエンド（*.html/*.js）はビルド不要・依存なしの方針を維持している。",
-  "dependencies": {
-    "@cloudflare/pages-plugin-cloudflare-access": "^1.0.5"
-  }
-}

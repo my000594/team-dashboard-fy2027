@@ -72,10 +72,9 @@ team-dashboard-fy2027/
 ├── data.js             CSV取得共通ヘルパー（sessionStorageに5分キャッシュ。CSVをfetchする全ページで共用）
 ├── you-widget.js        「あなたの状況」ウィジェット共通スクリプト（全ページのpage-headerで共用）
 ├── robots.txt           検索エンジン避け（全ページDisallow）
-├── package.json         Cloudflare Pages Functions（functions/配下）専用の依存関係のみ。フロント（*.html/*.js）は引き続きビルド不要・依存なし
-├── functions/           Cloudflare Pages Functions（knowledge.htmlの👍投票API。詳細は後述）
+├── functions/           Cloudflare Pages Functions（knowledge.htmlの👍投票API。詳細は後述。npm依存なし・ビルドコマンド不要）
 │   └── api/
-│       ├── _middleware.js    /api配下をCloudflare AccessのJWT検証で保護
+│       ├── _middleware.js    /api配下をCloudflare AccessのJWT検証（Web Crypto APIのみで自前実装）で保護
 │       └── knowledge-votes.js ナレッジ👍投票のGET（集計取得）/POST（トグル）
 ├── scripts/
 │   ├── sync-notion.mjs Notion APIからdata/配下のCSVを自動生成するスクリプト
@@ -119,8 +118,8 @@ team-dashboard-fy2027/
 - Chart.js 4.4.1（グラフ描画）
 - PapaParse 5.4.1（CSV読み込み）
 - Google Fonts（Noto Sans JP / DM Mono）
-- 外部CDNのみ、ビルド不要（フロントエンド＝*.html/*.jsに限る）
-- **例外：Cloudflare Pages Functions（`functions/`）のみ、npm依存が1つ存在する**（`@cloudflare/pages-plugin-cloudflare-access`。knowledge.htmlの👍投票APIがCloudflare AccessのJWTを検証するために使用）。このダッシュボードは元々「Notion→CSV→git push→自動デプロイ」の完全な読み取り専用サイトだったが、👍投票機能で初めて即時の書き込みが必要になったため、2026-08-19にPages Functions＋D1というレイヤーを追加した。フロント側（*.html/*.js）の「ビルド不要」方針自体は変わっていない（Pages Functionsは静的サイトのビルドとは別工程で、Cloudflare Pagesがnpm依存を自動でインストール・バンドルする）
+- 外部CDNのみ、ビルド不要（Cloudflare Pages Functions（`functions/`）も含めて完全に依存なし）
+- このダッシュボードは元々「Notion→CSV→git push→自動デプロイ」の完全な読み取り専用サイトだったが、knowledge.htmlの👍投票機能で初めて即時の書き込みが必要になったため、2026-08-19にPages Functions＋D1というレイヤーを追加した。Cloudflare Access JWTの検証にnpmパッケージ（`@cloudflare/pages-plugin-cloudflare-access`）を使う設計を最初に試したが、**このプロジェクトはPagesのビルドコマンドを設定していないためnpm installがスキップされ、Functionsのバンドル時に依存パッケージを解決できずビルド自体が失敗した**（2026-08-19に本番デプロイで実際に発生）。ビルドコマンドを追加する代わりに、JWT検証をWeb Crypto APIのみで自前実装する方式に切り替え、npm依存を完全に排除した（`functions/api/_middleware.js`）。ビルドコマンドを追加してnpmパッケージを使う設計に戻す場合は、この失敗の経緯を踏まえること
 
 ---
 
@@ -292,7 +291,7 @@ LINE_COLORS・LINE_META・LINE_LABEL_MAP定数はmember.html内に定義。
   - API未設定・取得失敗時（`votesAvailable=false`）は👍ボタン・後述のランキングセクションを丸ごと非表示にするだけで、一覧・検索・カテゴリフィルタ等の本体表示には一切影響させない（org_chart.csv・certifications.csv取得失敗時と同じ「失敗しても本体は継続」方針）
   - 「🆕 最近の更新」の直下に「🏆 人気ナレッジ」カード（`.digest-card`の見た目を流用し、アクセントカラーだけamberに変更）を新設し、👍数上位（`POPULAR_LIMIT`＝現在5件）を表示。1件も無ければセクション自体を非表示（最近の更新と同じ「無理に空状態を出さない」方針）。子Q&Aがランクインした場合は親記事名を小さく添える
   - ランキングの行クリックは既存の`jumpToItem()`をそのまま再利用。子Q&Aの場合、`.closest('.faq-card, .article-card')`が親の`.article-card`まで遡って見つかる性質を利用し、親記事を開いた上でさらに子カード（`.child-faq-card`）自体も開いてスクロールする
-  - 本人特定は`Cf-Access-Authenticated-User-Email`ヘッダーを直接信用せず、`functions/api/_middleware.js`が`@cloudflare/pages-plugin-cloudflare-access`でAccessのJWT（`Cf-Access-Jwt-Assertion`）を検証してから`email`クレームを使う（Pagesプロジェクトにはプレビューデプロイ等Accessを経由しない入口があり得て、そこではヘッダーが偽装可能なため）。JWT検証に必要な`TEAM_DOMAIN`・`POLICY_AUD`はCloudflare Pagesプロジェクトの環境変数として設定する
+  - 本人特定は`Cf-Access-Authenticated-User-Email`ヘッダーを直接信用せず、`functions/api/_middleware.js`がAccessのJWT（`Cf-Access-Jwt-Assertion`）をWeb Crypto APIのみで自前検証（JWKS取得・署名検証・aud/iss/exp照合）してから`email`クレームを使う（Pagesプロジェクトにはプレビューデプロイ等Accessを経由しない入口があり得て、そこではヘッダーが偽装可能なため）。npmパッケージ（`@cloudflare/pages-plugin-cloudflare-access`）を使う実装を最初に試したが、ビルドコマンド未設定のためnpm installがスキップされビルドが失敗した経緯があり自前実装に切り替えた（詳細は技術スタック節）。JWT検証に必要な`TEAM_DOMAIN`・`POLICY_AUD`はCloudflare Pagesプロジェクトの環境変数として設定する（Production/Preview両方に必要）
 
 ### meetings.html（ライン別会議実施計画）
 - 「方針」セクションはNotionのページ本文（DB外のテキスト）のためハードコーディング。方針が変わったら手動で書き換えが必要
@@ -631,4 +630,3 @@ Cloudflare PagesとGitHub（`my000594/team-dashboard-fy2027`）を連携済み�
 - 顔写真（氏名.png）の準備・配置
 - 実売上データへの置き換え（現在サンプル値）
 - デザインのさらなる洗練
-- 👍投票機能のCloudflare側インフラ構築（未完了）：D1データベース`team-dashboard-fy2027-votes`の作成＋`scripts/knowledge_votes_schema.sql`の実行、Pagesプロジェクトへの`DB`バインド（Production/Preview両方）、環境変数`TEAM_DOMAIN`・`POLICY_AUD`の設定。完了するまでknowledge.htmlの👍ボタン・人気ナレッジセクションは非表示のまま動作する
