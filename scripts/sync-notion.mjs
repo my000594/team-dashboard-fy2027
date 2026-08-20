@@ -546,7 +546,7 @@ async function main() {
   await section('chronicle.csv', async () => {
     console.log('== chronicle.csv ==');
     const chroniclePages = await notionQuery(DB.chronicle);
-    assertProperties(chroniclePages, ['タイトル','日付','種別','氏名','詳細','ステータス'], 'chronicle.csv');
+    assertProperties(chroniclePages, ['タイトル','日付','種別','氏名','詳細','ステータス','添付ファイル'], 'chronicle.csv');
     // member_masterセクションの失敗・個別ページの削除等でIDが解決できなかった件数を数える。
     // memberNameByIdが（member_masterの失敗により）空のまま、氏名だけが全件無言で空欄になり続けるのを防ぐため
     let unresolvedNameCount = 0;
@@ -566,13 +566,14 @@ async function main() {
         '氏名': names.join(','),
         '詳細': getRichText(props['詳細']),
         'ステータス': getSelect(props['ステータス']) || '確定',
+        '添付ファイル': getFileLinksWithName(props['添付ファイル']).join(','),
       };
     });
     if (unresolvedNameCount > 0) {
       console.warn(`  [WARN] chronicle.csv: 氏名リレーションが${unresolvedNameCount}件解決できませんでした（member_masterセクションの失敗、または対象メンバーページの削除・変更の可能性）`);
     }
     chronicleRows.sort((a, b) => a.dateIso.localeCompare(b.dateIso));
-    await writeCsv('chronicle.csv', ['タイトル','日付','種別','氏名','詳細','ステータス'], chronicleRows);
+    await writeCsv('chronicle.csv', ['タイトル','日付','種別','氏名','詳細','ステータス','添付ファイル'], chronicleRows);
   });
 
   await section('org_chart.csv', async () => {

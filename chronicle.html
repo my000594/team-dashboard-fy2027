@@ -43,6 +43,9 @@
 .pending-badge::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--amber)}
 .event-title{font-size:13.5px;font-weight:600;color:var(--text);line-height:1.5}
 .event-desc{font-size:12px;color:var(--text2);margin-top:2px;line-height:1.6;white-space:pre-line}
+.event-attachments{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.attach-link{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:500;color:var(--text2);background:var(--bg2);border:.5px solid var(--border);border-radius:6px;padding:3px 9px;text-decoration:none;transition:.15s}
+.attach-link:hover{color:var(--text);border-color:var(--border2)}
 
 .empty-state{text-align:center;padding:3rem 1rem;color:var(--text3);font-size:13px;line-height:1.8}
 </style>
@@ -102,6 +105,18 @@
 <script>
 function escHTML(s) {
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function safeHref(url) {
+  return /^https?:\/\//i.test(url) ? escHTML(url) : null;
+}
+// meetings.html「資料リンク」と同じ「表示名|URL」形式（カンマ区切りで複数）をパースする
+function parseAttachments(raw) {
+  return (raw || '').split(',').map(s => s.trim()).filter(Boolean).map(part => {
+    const sep = part.indexOf('|');
+    const name = sep !== -1 ? part.slice(0, sep).trim() : '';
+    const url = safeHref(sep !== -1 ? part.slice(sep + 1) : part);
+    return url ? { name, url } : null;
+  }).filter(Boolean).map((l, i, arr) => ({ ...l, name: l.name || (arr.length > 1 ? `添付${i + 1}` : '添付ファイル') }));
 }
 
 const TYPE_META = {
@@ -216,6 +231,7 @@ function render() {
             </div>
             <div class="event-title">${escHTML(r.title)}</div>
             ${r.detail ? `<div class="event-desc">${escHTML(r.detail)}</div>` : ''}
+            ${r.attachments.length ? `<div class="event-attachments">${r.attachments.map(a => `<a class="attach-link" href="${a.url}" target="_blank" rel="noopener">📎 ${escHTML(a.name)}</a>`).join('')}</div>` : ''}
           </div>
         </div>`;
       }).join('')}
@@ -241,6 +257,7 @@ async function init() {
         names: (r['氏名'] || '').split(',').map(s => s.trim()).filter(Boolean),
         detail: (r['詳細'] || '').trim(),
         status: (r['ステータス'] || '確定').trim(),
+        attachments: parseAttachments(r['添付ファイル']),
       };
     }).filter(Boolean);
 
