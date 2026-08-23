@@ -29,6 +29,9 @@
 
     let t = String(text)
       .replace(/`([^`]+)`/g, (m, c) => stash('<code>' + c + '</code>'))
+      // ![alt](URL) は通常のリンク記法より先に処理する（後段の[label](url)にマッチさせないため）
+      .replace(/!\[([^\]]*)\]\((https?:[^)\s]+)\)/g, (m, alt, url) =>
+        stash('<img src="' + url + '" alt="' + alt + '" loading="lazy">'))
       .replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, (m, label, url) => stash(link(url, label)))
       .replace(/https?:\/\/[^\s<>"'）】」、。]+/g, url => stash(link(url, url)));
 
