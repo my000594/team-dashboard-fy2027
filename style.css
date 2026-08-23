@@ -93,6 +93,7 @@ body {
   stroke: currentColor; fill: none;
   stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
 }
+.nav-label-mini { display: none; }
 .nav-footer {
   margin-top: auto;
   padding: 1rem .85rem;
@@ -114,10 +115,17 @@ body {
   padding: 2rem 2rem 4rem;
 }
 @media (max-width: 900px) {
-  .nav { width: 60px; }
-  .nav-logo-text,.nav-logo-sub,.nav-section,.nav-item span,.nav-footer { display: none; }
-  .nav-item { justify-content: center; padding: .65rem; }
-  .main { margin-left: 60px; padding: 1.5rem 1rem 3rem; }
+  .nav { width: 64px; }
+  .nav-logo-text,.nav-logo-sub,.nav-section,.nav-item .nav-label,.nav-footer { display: none; }
+  .nav-item {
+    flex-direction: column; justify-content: center; gap: 3px;
+    padding: 6px 2px; margin: 1px 4px;
+  }
+  .nav-label-mini {
+    display: block; font-size: 8.5px; font-weight: 600;
+    letter-spacing: 0; line-height: 1.2; text-align: center;
+  }
+  .main { margin-left: 64px; padding: 1.5rem 1rem 3rem; }
 }
 
 /* ── Page Header ── */

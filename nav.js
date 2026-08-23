@@ -1,15 +1,17 @@
 /* nav.js — navigation + maintenance control */
+// mini: モバイル版（900px以下）のアイコン下に表示する短縮ラベル。
+// アイコンのみでは何のページか分からないという指摘への対応（2026-08-23追加）
 const NAV_ITEMS = [
-  { href: 'index.html',    icon: 'home',        label: 'トップ' },
-  { href: 'info.html',     icon: 'bell',        label: 'インフォメーション' },
-  { href: 'member.html',   icon: 'users',       label: 'メンバー' },
-  { href: 'reports.html',  icon: 'file-text',   label: '3SEレポート' },
-  { href: 'sales.html',    icon: 'trending-up', label: '売上・数字' },
-  { href: 'knowledge.html',icon: 'book-open',   label: 'ナレッジ・FAQ' },
-  { href: 'meetings.html', icon: 'calendar',    label: 'ライン別会議' },
-  { href: 'skill.html',    icon: 'radar',       label: 'スキルマップ' },
-  { href: 'career.html',  icon: 'compass',     label: 'キャリアロードマップ' },
-  { href: 'chronicle.html', icon: 'book',      label: 'ライン年表' },
+  { href: 'index.html',    icon: 'home',        label: 'トップ',              mini: 'トップ' },
+  { href: 'info.html',     icon: 'bell',        label: 'インフォメーション',   mini: '情報' },
+  { href: 'member.html',   icon: 'users',       label: 'メンバー',            mini: 'メンバー' },
+  { href: 'reports.html',  icon: 'file-text',   label: '3SEレポート',         mini: 'レポート' },
+  { href: 'sales.html',    icon: 'trending-up', label: '売上・数字',          mini: '売上' },
+  { href: 'knowledge.html',icon: 'book-open',   label: 'ナレッジ・FAQ',       mini: 'ナレッジ' },
+  { href: 'meetings.html', icon: 'calendar',    label: 'ライン別会議',        mini: '会議' },
+  { href: 'skill.html',    icon: 'radar',       label: 'スキルマップ',        mini: 'スキル' },
+  { href: 'career.html',  icon: 'compass',     label: 'キャリアロードマップ', mini: 'キャリア' },
+  { href: 'chronicle.html', icon: 'book',      label: 'ライン年表',          mini: '年表' },
 ];
 
 const ICONS = {
@@ -43,7 +45,8 @@ function buildNav() {
       ${NAV_ITEMS.map(item => `
         <a href="${item.href}" class="nav-item ${current === item.href ? 'active' : ''}">
           <svg viewBox="0 0 24 24">${ICONS[item.icon]}</svg>
-          <span>${item.label}</span>
+          <span class="nav-label">${item.label}</span>
+          <span class="nav-label-mini">${item.mini}</span>
         </a>
       `).join('')}
     </div>
