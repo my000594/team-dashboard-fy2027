@@ -92,8 +92,15 @@ const getTitle       = (p) => (p?.title || []).map(t => t.plain_text).join('').t
 // ただし表示テキストがURLそのもの（＝素のURLを貼ってNotionが自動リンク化しただけ）の場合は
 // [URL](URL)という無意味な入れ子にせず生のURLのまま出力する。特に![alt](URL)の中で使われたURL部分が
 // 自動リンク化されると、[URL](URL)のせいで画像記法として認識できなくなるため（2026-08-23発覚）。
+// 日本語ファイル名等を含むURLは、表示テキストは生の文字列のままだがhrefはNotion側で
+// パーセントエンコードされるため単純な文字列比較では一致せず、decodeURIした上で比較する
+// （2026-08-23追加発覚：data/knowledge_images/配下の日本語ファイル名画像で再現）。
+const sameUrl = (href, text) => {
+  if (href === text) return true;
+  try { return decodeURI(href) === text; } catch { return false; }
+};
 const getRichText    = (p) => (p?.rich_text || []).map(t =>
-  t.href && t.href !== t.plain_text ? '[' + t.plain_text + '](' + t.href + ')' : t.plain_text
+  t.href && !sameUrl(t.href, t.plain_text) ? '[' + t.plain_text + '](' + t.href + ')' : t.plain_text
 ).join('').trim();
 const getSelect      = (p) => p?.select?.name || '';
 const getStatus      = (p) => p?.status?.name || '';
