@@ -21,6 +21,17 @@
     return '<a href="' + url + '" target="_blank" rel="noopener">' + label + '</a>';
   }
 
+  // OneDrive/SharePointの「リンクをコピー」で取れる共有リンクはビューアページを指しており、
+  // <img>にそのまま使うとログイン画面にリダイレクトされ表示できない。download=1を付けると
+  // 生ファイルを返す挙動になるため、画像記法で使われた場合は自動で付与する
+  // （呼び出し時点でescHTML済みのためURL中の&は&amp;になっている）。
+  function normalizeImgUrl(url) {
+    if (/\.sharepoint\.com\//i.test(url) && !/download=/i.test(url)) {
+      return url + (url.indexOf('?') === -1 ? '?' : '&amp;') + 'download=1';
+    }
+    return url;
+  }
+
   // 行内装飾。リンク・コードは先に退避してから強調を処理する
   // （URL内の記号が強調記法として誤爆するのを防ぐため）
   function inline(text) {
@@ -31,7 +42,7 @@
       .replace(/`([^`]+)`/g, (m, c) => stash('<code>' + c + '</code>'))
       // ![alt](URL) は通常のリンク記法より先に処理する（後段の[label](url)にマッチさせないため）
       .replace(/!\[([^\]]*)\]\((https?:[^)\s]+)\)/g, (m, alt, url) =>
-        stash('<img src="' + url + '" alt="' + alt + '" loading="lazy">'))
+        stash('<img src="' + normalizeImgUrl(url) + '" alt="' + alt + '" loading="lazy">'))
       .replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, (m, label, url) => stash(link(url, label)))
       .replace(/https?:\/\/[^\s<>"'）】」、。]+/g, url => stash(link(url, url)));
 
