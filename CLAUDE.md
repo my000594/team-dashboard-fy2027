@@ -100,9 +100,10 @@ team-dashboard-fy2027/
     ├── certifications.csv  保有資格（Notionエクスポート・縦持ち）
     ├── org_chart.csv       組織構成図リンク一覧（Notion「組織構成」ページ本文から自動抽出）
     ├── chronicle.csv       ライン年表（Notionエクスポート）
-    └── members/
-        ├── member_master.csv   メンバーマスタ（Notionエクスポート）
-        └── 氏名.png            顔写真（個人名でリネーム・手動管理）
+    ├── members/
+    │   ├── member_master.csv   メンバーマスタ（Notionエクスポート）
+    │   └── 氏名.png            顔写真（個人名でリネーム・手動管理）
+    └── knowledge_images/    ナレッジ本文に常時確実に表示したい画像（外部ドライブ経由の認証問題を避けるための手動管理領域。詳細はmd.jsセクション参照）
 └── docs/
     ├── skill_hearing_sheet.xlsx  スキル・保有資格ヒアリングシート（部下配布用。サイト非公開・デプロイ対象外）
     ├── spec.md              仕様書（人間向け。仕組み・技術スタック・ページ構成の概要）
@@ -170,6 +171,7 @@ team-dashboard-fy2027/
 - 画像はNotionのファイルプロパティではなく**本文テキスト中に`![説明](URL)`と直接書く**方式（2026-08-23追加）。会社のOneDrive/SharePointの恒久リンク（`certifications.csv`のデジタルバッジと同じ運用）を貼ることを想定
 - OneDriveの「リンクをコピー」で取れる共有リンク（`*.sharepoint.com/...?e=xxxx`形式）はビューアページ用のURLで、`<img>`にそのまま使うとログイン画面にリダイレクトされ表示できない。`download=1`を付けると生ファイルを返す挙動になるため、md.jsの`normalizeImgUrl()`が画像記法（`![alt](URL)`）使用時に**自動で付与**する（URLに`.sharepoint.com/`を含み`download=`が無い場合のみ）。**このためNotion側に貼るURLはOneDriveの共有リンクをそのままコピペするだけでよく、`download=1`を手動で付ける必要はない**
 - **NotionはURLを貼り付けると（Ctrl+Vでもバックスラッシュエスケープでも）自動でハイパーリンク化してしまう挙動があり、これは回避できない前提で運用する**（2026-08-23判明）。`sync-notion.mjs`の`getRichText`は、リンク化されたrunの表示テキストがhrefと同一（＝素のURLをそのまま貼っただけ）の場合は`[URL](URL)`という無意味な入れ子にせず生のURLとして出力し、表示テキストがhrefと異なる場合（意図的に別テキストへリンクを貼った場合）のみ`[表示](URL)`形式で復元する。以前はplain_textしか見ておらずhrefを無視していたためURLが消える不具合、その後は無条件に`[表示](URL)`化していたため`![alt](URL)`の中のURLが自動リンク化されると`![alt]([URL](URL))`という壊れた入れ子になる不具合があり、この2段階を経て現在の実装に至った
+- **OneDrive/SharePointの共有リンクは「開く側のブラウザが会社のMicrosoft 365にログイン済みであること」が前提になる**（2026-08-23判明）。PCブラウザは普段からOutlook等でサインイン済みのため通ることが多いが、スマホのブラウザは同じセッションを持っていないことが多く、その場合ログイン画面にリダイレクトされ`<img>`が表示できない（一度そのブラウザで`portal.office.com`にログインしておけば以降は表示される）。**常時確実に表示したい画像（外部ドライブのセッション事情に左右されたくないもの）は、`data/knowledge_images/`にファイルを置いて本サイトのCloudflare Access配下で直接配信する**運用にすること（顔写真`data/members/氏名.png`と同じ「手動管理」パターン）。Notion側には本サイトの公開URLを含む絶対URLで貼る（例：`![説明](https://team-dashboard-fy2027.pages.dev/data/knowledge_images/xxxx.png)`）。画像記法は`https?:`始まりのURLしか受け付けないため、相対パスでは動かない点に注意。この方式はNotion同期の対象外のため、画像追加のたびに手動でリポジトリへcommit・pushが必要
 
 ---
 
