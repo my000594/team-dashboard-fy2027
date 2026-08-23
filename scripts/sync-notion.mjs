@@ -88,8 +88,13 @@ async function notionBlockChildren(blockId) {
 const getTitle       = (p) => (p?.title || []).map(t => t.plain_text).join('').trim();
 // hrefが付いたrunはmd.jsが解釈できる[表示](URL)形式に戻す（Notion側で実際にハイパーリンク化されていると
 // plain_textだけではURLが失われるため。例：本文中に貼った画像URLがNotion側で自動リンク化されると、
-// plain_textには表示テキストしか残らずURLが消える）
-const getRichText    = (p) => (p?.rich_text || []).map(t => t.href ? '[' + t.plain_text + '](' + t.href + ')' : t.plain_text).join('').trim();
+// plain_textには表示テキストしか残らずURLが消える）。
+// ただし表示テキストがURLそのもの（＝素のURLを貼ってNotionが自動リンク化しただけ）の場合は
+// [URL](URL)という無意味な入れ子にせず生のURLのまま出力する。特に![alt](URL)の中で使われたURL部分が
+// 自動リンク化されると、[URL](URL)のせいで画像記法として認識できなくなるため（2026-08-23発覚）。
+const getRichText    = (p) => (p?.rich_text || []).map(t =>
+  t.href && t.href !== t.plain_text ? '[' + t.plain_text + '](' + t.href + ')' : t.plain_text
+).join('').trim();
 const getSelect      = (p) => p?.select?.name || '';
 const getStatus      = (p) => p?.status?.name || '';
 const getMultiSelect = (p) => (p?.multi_select || []).map(o => o.name);
