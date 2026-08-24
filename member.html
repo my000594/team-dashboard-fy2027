@@ -129,7 +129,7 @@ function renderAll(ms) {
       <th class="left">所属ライン</th><th class="left">入社年月日</th>
       <th class="left">社歴</th><th class="left">委員会</th><th class="left">支援先</th>
     </tr></thead>
-    <tbody>${ms.map(m=>`<tr>
+    <tbody>${ms.map(m=>`<tr onclick="location.href='portfolio.html?member='+encodeURIComponent('${m.name}')" style="cursor:pointer">
       <td class="left"><div style="display:flex;align-items:center;gap:8px">${avatarHTML(m)}<span style="font-weight:500">${escHTML(m.name)}</span></div></td>
       <td class="left" style="font-family:var(--mono);font-size:11px;color:var(--text3)">${empFmt(m.empNo)}</td>
       <td class="left">${m.role!=='—'?roleBadge(m.role):'<span style="color:var(--text3)">—</span>'}</td>
@@ -145,7 +145,7 @@ function renderAll(ms) {
 
 function renderGroups(groups) {
   return groups.filter(g=>g.members.length>0).map(g=>{
-    const chips = g.members.map(m=>`<div class="chip">${avatarHTML(m,22)}<div><div class="chip-name">${escHTML(m.name)}</div><div class="chip-sub">${escHTML(g.subFn(m))}</div></div></div>`).join('');
+    const chips = g.members.map(m=>`<div class="chip" onclick="location.href='portfolio.html?member='+encodeURIComponent('${m.name}')" style="cursor:pointer">${avatarHTML(m,22)}<div><div class="chip-name">${escHTML(m.name)}</div><div class="chip-sub">${escHTML(g.subFn(m))}</div></div></div>`).join('');
     return `<div class="group-section">
       <div class="group-header" style="border-left-color:${g.color}">
         <span class="group-title" style="color:${g.color}">${escHTML(g.label)}</span>
@@ -166,7 +166,7 @@ function renderByLine(ms) {
   }));
   return groups.filter(g=>g.members.length>0).map(g=>{
     const col = lc(g.label);
-    const chips = g.members.map(m=>`<div class="chip">${avatarHTML(m,22)}<div><div class="chip-name">${escHTML(m.name)}</div><div class="chip-sub">${escHTML(g.subFn(m))}</div></div></div>`).join('');
+    const chips = g.members.map(m=>`<div class="chip" onclick="location.href='portfolio.html?member='+encodeURIComponent('${m.name}')" style="cursor:pointer">${avatarHTML(m,22)}<div><div class="chip-name">${escHTML(m.name)}</div><div class="chip-sub">${escHTML(g.subFn(m))}</div></div></div>`).join('');
     return `<div class="group-section">
       <div class="group-header" style="border-left-color:${col.c}">
         <span class="group-title" style="color:${col.c}">${escHTML(g.label)}</span>
