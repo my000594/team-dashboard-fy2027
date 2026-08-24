@@ -17,7 +17,9 @@
 .back-link:hover{color:var(--text)}
 .hero{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.75rem;display:flex;gap:1.75rem;align-items:flex-start;margin-bottom:1.5rem;position:relative;overflow:hidden}
 .hero::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--blue),var(--purple))}
-.hero-photo{width:80px;height:80px;border-radius:50%;object-fit:cover;border:2px solid var(--border2);flex-shrink:0}
+.hero-photo-wrap{width:80px;height:80px;flex-shrink:0}
+.hero-photo{width:80px;height:80px;border-radius:50%;object-fit:cover;border:2px solid var(--border2);display:block}
+.hero-avatar-fb{width:80px;height:80px;border-radius:50%;background:var(--blue-dim);color:var(--blue);display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:700}
 .hero-info{flex:1;min-width:0}
 .hero-name{font-size:1.5rem;font-weight:700;letter-spacing:-.02em;line-height:1.2}
 .hero-role{font-size:12.5px;color:var(--text2);margin-top:5px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
@@ -70,7 +72,7 @@
 .member-chip:hover{border-color:var(--border2)}
 .member-chip-avatar{width:24px;height:24px;border-radius:50%;object-fit:cover}
 .member-chip-fb{width:24px;height:24px;border-radius:50%;background:var(--blue-dim);color:var(--blue);display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:600}
-@media(max-width:500px){.hero{flex-direction:column;gap:1rem}.hero-photo{width:64px;height:64px}}
+@media(max-width:500px){.hero{flex-direction:column;gap:1rem}.hero-photo-wrap,.hero-photo,.hero-avatar-fb{width:64px;height:64px}.hero-avatar-fb{font-size:24px}}
 </style>
 </head>
 <body>
@@ -93,12 +95,27 @@ function initials(name) {
   return name ? name.trim().charAt(0) : '?';
 }
 
-function avatarHTML(name, imgFile, sz = 80) {
-  if (!imgFile) return `<div style="width:${sz}px;height:${sz}px;border-radius:50%;background:var(--blue-dim);color:var(--blue);display:flex;align-items:center;justify-content:center;font-size:${Math.round(sz*.38)}px;font-weight:700">${esc(initials(name))}</div>`;
+function avatarHTML(name, imgFile) {
+  const fb = `<div class="hero-avatar-fb">${esc(initials(name))}</div>`;
+  if (!imgFile) return `<div class="hero-photo-wrap">${fb}</div>`;
   const imgL = IMG_BASE + imgFile.replace(/\.[^.]+$/, e => e.toLowerCase());
   const imgU = IMG_BASE + imgFile.replace(/\.[^.]+$/, e => e.toUpperCase());
-  const fb = `<div style="width:${sz}px;height:${sz}px;border-radius:50%;background:var(--blue-dim);color:var(--blue);display:flex;align-items:center;justify-content:center;font-size:${Math.round(sz*.38)}px;font-weight:700;flex-shrink:0">${esc(initials(name))}</div>`;
-  return `<img src="${imgL}" data-upper="${imgU}" width="${sz}" height="${sz}" class="hero-photo" onerror="var u=this.getAttribute('data-upper');if(this.src!==u){this.src=u}else{this.outerHTML='${fb.replace(/'/g, "\\'")}'}" alt="${esc(name)}">`;
+  return `<div class="hero-photo-wrap">
+    <img src="${esc(imgL)}" id="heroImg" class="hero-photo" alt="${esc(name)}">
+  </div>`;
+}
+
+function setupAvatarFallback(name, imgFile) {
+  if (!imgFile) return;
+  const img = document.getElementById('heroImg');
+  if (!img) return;
+  const imgU = IMG_BASE + imgFile.replace(/\.[^.]+$/, e => e.toUpperCase());
+  let tried = false;
+  img.onerror = () => {
+    if (!tried) { tried = true; img.src = imgU; return; }
+    const wrap = img.closest('.hero-photo-wrap');
+    if (wrap) wrap.innerHTML = `<div class="hero-avatar-fb">${esc(initials(name))}</div>`;
+  };
 }
 
 function detectLatestPeriod(skills) {
@@ -126,7 +143,7 @@ function expiryHTML(dateStr) {
   return `<span class="cert-expiry-ok">有効期限 ${dateStr}</span>`;
 }
 
-function renderPortfolio(member, skills, certs, reports, allMembers) {
+function renderPortfolio(member, skills, certs, reports) {
   const period = detectLatestPeriod(skills);
 
   // ── サブカテゴリ別平均 ──
@@ -149,17 +166,13 @@ function renderPortfolio(member, skills, certs, reports, allMembers) {
   // ── 資格（取得日順）──
   const sortedCerts = [...certs].sort((a, b) => (a['資格取得日'] || '').localeCompare(b['資格取得日'] || ''));
 
-  // ── HTML構築 ──
-  const memberSwitchChips = allMembers.map(m => {
-    const isSelf = m['氏名'].trim() === member['氏名'].trim();
-    return `<span class="member-chip${isSelf ? ' active' : ''}" onclick="location.href='portfolio.html?member='+encodeURIComponent('${m['氏名'].trim()}')" style="${isSelf ? 'border-color:var(--blue);background:var(--blue-dim)' : ''}">${esc(m['氏名'].trim())}</span>`;
-  }).join('');
+  const imgFile = (member['画像'] || '').trim();
 
   document.getElementById('portfolioContent').innerHTML = `
     <a class="back-link" href="member.html">← メンバー一覧に戻る</a>
 
     <div class="hero">
-      ${avatarHTML(member['氏名'].trim(), member['画像']?.trim())}
+      ${avatarHTML(member['氏名'].trim(), imgFile)}
       <div class="hero-info">
         <div class="hero-name">${esc(member['氏名'].trim())}</div>
         <div class="hero-role">
@@ -173,12 +186,6 @@ function renderPortfolio(member, skills, certs, reports, allMembers) {
           ${member['委員会']?.trim() && member['委員会'].trim() !== '未所属' ? `<div class="hero-meta-item">👥 委員会 <strong>${esc(member['委員会'].trim())}</strong></div>` : ''}
         </div>
       </div>
-    </div>
-
-    <!-- メンバー切り替え -->
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:1.5rem;align-items:center">
-      <span style="font-size:11px;color:var(--text3);flex-shrink:0">他のメンバー：</span>
-      ${memberSwitchChips}
     </div>
 
     <!-- スキル：レーダー + 強み -->
@@ -248,6 +255,8 @@ function renderPortfolio(member, skills, certs, reports, allMembers) {
       </div>
     </div>
   `;
+
+  setupAvatarFallback(member['氏名'].trim(), imgFile);
 
   // レーダーチャート描画
   const labels = subcatAvgs.map(s => s.label);
@@ -328,7 +337,7 @@ async function init() {
     const reports = Papa.parse(reportRes.text, { header: true, skipEmptyLines: true }).data
       .filter(r => r['氏名']?.trim() === targetName);
 
-    renderPortfolio(member, skills, certs, reports, allMembers);
+    renderPortfolio(member, skills, certs, reports);
   } catch(e) {
     document.getElementById('loading').innerHTML = `<div style="color:var(--red);font-size:13px">⚠ データの読み込みに失敗しました<br><small style="color:var(--text3)">${e.message}</small></div>`;
   }
