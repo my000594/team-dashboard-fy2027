@@ -87,6 +87,28 @@
 .vote-btn:hover:not(:disabled){border-color:var(--amber)}
 .vote-btn.voted{background:var(--amber-dim);border-color:rgba(245,158,11,.4);color:var(--amber)}
 .vote-btn:disabled{opacity:.6;cursor:default}
+/* ── 上位タブ（業務 / ライフハック） ── */
+.section-tabs{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:1.5rem}
+.section-tab{padding:.65rem 1.25rem;font-size:13.5px;font-weight:500;cursor:pointer;border:none;background:transparent;color:var(--text2);font-family:var(--font);border-bottom:2px solid transparent;margin-bottom:-1px;transition:.15s;display:flex;align-items:center;gap:6px}
+.section-tab:hover{color:var(--text)}
+.section-tab.active{color:var(--text);border-bottom-color:var(--blue)}
+.section-tab.hack.active{border-bottom-color:#84cc16}
+.section-tab-badge{font-size:10px;font-family:var(--mono);padding:1px 7px;border-radius:999px;background:var(--bg3);color:var(--text3)}
+.section-tab.active .section-tab-badge{background:var(--blue-dim);color:var(--blue)}
+.section-tab.hack.active .section-tab-badge{background:rgba(132,204,22,.12);color:#84cc16}
+/* ── ライフハック カードグリッド ── */
+.hack-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;margin-bottom:4px}
+.hack-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;transition:border-color .15s}
+.hack-card:hover{border-color:var(--border2)}
+.hack-card-accent{height:3px}
+.hack-card-header{padding:.85rem 1rem;cursor:pointer;display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.hack-card-title{font-weight:700;font-size:13.5px;line-height:1.5;flex:1}
+.hack-card-chevron{color:var(--text3);flex-shrink:0;transition:transform .2s;margin-top:2px;font-size:16px}
+.hack-card.open .hack-card-chevron{transform:rotate(90deg)}
+.hack-card-body{display:none;padding:0 1rem .9rem;border-top:1px solid var(--border)}
+.hack-card.open .hack-card-body{display:block}
+.hack-card-body .md-body{padding-top:.7rem}
+@media(max-width:600px){.hack-grid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -127,36 +149,69 @@
       </div>
     </div>
   </div>
-  <div class="digest-card" id="digestCard" style="display:none">
-    <div class="digest-head">
-      <span class="digest-title">🆕 最近の更新</span>
-      <span class="digest-count" id="digestCount"></span>
+  <!-- 上位タブ -->
+  <div class="section-tabs">
+    <button class="section-tab active" id="tab-work" onclick="switchSection('work')">
+      📋 業務ナレッジ・FAQ
+      <span class="section-tab-badge" id="badge-work">—</span>
+    </button>
+    <button class="section-tab hack" id="tab-hack" onclick="switchSection('hack')">
+      🌱 ライフハック
+      <span class="section-tab-badge" id="badge-hack">—</span>
+    </button>
+  </div>
+
+  <!-- 業務ナレッジ・FAQ パネル -->
+  <div id="panel-work">
+    <div class="digest-card" id="digestCard" style="display:none">
+      <div class="digest-head">
+        <span class="digest-title">🆕 最近の更新</span>
+        <span class="digest-count" id="digestCount"></span>
+      </div>
+      <div class="digest-sub" id="digestSub">直近7日以内に追加・更新された項目</div>
+      <div id="digestBody"></div>
     </div>
-    <div class="digest-sub" id="digestSub">直近7日以内に追加・更新された項目</div>
-    <div id="digestBody"></div>
-  </div>
-  <div class="digest-card popular" id="popularCard" style="display:none">
-    <div class="digest-head">
-      <span class="digest-title">🏆 人気ナレッジ</span>
-      <span class="digest-count" id="popularCount"></span>
+    <div class="digest-card popular" id="popularCard" style="display:none">
+      <div class="digest-head">
+        <span class="digest-title">🏆 人気ナレッジ</span>
+        <span class="digest-count" id="popularCount"></span>
+      </div>
+      <div class="digest-sub">👍が多い順</div>
+      <div id="popularBody"></div>
     </div>
-    <div class="digest-sub">👍が多い順</div>
-    <div id="popularBody"></div>
+    <div class="search-wrap">
+      <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input class="search-input" id="searchInput" type="text" placeholder="キーワードで検索..." autocomplete="off">
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:1.25rem" id="filters"></div>
+    <div class="result-count-row">
+      <span class="result-count" id="resultCount"></span>
+      <span class="expand-controls">
+        <button type="button" class="toolbar-btn" onclick="expandAll()">すべて開く</button>
+        <span class="toolbar-sep">・</span>
+        <button type="button" class="toolbar-btn" onclick="collapseAll()">すべて閉じる</button>
+      </span>
+    </div>
+    <div id="contentArea"></div>
   </div>
-  <div class="search-wrap">
-    <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-    <input class="search-input" id="searchInput" type="text" placeholder="キーワードで検索..." autocomplete="off">
+
+  <!-- ライフハック パネル（種別=ライフハック、カテゴリでグルーピング） -->
+  <div id="panel-hack" style="display:none">
+    <div class="search-wrap">
+      <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input class="search-input" id="hackSearchInput" type="text" placeholder="キーワードで検索..." autocomplete="off">
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:1.25rem" id="hackFilters"></div>
+    <div class="result-count-row">
+      <span class="result-count" id="hackResultCount"></span>
+      <span class="expand-controls">
+        <button type="button" class="toolbar-btn" onclick="expandAll()">すべて開く</button>
+        <span class="toolbar-sep">・</span>
+        <button type="button" class="toolbar-btn" onclick="collapseAll()">すべて閉じる</button>
+      </span>
+    </div>
+    <div id="hackContentArea"></div>
   </div>
-  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:1.25rem" id="filters"></div>
-  <div class="result-count-row">
-    <span class="result-count" id="resultCount"></span>
-    <span class="expand-controls">
-      <button type="button" class="toolbar-btn" onclick="expandAll()">すべて開く</button>
-      <span class="toolbar-sep">・</span>
-      <button type="button" class="toolbar-btn" onclick="collapseAll()">すべて閉じる</button>
-    </span>
-  </div>
-  <div id="contentArea"></div>
 </main>
 </div>
 
@@ -166,8 +221,11 @@
 <script src="you-widget.js"></script>
 <script>
 const CAT_PALETTE = ['blue','green','amber','purple','cyan','red'];
-let allItems = [], currentCat = 'すべて', currentQuery = '';
-let catColorMap = {};
+let allItems = [], workItems = [], hackItems = [];
+let currentSection = 'work';
+let currentCat = 'すべて', currentQuery = '';
+let hackCurrentCat = 'すべて', hackCurrentQuery = '';
+let catColorMap = {}, hackCatColorMap = {};
 let childrenByParent = new Map();
 const esc = window.escapeHTML;
 
@@ -229,7 +287,7 @@ async function toggleVote(btn) {
 function renderPopular() {
   const card = document.getElementById('popularCard');
   if (!votesAvailable) { card.style.display = 'none'; return; }
-  const ranked = allItems
+  const ranked = workItems
     .map(item => ({ item, count: voteCounts[item.title] || 0 }))
     .filter(r => r.count > 0)
     .sort((a, b) => b.count - a.count)
@@ -343,7 +401,7 @@ function jumpToItem(title) {
 // 子Q&Aを持つアイテムは種別によらず記事・ガイドとして扱う。
 function filterItems() {
   const q = currentQuery.toLowerCase();
-  const topLevel = allItems.filter(i => !i.parentTitle);
+  const topLevel = workItems.filter(i => !i.parentTitle);
   const isArticle = i => i.type === 'ナレッジ' || (childrenByParent.get(i.title) || []).length > 0;
 
   const independentQA = topLevel.filter(i => !isArticle(i)).filter(i => {
@@ -502,24 +560,110 @@ function renderFlat(independentQA, articles) {
   return html;
 }
 
-// カテゴリ見出し・記事カード・Q&Aカード・子Q&Aをまとめて開閉する。
-// 「すべて閉じる」はカテゴリ見出しごと閉じ、初期表示（バッジのみ）に戻す。
+// カテゴリ見出し・記事カード・Q&Aカード・子Q&A・ハックカードをまとめて開閉する。
+// アクティブなパネルのみを対象にする。
 function expandAll() {
-  document.querySelectorAll('.cat-group-header').forEach(h => h.classList.add('open'));
-  document.querySelectorAll('.faq-card, .article-card, .child-faq-card').forEach(c => c.classList.add('open'));
+  const p = document.getElementById(currentSection === 'hack' ? 'panel-hack' : 'panel-work');
+  p.querySelectorAll('.cat-group-header').forEach(h => h.classList.add('open'));
+  p.querySelectorAll('.faq-card, .article-card, .child-faq-card, .hack-card').forEach(c => c.classList.add('open'));
 }
 function collapseAll() {
-  document.querySelectorAll('.faq-card, .article-card, .child-faq-card').forEach(c => c.classList.remove('open'));
-  document.querySelectorAll('.cat-group-header').forEach(h => h.classList.remove('open'));
+  const p = document.getElementById(currentSection === 'hack' ? 'panel-hack' : 'panel-work');
+  p.querySelectorAll('.faq-card, .article-card, .child-faq-card, .hack-card').forEach(c => c.classList.remove('open'));
+  p.querySelectorAll('.cat-group-header').forEach(h => h.classList.remove('open'));
 }
 
 function render() {
   const { independentQA, articles } = filterItems();
-  const topLevelCount = allItems.filter(i => !i.parentTitle).length;
+  const topLevelCount = workItems.filter(i => !i.parentTitle).length;
   document.getElementById('resultCount').textContent =
     `${independentQA.length + articles.length}件 表示中（全${topLevelCount}件）`;
   document.getElementById('contentArea').innerHTML =
     currentCat === 'すべて' ? renderGrouped(independentQA, articles) : renderFlat(independentQA, articles);
+}
+
+// ── ライフハック パネル ────────────────────────────────────────────
+function hackCatColor(cat) { return hackCatColorMap[cat] || 'blue'; }
+
+function renderHackCard(item, id) {
+  const color = hackCatColor(item.category);
+  return `
+    <div class="hack-card" id="${id}">
+      <div class="hack-card-accent" style="background:var(--${color})"></div>
+      <div class="hack-card-header" onclick="document.getElementById('${id}').classList.toggle('open')">
+        <div class="hack-card-title">${item.isRecent ? '<span class="item-update-badge">更新</span>' : ''}${esc(item.title)}</div>
+        <span class="hack-card-chevron">›</span>
+      </div>
+      <div class="hack-card-body">
+        <div class="md-body">${md2html(item.body)}</div>
+        <div class="faq-footer">
+          ${(item.tags||[]).map(t=>`<span class="tag">${esc(t)}</span>`).join('')}
+          <span style="margin-left:auto;display:flex;align-items:center;gap:8px">
+            ${voteBtnHTML(item)}
+            <span style="font-size:10px;color:var(--text3);font-family:var(--mono)">${esc(item.updated||'')}</span>
+          </span>
+        </div>
+      </div>
+    </div>`;
+}
+
+function hackFilterItems() {
+  const q = hackCurrentQuery.toLowerCase();
+  return hackItems.filter(i => {
+    if (hackCurrentCat !== 'すべて' && i.category !== hackCurrentCat) return false;
+    if (!q) return true;
+    return i.title.toLowerCase().includes(q) ||
+      (i.body||'').toLowerCase().includes(q) ||
+      (i.tags||[]).some(t => t.toLowerCase().includes(q));
+  });
+}
+
+function renderHack() {
+  const filtered = hackFilterItems();
+  const catOrder = Object.keys(hackCatColorMap);
+  document.getElementById('hackResultCount').textContent =
+    `${filtered.length}件 表示中（全${hackItems.length}件）`;
+
+  if (!filtered.length) {
+    document.getElementById('hackContentArea').innerHTML =
+      `<div class="empty">${hackCurrentQuery ? `「${esc(hackCurrentQuery)}」に一致するライフハックが見つかりませんでした` : '該当するライフハックがありません'}</div>`;
+    return;
+  }
+
+  if (hackCurrentCat !== 'すべて') {
+    document.getElementById('hackContentArea').innerHTML =
+      `<div class="hack-grid">${filtered.map((item,i) => renderHackCard(item, `hack-${i}`)).join('')}</div>`;
+    return;
+  }
+
+  const cats = [...new Set(filtered.map(i => i.category))]
+    .sort((a,b) => catOrder.indexOf(a) - catOrder.indexOf(b));
+  document.getElementById('hackContentArea').innerHTML = cats.map((cat, gi) => {
+    const items = filtered.filter(i => i.category === cat);
+    const color = hackCatColor(cat);
+    return `
+      <div class="cat-group">
+        <div class="cat-group-header" onclick="this.classList.toggle('open')">
+          <span class="badge badge-${color}" style="font-size:12px;padding:3px 10px">${esc(cat)}</span>
+          <span class="cat-group-count">${items.length}件</span>
+          <span class="cat-group-chevron">›</span>
+        </div>
+        <div class="cat-group-body">
+          <div class="hack-grid">
+            ${items.map((item,i) => renderHackCard(item, `hack-g${gi}-${i}`)).join('')}
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function switchSection(s) {
+  currentSection = s;
+  const isHack = s === 'hack';
+  document.getElementById('panel-work').style.display = isHack ? 'none' : '';
+  document.getElementById('panel-hack').style.display = isHack ? '' : 'none';
+  document.getElementById('tab-work').classList.toggle('active', !isHack);
+  document.getElementById('tab-hack').classList.toggle('active', isHack);
 }
 
 
@@ -544,16 +688,20 @@ async function init() {
       parentTitle: (r['親ナレッジ']||'').trim(),
     })).filter(r=>r.title);
 
-    // 親タイトル → 子Q&Aリスト のマップを構築
+    // 種別=ライフハック → ライフハックパネル、それ以外 → 業務パネル
+    hackItems = allItems.filter(i => i.type === 'ライフハック' && !i.parentTitle);
+    workItems = allItems.filter(i => i.type !== 'ライフハック');
+
+    // 業務：親タイトル → 子Q&Aリスト のマップを構築
     childrenByParent = new Map();
-    for (const item of allItems) {
+    for (const item of workItems) {
       if (!item.parentTitle) continue;
       if (!childrenByParent.has(item.parentTitle)) childrenByParent.set(item.parentTitle, []);
       childrenByParent.get(item.parentTitle).push(item);
     }
 
-    // カテゴリは親記事（トップレベル）の出現順に色を自動割り当てる。子Q&Aはカウントから除外。
-    const topLevel = allItems.filter(i => !i.parentTitle);
+    // 業務：カテゴリは親記事（トップレベル）の出現順に色を自動割り当てる
+    const topLevel = workItems.filter(i => !i.parentTitle);
     const categories = [...new Set(topLevel.map(i=>i.category))];
     categories.forEach((cat,i) => { catColorMap[cat] = CAT_PALETTE[i % CAT_PALETTE.length]; });
     const CATEGORIES = ['すべて', ...categories];
@@ -567,7 +715,7 @@ async function init() {
         : `${cat} (${topLevel.filter(i=>i.category===cat).length})`;
       btn.onclick = () => {
         currentCat = cat;
-        document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+        document.querySelectorAll('#panel-work .filter-btn').forEach(b=>b.classList.remove('active'));
         btn.classList.add('active');
         render();
       };
@@ -575,9 +723,38 @@ async function init() {
     });
 
     document.getElementById('searchInput').addEventListener('input', e=>{ currentQuery=e.target.value; render(); });
+
+    // ライフハック：カテゴリ色マップとフィルターを構築
+    const hackCategories = [...new Set(hackItems.map(i=>i.category))];
+    hackCategories.forEach((cat,i) => { hackCatColorMap[cat] = CAT_PALETTE[i % CAT_PALETTE.length]; });
+    const HACK_CATEGORIES = ['すべて', ...hackCategories];
+
+    const hfEl = document.getElementById('hackFilters');
+    HACK_CATEGORIES.forEach(cat => {
+      const btn = document.createElement('button');
+      btn.className = 'filter-btn'+(cat==='すべて'?' active':'');
+      btn.textContent = cat==='すべて'
+        ? `すべて (${hackItems.length})`
+        : `${cat} (${hackItems.filter(i=>i.category===cat).length})`;
+      btn.onclick = () => {
+        hackCurrentCat = cat;
+        document.querySelectorAll('#panel-hack .filter-btn').forEach(b=>b.classList.remove('active'));
+        btn.classList.add('active');
+        renderHack();
+      };
+      hfEl.appendChild(btn);
+    });
+
+    document.getElementById('hackSearchInput').addEventListener('input', e=>{ hackCurrentQuery=e.target.value; renderHack(); });
+
+    // タブバッジに件数を表示
+    document.getElementById('badge-work').textContent = topLevel.length;
+    document.getElementById('badge-hack').textContent = hackItems.length;
+
     renderDigest(computeRecentUpdates(topLevel));
     renderPopular();
     render();
+    renderHack();
 
     document.getElementById('loading').style.display = 'none';
     document.getElementById('app').classList.add('ready');
