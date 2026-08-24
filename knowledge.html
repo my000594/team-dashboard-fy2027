@@ -184,6 +184,22 @@
 
   <!-- ライフハック パネル（種別=ライフハック、カテゴリでグルーピング） -->
   <div id="panel-hack" style="display:none">
+    <div class="digest-card" id="hackDigestCard" style="display:none">
+      <div class="digest-head">
+        <span class="digest-title">🆕 最近の更新</span>
+        <span class="digest-count" id="hackDigestCount"></span>
+      </div>
+      <div class="digest-sub">直近7日以内に追加・更新された項目</div>
+      <div id="hackDigestBody"></div>
+    </div>
+    <div class="digest-card popular" id="hackPopularCard" style="display:none">
+      <div class="digest-head">
+        <span class="digest-title">🏆 人気ライフハック</span>
+        <span class="digest-count" id="hackPopularCount"></span>
+      </div>
+      <div class="digest-sub">👍が多い順</div>
+      <div id="hackPopularBody"></div>
+    </div>
     <div class="search-wrap">
       <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
       <input class="search-input" id="hackSearchInput" type="text" placeholder="キーワードで検索..." autocomplete="off">
@@ -263,6 +279,7 @@ async function toggleVote(btn) {
     btn.classList.toggle('voted', data.voted);
     btn.querySelector('span').textContent = data.count;
     renderPopular();
+    renderHackPopular();
   } catch (e) {
     // 失敗時は何もしない（次回の操作でまた試せる。カウント表示はAPIから取得した値のままなので不整合は残らない）
   } finally {
@@ -572,6 +589,75 @@ function render() {
 // ── ライフハック パネル ────────────────────────────────────────────
 function hackCatColor(cat) { return hackCatColorMap[cat] || 'blue'; }
 
+function jumpToHackItem(title) {
+  switchSection('hack');
+  hackCurrentCat = 'すべて';
+  hackCurrentQuery = '';
+  document.getElementById('hackSearchInput').value = '';
+  document.querySelectorAll('#panel-hack .filter-btn').forEach((b, i) => b.classList.toggle('active', i === 0));
+  renderHack();
+  const titleEl = [...document.querySelectorAll('#panel-hack .faq-card-title, #panel-hack .article-title')]
+    .find(el => el.textContent.trim() === title.trim() || el.textContent.includes(title));
+  if (!titleEl) return;
+  const card = titleEl.closest('.faq-card, .article-card');
+  if (!card) return;
+  card.classList.add('open');
+  const catHeader = card.closest('.cat-group')?.querySelector('.cat-group-header');
+  if (catHeader) catHeader.classList.add('open');
+  card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function renderHackDigest() {
+  const updates = hackItems.filter(item => {
+    if (!item.updated) return false;
+    const days = daysSince(item.updated);
+    if (days === null || days < 0 || days > UPDATE_BADGE_DAYS) return false;
+    item.isRecent = true;
+    return true;
+  }).sort((a, b) => (b.updated || '').localeCompare(a.updated || ''));
+
+  const card = document.getElementById('hackDigestCard');
+  if (!updates.length) { card.style.display = 'none'; return; }
+  card.style.display = 'block';
+  document.getElementById('hackDigestCount').textContent = `${updates.length}件`;
+  const shown = updates.slice(0, UPDATE_DIGEST_LIMIT);
+  const overflow = updates.length - shown.length;
+  document.getElementById('hackDigestBody').innerHTML =
+    shown.map(item => `
+      <div class="digest-row" data-title="${esc(item.title)}">
+        <span class="digest-status">更新</span>
+        <span class="digest-item-title">${esc(item.title)}</span>
+        <span class="badge badge-${hackCatColor(item.category)}">${esc(item.category)}</span>
+        <span class="digest-time">${formatRelative(item.updated)}</span>
+      </div>`).join('')
+    + (overflow > 0 ? `<div class="digest-more">ほか${overflow}件</div>` : '');
+  document.querySelectorAll('#hackDigestBody .digest-row').forEach(row => {
+    row.addEventListener('click', () => jumpToHackItem(row.dataset.title));
+  });
+}
+
+function renderHackPopular() {
+  const card = document.getElementById('hackPopularCard');
+  if (!votesAvailable) { card.style.display = 'none'; return; }
+  const ranked = hackItems
+    .map(item => ({ item, count: voteCounts[item.title] || 0 }))
+    .filter(r => r.count > 0)
+    .sort((a, b) => b.count - a.count)
+    .slice(0, POPULAR_LIMIT);
+  if (!ranked.length) { card.style.display = 'none'; return; }
+  card.style.display = 'block';
+  document.getElementById('hackPopularCount').textContent = `${ranked.length}件`;
+  document.getElementById('hackPopularBody').innerHTML = ranked.map(({ item, count }) => `
+    <div class="digest-row" data-title="${esc(item.title)}">
+      <span class="digest-status">👍 ${count}</span>
+      <span class="digest-item-title">${esc(item.title)}</span>
+      <span class="badge badge-${hackCatColor(item.category)}">${esc(item.category)}</span>
+    </div>`).join('');
+  document.querySelectorAll('#hackPopularBody .digest-row').forEach(row => {
+    row.addEventListener('click', () => jumpToHackItem(row.dataset.title));
+  });
+}
+
 // q フィールドが空 → 記事カード、あれば FAQ カード（業務側と同じ判定ロジック）
 const hackIsArticle = i => !i.q;
 
@@ -735,6 +821,8 @@ async function init() {
 
     renderDigest(computeRecentUpdates(topLevel));
     renderPopular();
+    renderHackDigest();
+    renderHackPopular();
     render();
     renderHack();
 
