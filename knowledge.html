@@ -96,19 +96,6 @@
 .section-tab-badge{font-size:10px;font-family:var(--mono);padding:1px 7px;border-radius:999px;background:var(--bg3);color:var(--text3)}
 .section-tab.active .section-tab-badge{background:var(--blue-dim);color:var(--blue)}
 .section-tab.hack.active .section-tab-badge{background:rgba(132,204,22,.12);color:#84cc16}
-/* ── ライフハック カードグリッド ── */
-.hack-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;margin-bottom:4px}
-.hack-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;transition:border-color .15s}
-.hack-card:hover{border-color:var(--border2)}
-.hack-card-accent{height:3px}
-.hack-card-header{padding:.85rem 1rem;cursor:pointer;display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
-.hack-card-title{font-weight:700;font-size:13.5px;line-height:1.5;flex:1}
-.hack-card-chevron{color:var(--text3);flex-shrink:0;transition:transform .2s;margin-top:2px;font-size:16px}
-.hack-card.open .hack-card-chevron{transform:rotate(90deg)}
-.hack-card-body{display:none;padding:0 1rem .9rem;border-top:1px solid var(--border)}
-.hack-card.open .hack-card-body{display:block}
-.hack-card-body .md-body{padding-top:.7rem}
-@media(max-width:600px){.hack-grid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -434,7 +421,7 @@ function filterItems() {
   return { independentQA, articles };
 }
 
-function renderFaqCard(item, id) {
+function renderFaqCard(item, id, colorFn = catColor) {
   return `
     <div class="faq-card" id="${id}">
       <div class="faq-header" onclick="document.getElementById('${id}').classList.toggle('open')">
@@ -445,7 +432,7 @@ function renderFaqCard(item, id) {
         ${item.q ? `<div class="faq-q" style="margin-bottom:.75rem">${esc(item.q)}</div>` : ''}
         <div class="faq-a"><div class="faq-a-body"><div class="md-body">${md2html(item.body)}</div></div></div>
         <div class="faq-footer">
-          <span class="badge badge-${catColor(item.category)}">${esc(item.category)}</span>
+          <span class="badge badge-${colorFn(item.category)}">${esc(item.category)}</span>
           <span class="tag">${esc(item.type)}</span>
           ${(item.tags||[]).map(t=>`<span class="tag">${esc(t)}</span>`).join('')}
           <span style="margin-left:auto;display:flex;align-items:center;gap:8px">
@@ -478,8 +465,8 @@ function renderChildFaqCard(child, id) {
     </div>`;
 }
 
-function renderArticleCard(item, artId) {
-  const children = childrenByParent.get(item.title) || [];
+function renderArticleCard(item, artId, colorFn = catColor, childMap = childrenByParent) {
+  const children = childMap.get(item.title) || [];
   const childrenHtml = children.length ? `
     <div class="child-qa-section">
       <div class="child-qa-label">関連Q&amp;A (${children.length})</div>
@@ -500,7 +487,7 @@ function renderArticleCard(item, artId) {
       </div>
       <div class="article-body">
         <div style="display:flex;gap:8px;align-items:center;margin-bottom:.75rem;flex-wrap:wrap">
-          <span class="badge badge-${catColor(item.category)}">${esc(item.category)}</span>
+          <span class="badge badge-${colorFn(item.category)}">${esc(item.category)}</span>
           <span class="tag">${esc(item.type)}</span>
           ${(item.tags||[]).map(t=>`<span class="tag">${esc(t)}</span>`).join('')}
           <span style="margin-left:auto;display:flex;align-items:center;gap:8px">
@@ -565,11 +552,11 @@ function renderFlat(independentQA, articles) {
 function expandAll() {
   const p = document.getElementById(currentSection === 'hack' ? 'panel-hack' : 'panel-work');
   p.querySelectorAll('.cat-group-header').forEach(h => h.classList.add('open'));
-  p.querySelectorAll('.faq-card, .article-card, .child-faq-card, .hack-card').forEach(c => c.classList.add('open'));
+  p.querySelectorAll('.faq-card, .article-card, .child-faq-card').forEach(c => c.classList.add('open'));
 }
 function collapseAll() {
   const p = document.getElementById(currentSection === 'hack' ? 'panel-hack' : 'panel-work');
-  p.querySelectorAll('.faq-card, .article-card, .child-faq-card, .hack-card').forEach(c => c.classList.remove('open'));
+  p.querySelectorAll('.faq-card, .article-card, .child-faq-card').forEach(c => c.classList.remove('open'));
   p.querySelectorAll('.cat-group-header').forEach(h => h.classList.remove('open'));
 }
 
@@ -585,27 +572,8 @@ function render() {
 // ── ライフハック パネル ────────────────────────────────────────────
 function hackCatColor(cat) { return hackCatColorMap[cat] || 'blue'; }
 
-function renderHackCard(item, id) {
-  const color = hackCatColor(item.category);
-  return `
-    <div class="hack-card" id="${id}">
-      <div class="hack-card-accent" style="background:var(--${color})"></div>
-      <div class="hack-card-header" onclick="document.getElementById('${id}').classList.toggle('open')">
-        <div class="hack-card-title">${item.isRecent ? '<span class="item-update-badge">更新</span>' : ''}${esc(item.title)}</div>
-        <span class="hack-card-chevron">›</span>
-      </div>
-      <div class="hack-card-body">
-        <div class="md-body">${md2html(item.body)}</div>
-        <div class="faq-footer">
-          ${(item.tags||[]).map(t=>`<span class="tag">${esc(t)}</span>`).join('')}
-          <span style="margin-left:auto;display:flex;align-items:center;gap:8px">
-            ${voteBtnHTML(item)}
-            <span style="font-size:10px;color:var(--text3);font-family:var(--mono)">${esc(item.updated||'')}</span>
-          </span>
-        </div>
-      </div>
-    </div>`;
-}
+// q フィールドが空 → 記事カード、あれば FAQ カード（業務側と同じ判定ロジック）
+const hackIsArticle = i => !i.q;
 
 function hackFilterItems() {
   const q = hackCurrentQuery.toLowerCase();
@@ -613,6 +581,7 @@ function hackFilterItems() {
     if (hackCurrentCat !== 'すべて' && i.category !== hackCurrentCat) return false;
     if (!q) return true;
     return i.title.toLowerCase().includes(q) ||
+      (i.q||'').toLowerCase().includes(q) ||
       (i.body||'').toLowerCase().includes(q) ||
       (i.tags||[]).some(t => t.toLowerCase().includes(q));
   });
@@ -631,28 +600,41 @@ function renderHack() {
   }
 
   if (hackCurrentCat !== 'すべて') {
-    document.getElementById('hackContentArea').innerHTML =
-      `<div class="hack-grid">${filtered.map((item,i) => renderHackCard(item, `hack-${i}`)).join('')}</div>`;
+    // 特定カテゴリ選択時：Q&A / 記事・ガイドをセクション分けして表示
+    const faqItems = filtered.filter(i => !hackIsArticle(i));
+    const artItems = filtered.filter(i => hackIsArticle(i));
+    let html = '';
+    if (faqItems.length) {
+      html += `<div class="section-label">Q&amp;A</div>`;
+      html += faqItems.map((item,i) => renderFaqCard(item, `hack-faq-${i}`, hackCatColor)).join('');
+    }
+    if (artItems.length) {
+      html += `<div class="section-label">記事・ガイド</div>`;
+      html += artItems.map((item,i) => renderArticleCard(item, `hack-art-${i}`, hackCatColor, new Map())).join('');
+    }
+    document.getElementById('hackContentArea').innerHTML = html || `<div class="empty">該当するライフハックがありません</div>`;
     return;
   }
 
+  // すべて表示時：カテゴリ単位のアコーディオングループで表示
   const cats = [...new Set(filtered.map(i => i.category))]
     .sort((a,b) => catOrder.indexOf(a) - catOrder.indexOf(b));
   document.getElementById('hackContentArea').innerHTML = cats.map((cat, gi) => {
-    const items = filtered.filter(i => i.category === cat);
-    const color = hackCatColor(cat);
+    const faqItems = filtered.filter(i => i.category === cat && !hackIsArticle(i));
+    const artItems = filtered.filter(i => i.category === cat && hackIsArticle(i));
+    const total = faqItems.length + artItems.length;
+    const content = [
+      ...faqItems.map((item,i) => renderFaqCard(item, `hack-g${gi}-faq-${i}`, hackCatColor)),
+      ...artItems.map((item,i) => renderArticleCard(item, `hack-g${gi}-art-${i}`, hackCatColor, new Map())),
+    ].join('');
     return `
       <div class="cat-group">
         <div class="cat-group-header" onclick="this.classList.toggle('open')">
-          <span class="badge badge-${color}" style="font-size:12px;padding:3px 10px">${esc(cat)}</span>
-          <span class="cat-group-count">${items.length}件</span>
+          <span class="badge badge-${hackCatColor(cat)}" style="font-size:12px;padding:3px 10px">${esc(cat)}</span>
+          <span class="cat-group-count">${total}件</span>
           <span class="cat-group-chevron">›</span>
         </div>
-        <div class="cat-group-body">
-          <div class="hack-grid">
-            ${items.map((item,i) => renderHackCard(item, `hack-g${gi}-${i}`)).join('')}
-          </div>
-        </div>
+        <div class="cat-group-body">${content}</div>
       </div>`;
   }).join('');
 }
