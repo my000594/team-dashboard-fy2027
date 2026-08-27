@@ -82,18 +82,14 @@ WEB勤怠や現場勤務表は、皆さんの給与計算にも関わる重要�
 常駐勤務者（受託勤務者は対象外）は、現場勤務表の提出先に以下を設定してください。
 
 ### 宛先
-
-- 【HD】総務経理グループ共有
-- [soumubu@sysystem.co.jp](mailto:soumubu@sysystem.co.jp)
+ [【HD】総務経理グループ共有](mailto:soumubu@sysystem.co.jp)
 
 ### CC
+[【SYS】関東事業部 営業部共有](mailto:kantou.eigyoubu@sysystem.co.jp)
 
-- 【SYS】関東事業部 営業部共有
-([kantou.eigyoubu@sysystem.co.jp](mailto:kantou.eigyoubu@sysystem.co.jp))
-- 米花雅史（SY000594）
-([yonehana.masashi@sysystem.co.jp](mailto:yonehana.masashi@sysystem.co.jp))
-- 伊藤良多（SY000901）
-( [ito.ryota@sysystem.co.jp](mailto:ito.ryota@sysystem.co.jp))",2026-08-27,,info,恒常,
+[ 米花雅史（SY000594）](mailto:yonehana.masashi@sysystem.co.jp)
+
+ [伊藤良多（SY000901）](mailto:ito.ryota@sysystem.co.jp)",2026-08-27,,info,恒常,
 ,,,,,,
 ,,,,,,
 機能をアップデートしました！（ライフハック掲載、ポートフォリオページ追加）,"## 💡 ライフハックを掲載するようにしました！
