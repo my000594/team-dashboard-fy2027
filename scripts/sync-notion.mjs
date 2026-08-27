@@ -392,7 +392,7 @@ async function main() {
   await section('info.csv', async () => {
     console.log('== info.csv ==');
     const infoPages = await notionQuery(DB.info);
-    assertProperties(infoPages, ['タイトル','本文','開始日','終了日','種別','表示順'], 'info.csv');
+    assertProperties(infoPages, ['タイトル','本文','開始日','終了日','種別','表示期間','表示順'], 'info.csv');
     const infoRows = infoPages.map(page => {
       const props = page.properties;
       return {
@@ -402,6 +402,7 @@ async function main() {
         '開始日': getDateStart(props['開始日']),
         '終了日': getDateStart(props['終了日']),
         '種別': getSelect(props['種別']),
+        '表示期間': getSelect(props['表示期間']),
         '表示順': props['表示順']?.number ?? '',
       };
     });
@@ -412,7 +413,7 @@ async function main() {
       if (b.__order != null) return 1;
       return 0;
     });
-    await writeCsv('info.csv', ['タイトル','本文','開始日','終了日','種別','表示順'], infoRows);
+    await writeCsv('info.csv', ['タイトル','本文','開始日','終了日','種別','表示期間','表示順'], infoRows);
   });
 
   await section('knowledge.csv', async () => {

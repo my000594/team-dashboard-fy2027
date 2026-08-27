@@ -73,6 +73,7 @@
       <div class="card-title">📢 インフォメーション</div>
       <a href="info.html" class="info-archive-btn">すべて見る</a>
     </div>
+    <div id="persistentSection"></div>
     <div id="infoList"></div>
   </div>
 
@@ -164,11 +165,29 @@ async function init() {
       return null;
     }
     const INFO_TOP_LIMIT = 5;
+    const PERSISTENT_TOP_LIMIT = 2; // 恒常インフォメーションはトップページで最大何件表示するか（超過分はinfo.htmlへ）
     const NEW_BADGE_DAYS = 3; // 開始日から何日間「NEW!」を表示するか（開始日を含む）
     const infoCard = document.getElementById('infoCard');
     const infoList = document.getElementById('infoList');
+    const persistentSection = document.getElementById('persistentSection');
     const today0 = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
+    // 恒常インフォメーション：表示期間＝恒常の行。終了日での絞り込みは行わず、常に対象
+    const persistentInfo = infoRows
+      .filter(r => (r['表示期間'] || '') === '恒常')
+      .map(r => ({ r, start: parseDateFlexible(r['開始日']) }))
+      .sort((a, b) => {
+        const oa = a.r['表示順'] !== '' && a.r['表示順'] != null ? Number(a.r['表示順']) : null;
+        const ob = b.r['表示順'] !== '' && b.r['表示順'] != null ? Number(b.r['表示順']) : null;
+        if (oa != null && ob != null) return oa - ob;
+        if (oa != null) return -1;
+        if (ob != null) return 1;
+        if (a.start && b.start) return a.start - b.start;
+        return 0;
+      });
+
     const activeInfo = infoRows
+      .filter(r => (r['表示期間'] || '') !== '恒常')
       .map(r => ({ r, start: parseDateFlexible(r['開始日']), end: parseDateFlexible(r['終了日']) }))
       .filter(x => x.start && x.end && today0 >= x.start && today0 <= x.end)
       .sort((a, b) => {
@@ -180,8 +199,35 @@ async function init() {
         return a.end - b.end;
       });
 
-    if (activeInfo.length > 0) {
+    if (persistentInfo.length > 0) {
+      const shown = persistentInfo.slice(0, PERSISTENT_TOP_LIMIT).map(({ r, start }) => {
+        const daysSinceStart = start ? Math.floor((today0 - start) / (1000*60*60*24)) : -1;
+        const isNew = daysSinceStart >= 0 && daysSinceStart < NEW_BADGE_DAYS;
+        return `<div class="info-item pin-mini-item" onclick="this.classList.toggle('open')">
+          <span class="pin-mini-ico">📌</span>
+          <div class="info-main">
+            <div class="info-title-row">
+              ${isNew ? '<span class="info-new-badge">NEW!</span>' : ''}
+              <span class="info-title">${escapeHTML(r['タイトル'] || '')}</span>
+              <span class="info-chevron">›</span>
+            </div>
+            <div class="info-body md-body">${md2html(r['本文'])}</div>
+          </div>
+        </div>`;
+      }).join('');
+      const overflow = persistentInfo.length > PERSISTENT_TOP_LIMIT
+        ? `<a href="info.html#persistent" class="pin-mini-more">ほか${persistentInfo.length - PERSISTENT_TOP_LIMIT}件の恒常情報 → すべて見る</a>`
+        : '';
+      const divider = activeInfo.length > 0 ? '<div class="pin-section-divider"></div>' : '';
+      persistentSection.innerHTML = `<div class="pin-mini-list">${shown}</div>${overflow}${divider}`;
+    } else {
+      persistentSection.innerHTML = '';
+    }
+
+    if (activeInfo.length > 0 || persistentInfo.length > 0) {
       infoCard.style.display = '';
+    }
+    if (activeInfo.length > 0) {
       infoList.innerHTML = activeInfo.slice(0, INFO_TOP_LIMIT).map(({ r, start, end }) => {
         const type = r['種別'] || 'info';
         const dotClass = type === 'deadline' ? 'info-deadline' : type === 'event' ? 'info-event' : 'info-info';

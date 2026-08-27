@@ -54,6 +54,7 @@
       <div class="card-title">📢 現在の表示</div>
       <button type="button" class="info-archive-btn" id="archiveToggleBtn" onclick="toggleArchive()">アーカイブ</button>
     </div>
+    <div id="persistent" style="scroll-margin-top:1rem"></div>
     <div id="infoList"></div>
     <div id="archiveList" style="display:none"></div>
   </div>
@@ -85,7 +86,23 @@ async function init() {
     const NEW_BADGE_DAYS = 3; // 開始日から何日間「NEW!」を表示するか（開始日を含む）
     const today = new Date();
     const today0 = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
+    // 恒常インフォメーション：表示期間＝恒常の行。終了日での絞り込みは行わず、常に対象（info.htmlは上限なしで全件）
+    const persistentInfo = infoRows
+      .filter(r => (r['表示期間'] || '') === '恒常')
+      .map(r => ({ r, start: parseDateFlexible(r['開始日']) }))
+      .sort((a, b) => {
+        const oa = a.r['表示順'] !== '' && a.r['表示順'] != null ? Number(a.r['表示順']) : null;
+        const ob = b.r['表示順'] !== '' && b.r['表示順'] != null ? Number(b.r['表示順']) : null;
+        if (oa != null && ob != null) return oa - ob;
+        if (oa != null) return -1;
+        if (ob != null) return 1;
+        if (a.start && b.start) return a.start - b.start;
+        return 0;
+      });
+
     const parsedInfo = infoRows
+      .filter(r => (r['表示期間'] || '') !== '恒常')
       .map(r => ({ r, start: parseDateFlexible(r['開始日']), end: parseDateFlexible(r['終了日']) }))
       .filter(x => x.start && x.end);
     const activeInfo   = parsedInfo.filter(x => today0 >= x.start && today0 <= x.end).sort((a, b) => {
@@ -100,6 +117,28 @@ async function init() {
 
     document.getElementById('subtitle').textContent =
       `${today.toLocaleDateString('ja-JP')} 時点 — 表示中 ${activeInfo.length}件 ／ アーカイブ ${archivedInfo.length}件`;
+
+    const persistentSection = document.getElementById('persistent');
+    if (persistentInfo.length > 0) {
+      const items = persistentInfo.map(({ r, start }) => {
+        const daysSinceStart = start ? Math.floor((today0 - start) / (1000*60*60*24)) : -1;
+        const isNew = daysSinceStart >= 0 && daysSinceStart < NEW_BADGE_DAYS;
+        return `<div class="info-item pin-mini-item" onclick="this.classList.toggle('open')">
+          <span class="pin-mini-ico">📌</span>
+          <div class="info-main">
+            <div class="info-title-row">
+              ${isNew ? '<span class="info-new-badge">NEW!</span>' : ''}
+              <span class="info-title">${escapeHTML(r['タイトル'] || '')}</span>
+              <span class="info-chevron">›</span>
+            </div>
+            <div class="info-body md-body">${md2html(r['本文'])}</div>
+          </div>
+        </div>`;
+      }).join('');
+      persistentSection.innerHTML = `<div class="pin-mini-list">${items}</div><div class="pin-section-divider"></div>`;
+    } else {
+      persistentSection.innerHTML = '';
+    }
 
     function infoItemHTML({ r, start, end }, archived) {
       const type = r['種別'] || 'info';
