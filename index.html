@@ -199,6 +199,29 @@ async function init() {
         return a.end - b.end;
       });
 
+    // 展開した本文内にだけ「リンクをコピー」を出す（一覧をごちゃつかせないため）。
+    // お知らせにはタイトル文字列以外の一意なIDが無いため、タイトルを識別子として使う
+    // （knowledge.htmlの👍投票と同じ理由・同じ制約：Notion側でタイトルを変えるとリンクが該当項目を見つけられなくなる）
+    // リンクは常にinfo.htmlを指す（トップページは最大5件・恒常も上限2件までしか表示しないため、
+    // ディープリンクの受け口＝全件表示のinfo.html側にだけ用意している）
+    const LINK_COPY_LABEL = '🔗 このお知らせへのリンクをコピー';
+    function infoBodyHTML(title, body) {
+      return `<div class="info-body">
+        <div class="md-body">${md2html(body)}</div>
+        <button type="button" class="info-link-copy" data-title="${escapeHTML(title)}" onclick="event.stopPropagation(); copyInfoLink(this)">${LINK_COPY_LABEL}</button>
+      </div>`;
+    }
+    window.copyInfoLink = async function(btn) {
+      const url = `${location.origin}/info.html?item=${encodeURIComponent(btn.dataset.title)}`;
+      try {
+        await navigator.clipboard.writeText(url);
+        btn.textContent = '✅ コピーしました';
+      } catch (e) {
+        btn.textContent = '⚠ コピーに失敗しました';
+      }
+      setTimeout(() => { btn.textContent = LINK_COPY_LABEL; }, 2000);
+    };
+
     if (persistentInfo.length > 0) {
       const shown = persistentInfo.slice(0, PERSISTENT_TOP_LIMIT).map(({ r, start }) => {
         const daysSinceStart = start ? Math.floor((today0 - start) / (1000*60*60*24)) : -1;
@@ -211,7 +234,7 @@ async function init() {
               <span class="info-title">${escapeHTML(r['タイトル'] || '')}</span>
               <span class="info-chevron">›</span>
             </div>
-            <div class="info-body md-body">${md2html(r['本文'])}</div>
+            ${infoBodyHTML(r['タイトル'] || '', r['本文'])}
           </div>
         </div>`;
       }).join('');
@@ -245,7 +268,7 @@ async function init() {
               <span class="info-due-badge ${dueClass}">${dueText}</span>
               <span class="info-chevron">›</span>
             </div>
-            <div class="info-body md-body">${md2html(r['本文'])}</div>
+            ${infoBodyHTML(r['タイトル'] || '', r['本文'])}
           </div>
         </div>`;
       }).join('');

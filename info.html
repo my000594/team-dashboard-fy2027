@@ -118,6 +118,27 @@ async function init() {
     document.getElementById('subtitle').textContent =
       `${today.toLocaleDateString('ja-JP')} 時点 — 表示中 ${activeInfo.length}件 ／ アーカイブ ${archivedInfo.length}件`;
 
+    // 展開した本文内にだけ「リンクをコピー」を出す（一覧をごちゃつかせないため）。
+    // お知らせにはタイトル文字列以外の一意なIDが無いため、タイトルを識別子として使う
+    // （knowledge.htmlの👍投票と同じ理由・同じ制約：Notion側でタイトルを変えるとリンクが該当項目を見つけられなくなる）
+    const LINK_COPY_LABEL = '🔗 このお知らせへのリンクをコピー';
+    function infoBodyHTML(title, body) {
+      return `<div class="info-body">
+        <div class="md-body">${md2html(body)}</div>
+        <button type="button" class="info-link-copy" data-title="${escapeHTML(title)}" onclick="event.stopPropagation(); copyInfoLink(this)">${LINK_COPY_LABEL}</button>
+      </div>`;
+    }
+    window.copyInfoLink = async function(btn) {
+      const url = `${location.origin}/info.html?item=${encodeURIComponent(btn.dataset.title)}`;
+      try {
+        await navigator.clipboard.writeText(url);
+        btn.textContent = '✅ コピーしました';
+      } catch (e) {
+        btn.textContent = '⚠ コピーに失敗しました';
+      }
+      setTimeout(() => { btn.textContent = LINK_COPY_LABEL; }, 2000);
+    };
+
     const persistentSection = document.getElementById('persistent');
     if (persistentInfo.length > 0) {
       const items = persistentInfo.map(({ r, start }) => {
@@ -131,7 +152,7 @@ async function init() {
               <span class="info-title">${escapeHTML(r['タイトル'] || '')}</span>
               <span class="info-chevron">›</span>
             </div>
-            <div class="info-body md-body">${md2html(r['本文'])}</div>
+            ${infoBodyHTML(r['タイトル'] || '', r['本文'])}
           </div>
         </div>`;
       }).join('');
@@ -164,7 +185,7 @@ async function init() {
             <span class="info-due-badge ${dueClass}">${dueText}</span>
             <span class="info-chevron">›</span>
           </div>
-          <div class="info-body md-body">${md2html(r['本文'])}</div>
+          ${infoBodyHTML(r['タイトル'] || '', r['本文'])}
         </div>
       </div>`;
     }
@@ -187,6 +208,33 @@ async function init() {
       btn.textContent = showingArchive ? 'アーカイブ' : '現在の表示に戻る';
       document.querySelector('.card-title').textContent = showingArchive ? '📢 現在の表示' : '📦 アーカイブ';
     };
+
+    // ディープリンク（?item=タイトル）で開かれた場合、該当項目まで自動スクロール＋展開する。
+    // タイトルが変更・削除されていて見つからない場合は何もせず通常表示のまま（サイレントフェイル）
+    const deepLinkTitle = new URLSearchParams(location.search).get('item');
+    if (deepLinkTitle) {
+      let target = null;
+      const pIdx = persistentInfo.findIndex(x => (x.r['タイトル'] || '') === deepLinkTitle);
+      if (pIdx >= 0) {
+        target = persistentSection.querySelectorAll('.pin-mini-item')[pIdx];
+      } else {
+        const aIdx = activeInfo.findIndex(x => (x.r['タイトル'] || '') === deepLinkTitle);
+        if (aIdx >= 0) {
+          target = infoList.querySelectorAll('.info-item')[aIdx];
+        } else {
+          const arIdx = archivedInfo.findIndex(x => (x.r['タイトル'] || '') === deepLinkTitle);
+          if (arIdx >= 0) {
+            window.toggleArchive();
+            target = archiveList.querySelectorAll('.info-item')[arIdx];
+          }
+        }
+      }
+      if (target) {
+        target.classList.add('open', 'info-item-flash');
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setTimeout(() => target.classList.remove('info-item-flash'), 1800);
+      }
+    }
 
     document.getElementById('loading').style.display = 'none';
     document.getElementById('app').classList.add('ready');
