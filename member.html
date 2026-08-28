@@ -170,13 +170,25 @@ function renderGroups(groups) {
 }
 
 function renderByLine(ms) {
+  const subFn = m => `${m.role !== '—' ? m.role : m.grade} · ${m.dest}`;
+
+  // 参考メンバーを最上部に独立グループとして表示
+  const refMs = ms.filter(m => isRefMember(m.name));
+  const refHtml = refMs.length === 0 ? '' : `<div class="group-section">
+    <div class="group-header" style="border-left-color:var(--pink)">
+      <span class="group-title" style="color:var(--pink)">社会情報インフラ部</span>
+    </div>
+    <div class="chip-list">${refMs.map(m=>chipHTML(m, subFn(m))).join('')}</div>
+  </div>`;
+
+  const normalMs = ms.filter(m => !isRefMember(m.name));
   const groups = LINE_ORDER.map(label => ({
     label,
     manager: (LINE_META[label]||{}).manager || '—',
-    members: ms.filter(m => m.line === label),
-    subFn: m => `${m.role !== '—' ? m.role : m.grade} · ${m.dest}`,
+    members: normalMs.filter(m => m.line === label),
+    subFn,
   }));
-  return groups.filter(g=>g.members.length>0).map(g=>{
+  const normalHtml = groups.filter(g=>g.members.length>0).map(g=>{
     const col = lc(g.label);
     const chips = g.members.map(m=>chipHTML(m, g.subFn(m))).join('');
     return `<div class="group-section">
@@ -188,6 +200,8 @@ function renderByLine(ms) {
       <div class="chip-list">${chips}</div>
     </div>`;
   }).join('');
+
+  return refHtml + normalHtml;
 }
 
 function renderByRole(ms) {
@@ -284,7 +298,7 @@ async function init() {
       empNo:     (r['社員番号']||'').toString().trim(),
       role:      (r['役職']||'—').trim()||'—',
       grade:     (r['等級']||'—').trim(),
-      line:      isRefMember((r['氏名']||'').trim()) ? '第1ライン' : mapLine((r['所属ライン']||'—').trim()),
+      line:      mapLine((r['所属ライン']||'—').trim()),
       join:      (r['入社年月日']||'').trim(),
       tenure:    calcTenure((r['入社年月日']||'').trim()),
       committee: (r['委員会']||'—').trim()||'—',
