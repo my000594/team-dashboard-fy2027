@@ -125,7 +125,7 @@ body {
   padding: 2rem 2rem 4rem;
 }
 @media (max-width: 900px) {
-  .nav { width: 64px; }
+  .nav { width: 64px; height: 100vh; }
   .nav-logo-text,.nav-logo-sub,.nav-section,.nav-item .nav-label { display: none; }
   .nav-footer { display: flex; padding: .5rem 4px; justify-content: center; border-top: 1px solid var(--border); }
   .nav-footer-status { display: none; }
