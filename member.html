@@ -88,6 +88,8 @@ const ROLE_COLORS = {
 
 function lc(line) { return LINE_COLORS[line] || { c:'#7f8fa8', bg:'rgba(100,100,120,.1)' }; }
 function rc(role) { return ROLE_COLORS[role] || ROLE_COLORS['—']; }
+const REFERENCE_MEMBERS = ['百瀬 陽一'];
+function isRefMember(name) { return REFERENCE_MEMBERS.includes(name); }
 function initials(n) { return n.replace(/\s/g,'').slice(0,2); }
 function empFmt(n) { return n ? String(n).padStart(6,'0') : '—'; }
 function calcTenure(joinStr) {
@@ -99,7 +101,10 @@ function calcTenure(joinStr) {
   return years + '年' + months + 'ヶ月';
 }
 function avatarHTML(m, sz=28) {
-  const col = lc(m.line); const fsz = Math.round(sz*.38);
+  const col = isRefMember(m.name)
+    ? { c:'var(--pink)', bg:'var(--pink-dim)' }
+    : lc(m.line);
+  const fsz = Math.round(sz*.38);
   const initialsEsc = escHTML(initials(m.name));
   const fb = '<span style="width:'+sz+'px;height:'+sz+'px;border-radius:50%;background:'+col.bg+';color:'+col.c+';display:inline-flex;align-items:center;justify-content:center;font-size:'+fsz+'px;font-weight:500;vertical-align:middle">'+initialsEsc+'</span>';
   if (!m.image) return fb;
@@ -129,8 +134,8 @@ function renderAll(ms) {
       <th class="left">所属ライン</th><th class="left">入社年月日</th>
       <th class="left">社歴</th><th class="left">委員会</th><th class="left">支援先</th>
     </tr></thead>
-    <tbody>${ms.map(m=>`<tr onclick="location.href='portfolio.html?member='+encodeURIComponent('${m.name}')" style="cursor:pointer">
-      <td class="left"><div style="display:flex;align-items:center;gap:8px">${avatarHTML(m)}<span style="font-weight:500">${escHTML(m.name)}</span></div></td>
+    <tbody>${ms.map(m=>`<tr onclick="location.href='portfolio.html?member='+encodeURIComponent('${m.name}')" style="cursor:pointer${isRefMember(m.name)?';background:var(--pink-dim)':''}">
+      <td class="left"><div style="display:flex;align-items:center;gap:8px">${avatarHTML(m)}<span style="font-weight:500${isRefMember(m.name)?';color:var(--pink)':''}">${isRefMember(m.name)?'🍑 ':''}${escHTML(m.name)}</span></div></td>
       <td class="left" style="font-family:var(--mono);font-size:11px;color:var(--text3)">${empFmt(m.empNo)}</td>
       <td class="left">${m.role!=='—'?roleBadge(m.role):'<span style="color:var(--text3)">—</span>'}</td>
       <td class="left" style="color:var(--text2)">${escHTML(m.grade)}</td>
@@ -143,9 +148,16 @@ function renderAll(ms) {
   </table></div></div>`;
 }
 
+function chipHTML(m, subText) {
+  const ref = isRefMember(m.name);
+  const style = `cursor:pointer${ref?';border-color:rgba(244,114,182,.5);background:var(--pink-dim)':''}`;
+  const nameStyle = ref ? ' style="color:var(--pink);font-weight:600"' : '';
+  return `<div class="chip" onclick="location.href='portfolio.html?member='+encodeURIComponent('${m.name}')" style="${style}">${avatarHTML(m,22)}<div><div class="chip-name"${nameStyle}>${ref?'🍑 ':''}${escHTML(m.name)}</div><div class="chip-sub">${escHTML(subText)}</div></div></div>`;
+}
+
 function renderGroups(groups) {
   return groups.filter(g=>g.members.length>0).map(g=>{
-    const chips = g.members.map(m=>`<div class="chip" onclick="location.href='portfolio.html?member='+encodeURIComponent('${m.name}')" style="cursor:pointer">${avatarHTML(m,22)}<div><div class="chip-name">${escHTML(m.name)}</div><div class="chip-sub">${escHTML(g.subFn(m))}</div></div></div>`).join('');
+    const chips = g.members.map(m=>chipHTML(m, g.subFn(m))).join('');
     return `<div class="group-section">
       <div class="group-header" style="border-left-color:${g.color}">
         <span class="group-title" style="color:${g.color}">${escHTML(g.label)}</span>
@@ -166,7 +178,7 @@ function renderByLine(ms) {
   }));
   return groups.filter(g=>g.members.length>0).map(g=>{
     const col = lc(g.label);
-    const chips = g.members.map(m=>`<div class="chip" onclick="location.href='portfolio.html?member='+encodeURIComponent('${m.name}')" style="cursor:pointer">${avatarHTML(m,22)}<div><div class="chip-name">${escHTML(m.name)}</div><div class="chip-sub">${escHTML(g.subFn(m))}</div></div></div>`).join('');
+    const chips = g.members.map(m=>chipHTML(m, g.subFn(m))).join('');
     return `<div class="group-section">
       <div class="group-header" style="border-left-color:${col.c}">
         <span class="group-title" style="color:${col.c}">${escHTML(g.label)}</span>
