@@ -1,3 +1,8 @@
+(function(){
+  var t=localStorage.getItem('dashboard_theme');
+  if(t&&t!=='default') document.documentElement.setAttribute('data-theme',t);
+})();
+
 /* nav.js — navigation + maintenance control */
 // mini: モバイル版（900px以下）のアイコン下に表示する短縮ラベル。
 // アイコンのみでは何のページか分からないという指摘への対応（2026-08-23追加）
@@ -50,16 +55,23 @@ function buildNav() {
         </a>
       `).join('')}
     </div>
-    <div class="nav-footer">
-      <div style="display:flex;align-items:center">
+    <div class="nav-footer" style="position:relative">
+      <div class="nav-footer-status">
         <span class="pulse"></span>
         <span id="nav-date">—</span>
+      </div>
+      <button class="theme-toggle-btn" id="navThemeBtn" aria-label="テーマカラーを変更">🎨</button>
+      <div class="theme-popover" id="themePopover">
+        <div class="theme-popover-title">テーマカラー</div>
+        <div class="theme-swatch-grid" id="themeSwatchGrid"></div>
       </div>
     </div>
   `;
 
   document.getElementById('nav-date').textContent =
     new Date().toLocaleDateString('ja-JP', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+  buildThemePicker();
 }
 
 function showMaintenance(msg, estimated) {
@@ -105,3 +117,57 @@ document.addEventListener('DOMContentLoaded', async () => {
   const isMaint = await checkMaintenance();
   if (!isMaint) buildNav();
 });
+
+// ── テーマカラー ──
+const THEMES = [
+  { id:'default', label:'既定',   grad:'linear-gradient(135deg,#1d4ed8,#3b82f6)' },
+  { id:'ocean',   label:'海',     grad:'linear-gradient(135deg,#0e7490,#06b6d4)' },
+  { id:'forest',  label:'森',     grad:'linear-gradient(135deg,#15803d,#22c55e)' },
+  { id:'amber',   label:'琥珀',   grad:'linear-gradient(135deg,#b45309,#f59e0b)' },
+  { id:'rose',    label:'薔薇',   grad:'linear-gradient(135deg,#be123c,#f43f5e)' },
+  { id:'pink',    label:'ピンク', grad:'linear-gradient(135deg,#be185d,#ec4899)' },
+  { id:'purple',  label:'紫',     grad:'linear-gradient(135deg,#7e22ce,#a855f7)' },
+  { id:'light',   label:'明',     grad:'linear-gradient(135deg,#93c5fd,#dbeafe)', light:true },
+];
+
+function applyTheme(id) {
+  document.documentElement.setAttribute('data-theme', id);
+  localStorage.setItem('dashboard_theme', id);
+  document.querySelectorAll('.theme-swatch').forEach((el, i) => {
+    el.classList.toggle('active', THEMES[i]?.id === id);
+    el.textContent = THEMES[i]?.id === id ? '✓' : '';
+  });
+  document.getElementById('navThemeBtn')?.classList.remove('open');
+  document.getElementById('themePopover')?.classList.remove('open');
+}
+
+function buildThemePicker() {
+  const grid = document.getElementById('themeSwatchGrid');
+  if (!grid) return;
+  const current = localStorage.getItem('dashboard_theme') || 'default';
+  grid.innerHTML = THEMES.map(t => `
+    <div class="theme-swatch-item">
+      <div class="theme-swatch ${t.id === current ? 'active' : ''}"
+           style="background:${t.grad}${t.light ? ';border:2px solid #cbd5e1' : ''}"
+           onclick="applyTheme('${t.id}')">${t.id === current ? '✓' : ''}</div>
+      <div class="theme-swatch-label">${t.label}</div>
+    </div>
+  `).join('');
+
+  const btn = document.getElementById('navThemeBtn');
+  const pop = document.getElementById('themePopover');
+  if (!btn || !pop) return;
+
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    const isOpen = pop.classList.toggle('open');
+    btn.classList.toggle('open', isOpen);
+  });
+
+  document.addEventListener('click', () => {
+    pop.classList.remove('open');
+    btn.classList.remove('open');
+  });
+
+  pop.addEventListener('click', e => e.stopPropagation());
+}
