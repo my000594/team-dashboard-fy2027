@@ -292,7 +292,7 @@ async function init() {
       image:     decodeURIComponent((r['画像']||'').trim()),
     }));
 
-    document.getElementById('subtitle').textContent = `${new Date().toLocaleDateString('ja-JP')} 時点 在籍 ${members.length}名`;
+    document.getElementById('subtitle').textContent = `${new Date().toLocaleDateString('ja-JP')} 時点 在籍 ${members.filter(m=>!isRefMember(m.name)).length}名`;
 
     const tabEl = document.getElementById('tabs');
     TABS.forEach(t => {

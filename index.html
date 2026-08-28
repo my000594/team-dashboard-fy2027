@@ -131,7 +131,8 @@ async function init() {
     const calcTotal = r => MONTH_KEYS.reduce((s,m)=>s+(+r[m]||0), 0);
     const seTotal   = seRows.reduce((s,r)=>s+calcTotal(r), 0);
     const seAchieved = active.filter(r=>r['達成状況']==='達成').length;
-    const memberCount = memberRows.filter(r=>(r['ステータス']||'').trim()==='在籍').length;
+    const REFERENCE_MEMBERS = ['百瀬 陽一'];
+    const memberCount = memberRows.filter(r=>(r['ステータス']||'').trim()==='在籍' && !REFERENCE_MEMBERS.includes((r['氏名']||'').trim())).length;
 
     // 売上集計
     const today = new Date();
