@@ -191,7 +191,7 @@ function renderByLine(ms) {
 }
 
 function renderByRole(ms) {
-  const roleOrder = ['課長','リーダー','サブリーダー','エキスパート','エンジニア','チーフエンジニア','嘱託社員','—'];
+  const roleOrder = ['部長','課長','リーダー','サブリーダー','エキスパート','エンジニア','チーフエンジニア','嘱託社員','—'];
   const groups = roleOrder.map(r=>({ label:r, color:rc(r).c, members:ms.filter(m=>m.role===r), subFn:m=>`${m.grade} · ${m.dest}` }));
   return renderGroups(groups);
 }
@@ -284,7 +284,7 @@ async function init() {
       empNo:     (r['社員番号']||'').toString().trim(),
       role:      (r['役職']||'—').trim()||'—',
       grade:     (r['等級']||'—').trim(),
-      line:      mapLine((r['所属ライン']||'—').trim()),
+      line:      isRefMember((r['氏名']||'').trim()) ? '第1ライン' : mapLine((r['所属ライン']||'—').trim()),
       join:      (r['入社年月日']||'').trim(),
       tenure:    calcTenure((r['入社年月日']||'').trim()),
       committee: (r['委員会']||'—').trim()||'—',
