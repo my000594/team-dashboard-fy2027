@@ -632,8 +632,9 @@ Cloudflare PagesとGitHub（`my000594/team-dashboard-fy2027`）を連携済み�
 
 サイト全体（`data/`配下のCSVも含む、`maintenance-app.html`も含む）に、Cloudflare Access（Zero Trust）で会社メールアドレス単位のOne-time PIN（OTP）認証をかけている。2026-08-08、共有ID・PASSのBasic認証から切替済み。
 
-- Zero Trust → Access → Applications に、対象のPages公開ドメイン（パス`*`＝サイト全体）を対象としたApplicationを設定
-- ポリシー：Include = `Emails ending in @会社ドメイン`（OR条件で個別メールアドレスを追加行で並べる。劉 華雲・谷野 亘・眞野 哲朗の3名は会社ドメインメールを保有していることを確認済み）／ログイン方式 = One-time PIN／Session Duration = 1ヶ月
+- Zero Trust → Access controls → Applications に、対象のPages公開ドメイン（Destinationsのパスは未指定＝サイト全体が対象）を対象としたApplication（`team-dashboard-fy2027.pages.dev`）を設定
+- ポリシー：「Prod - Company domain OTP」（Allow、1ルール）。**Include = `Emails`＝対象メンバー分のメールアドレスを1件ずつ個別に列挙する方式**（ドメイン一致の`Emails ending in @〜`ワイルドカードではない。全員が同じ会社ドメインのアドレスを使っているためそう見えるだけ。2026-08-31にダッシュボードを実機確認し、以前の「ドメイン一致」という記載を訂正）／ログイン方式 = One-time PIN／Session Duration = 1ヶ月
+- **ドメイン一致ではなく個別列挙のため、メンバーの異動・入れ替わりは自動反映されない**。新しくラインに加わった人はこのIncludeリストへの追加、異動・退職した人は削除を、Zero Trust側で都度手動対応する必要がある（member_master.csvのステータス更新とは別作業・別システムなので、どちらかを更新すればもう片方も自動で追随するわけではない点に注意）
 - ログイン方式（Identity provider）：Zero Trust → Integrations → Identity providers に「One-time PIN」を明示的に登録している。**注意：** IdPを1件も登録しなければ自動的にOne-time PINがデフォルトになる仕様のはずだが、実際には登録なしの状態で「There are no login methods available for this account」エラーになったため、One-time PINは明示登録が必須（デフォルトIdPとして紛れ込んでいた「Cloudflare」（Cloudflareアカウントでのパスワードログイン）を削除した際に発覚）
 - `functions/_middleware.js`（旧Basic認証のフェイルクローズ処理）は削除済み。認証はCloudflare Access側（エッジ）のみで行い、Pages Functions側に認証コードは持たない
 - AccessはCookie（`CF_Authorization`）ベースで同一オリジンの以降のリクエストにも適用されるため、クライアント側の`fetch()`は変更不要
@@ -656,6 +657,8 @@ Cloudflare PagesとGitHub（`my000594/team-dashboard-fy2027`）を連携済み�
 **既知の限界（未対応・運用でカバー）**
 - Notionのプロパティ**名**の変更は`assertProperties()`で検知できるが、**型**の変更（例：テキスト→セレクト）や**値の中身が意図とズレる**ケース（誤入力等）までは検知できない
 - Notion直アップロードファイル（`meeting_plan.csv`の資料リンク・`org_chart.csv`・`certifications.csv`のデジタルバッジ）は期限付きURLになり得るため、時間経過でリンク切れになることがある。エラー表示は出ないため、リンクを踏んだ人が気づく形になる。恒久リンクにしたい場合は外部ストレージ（Google Drive等）のリンクをNotionに貼る運用にすること
+- Cloudflare Accessのメール許可リスト（前述「認証」節）はメンバーの異動・入れ替わりに自動追随しない。member_master.csvのステータスを「異動」「退職」に変えても、Zero Trust側のIncludeリストから明示的に削除しない限りアクセス権は残り続ける
+- Zero Trust → Access controls → Policies に、旧Basic認証移行時に作った未使用のポリシー「Bypass - Basic auth still active」（Bypass、どのApplicationにも紐付いていない＝Used by applications: 0）が残っている。現状は何にも適用されていないため実害はないが、誤って新規Applicationに紐付けると認証を素通りさせてしまうため、使う予定がなければ削除しておくのが望ましい
 
 ---
 
