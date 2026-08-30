@@ -125,7 +125,11 @@ body {
   padding: 2rem 2rem 4rem;
 }
 @media (max-width: 900px) {
-  .nav { width: 64px; height: 100vh; }
+  /* .navのwidthが64pxまで縮むため、.theme-popover（幅214px）をoverflow:hiddenのままにすると
+     ほとんど切り取られて表示される（スウォッチの端が少し見えるだけになり選べない）。
+     ポップオーバーはナビの外（ページ本体側）に floating overlay として被さる想定のデザインなので、
+     モバイル幅ではナビ側のクリップを外して見えるようにする */
+  .nav { width: 64px; height: 100vh; overflow: visible; }
   .nav-logo-text,.nav-logo-sub,.nav-section,.nav-item .nav-label { display: none; }
   .nav-footer { display: flex; padding: .5rem 4px; justify-content: center; border-top: 1px solid var(--border); }
   .nav-footer-status { display: none; }
