@@ -126,7 +126,7 @@ const TYPE_META = {
   '資格取得':    { color: 'cyan',   dim: 'cyan-dim',   icon: '🎓' },
   'イベント':    { color: 'blue',   dim: 'blue-dim',   icon: '📅' },
 };
-const TYPE_ORDER = ['参画', '異動', 'ライン内MVP', '資格取得', 'イベント'];
+const TYPE_ORDER = ['イベント', 'ライン内MVP', '参画', '異動', '資格取得'];
 const MONTHS = ['8月','9月','10月','11月','12月','1月','2月','3月','4月','5月','6月','7月'];
 
 // 8月始まり・7月終わりの期（例：2026年8月〜2027年7月＝FY2027）
@@ -154,9 +154,13 @@ function render() {
     el.addEventListener('click', () => { selectedFY = +el.dataset.fy; render(); });
   });
 
+  // ダイジェスト・タブの件数は「予定」（未確定）を除いた確定分のみを対象にする。
+  // 未来の予定イベントまで実績のように数えてしまうと件数の意味が変わってしまうため
+  const countedRows = fyRows.filter(r => r.status !== '予定');
+
   // 実際にデータがある種別のみを対象にする。0件の種別を「異動 0」「MVP 0」のように出すと、
   // 「異動があるのか？」等の憶測を招きかねないため、選択中の期に1件も無い種別はダイジェスト・タブどちらにも出さない
-  const typesWithData = TYPE_ORDER.filter(type => fyRows.some(r => r.type === type));
+  const typesWithData = TYPE_ORDER.filter(type => countedRows.some(r => r.type === type));
   if (selectedType !== 'all' && !typesWithData.includes(selectedType)) selectedType = 'all';
 
   // ── ダイジェスト ──
@@ -168,7 +172,7 @@ function render() {
     metricsEl.style.display = '';
     metricsEl.innerHTML = typesWithData.map(type => {
       const meta = TYPE_META[type];
-      const count = fyRows.filter(r => r.type === type).length;
+      const count = countedRows.filter(r => r.type === type).length;
       return `<div class="metric ${meta.color}">
         <div class="metric-label">${meta.icon} ${escHTML(type)}</div>
         <div class="metric-value">${count}</div>
@@ -179,7 +183,7 @@ function render() {
   // ── 種別タブ（「すべて」は常時表示。0件の種別は出さない） ──
   const tabs = [{ type: 'all', label: 'すべて' }, ...typesWithData.map(t => ({ type: t, label: t }))];
   document.getElementById('tabs').innerHTML = tabs.map(t => {
-    const count = t.type === 'all' ? fyRows.length : fyRows.filter(r => r.type === t.type).length;
+    const count = t.type === 'all' ? countedRows.length : countedRows.filter(r => r.type === t.type).length;
     const meta = TYPE_META[t.type];
     return `<div class="tab ${selectedType === t.type ? 'active' : ''}" data-type="${t.type}">
       ${meta ? `<span class="dot" style="background:var(--${meta.color})"></span>` : ''}${escHTML(t.label)} <span class="n">${count}</span>
