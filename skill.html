@@ -221,6 +221,10 @@ let teamCompareMode = '__auto__';
 function esc(s) {
   return String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
 }
+// href用：http/https以外（javascript:等）のスキームを弾く。chronicle.html/meetings.htmlと同じガード
+function safeHref(url) {
+  return /^https?:\/\//i.test(url) ? esc(url) : null;
+}
 
 function dataMap() { return dataByPeriod[currentPeriod] || {}; }
 
@@ -386,8 +390,10 @@ function certCellHTML(rec) {
   const dateText = fmtCertDate(rec.acquired);
   const titleParts = [rec.acquired ? `取得日: ${rec.acquired}` : '', rec.expiry ? `有効期限: ${rec.expiry}` : '', rec.note || ''].filter(Boolean);
   const badgeLinks = (rec.badges || []).map((url, i) => {
+    const href = safeHref(url);
+    if (!href) return '';
     const label = rec.badges.length > 1 ? `🏅バッジ${i + 1}` : '🏅バッジ';
-    return `<div class="skill-note"><a href="${esc(url)}" target="_blank" rel="noopener" title="デジタルバッジを開く">${label}</a></div>`;
+    return `<div class="skill-note"><a href="${href}" target="_blank" rel="noopener" title="デジタルバッジを開く">${label}</a></div>`;
   }).join('');
   return `<span class="skill-dot" style="background:var(--${col}-dim);color:var(--${col})"${titleParts.length ? ` title="${esc(titleParts.join(' / '))}"` : ''}>✓</span>${dateText ? `<div class="skill-note">${dateText}</div>` : ''}${statusLabel ? `<div class="skill-note" style="color:var(--${col})">${statusLabel}</div>` : ''}${badgeLinks}`;
 }
@@ -558,6 +564,20 @@ function showRadar(m) {
     },
   });
 }
+
+// 軸ラベルの縮小判定（narrowScreen）はshowRadar実行時点のwindow.innerWidthしか見ないため、
+// タブ・メンバーを切り替えずにブラウザ幅を変える／タブレットを回転させただけだとラベルサイズが古いまま残る。
+// レーダータブ表示中に限り、リサイズ後に選択中のメンバーで再描画して追従させる（Chart.js自体のresponsive追従とは別に必要）
+window.addEventListener('resize', (() => {
+  let t = null;
+  return () => {
+    clearTimeout(t);
+    t = setTimeout(() => {
+      const radarSection = document.getElementById('sec-radar');
+      if (selectedMember && radarSection && radarSection.style.display !== 'none') showRadar(selectedMember);
+    }, 200);
+  };
+})());
 
 // メンバー選択は「レーダーチャート」タブのチップと、モバイル専用ビューのチップで共有する。
 // どちらで選んでも両方の表示（レーダー・モバイルのスキル一覧・資格一覧）が連動して切り替わる。

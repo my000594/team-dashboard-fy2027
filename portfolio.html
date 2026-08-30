@@ -92,6 +92,8 @@
 const PERIODS = ['2026年8月', '2026年11月', '2027年2月', '2027年5月'];
 const IMG_BASE = 'data/members/';
 const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+// href用：http/https以外（javascript:等）のスキームを弾く。chronicle.html/meetings.htmlと同じガード
+const safeHref = url => /^https?:\/\//i.test(url) ? esc(url) : null;
 
 let _pfData = null;
 
@@ -244,7 +246,7 @@ function renderPortfolio(member, skills, certs, reports) {
               <div class="cert-meta">
                 <span class="cert-kind">${esc(c['資格区分']||'—')}</span>
                 ${expiryHTML(c['有効期限']?.trim())}
-                ${badges.map((u,i) => `<a class="cert-badge-link" href="${esc(u)}" target="_blank" rel="noopener">🏅${badges.length>1?` バッジ${i+1}`:' バッジ'}</a>`).join('')}
+                ${badges.map((u,i) => { const href = safeHref(u); return href ? `<a class="cert-badge-link" href="${href}" target="_blank" rel="noopener">🏅${badges.length>1?` バッジ${i+1}`:' バッジ'}</a>` : ''; }).join('')}
               </div>
             </div>
             <div class="cert-year">${(c['資格取得日']||'').slice(0,4)}</div>
@@ -258,7 +260,7 @@ function renderPortfolio(member, skills, certs, reports) {
           <div class="report-item">
             <div class="report-date">${esc(r['提出日']||'')}</div>
             <div style="font-size:12px;color:var(--text2)">レポート #${i+1}</div>
-            ${r['ファイルリンク'] ? `<a class="report-link" href="${esc(r['ファイルリンク'])}" target="_blank" rel="noopener">見る →</a>` : ''}
+            ${safeHref(r['ファイルリンク']) ? `<a class="report-link" href="${safeHref(r['ファイルリンク'])}" target="_blank" rel="noopener">見る →</a>` : ''}
           </div>`).join('')
         : `<div class="no-data">提出済みレポートがありません</div>`}
       </div>

@@ -166,6 +166,10 @@ const fmt = n => (n===0||n==null) ? '' : n;
 function escHTML(s) {
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
+// href用：http/https以外（javascript:等）のスキームを弾く。chronicle.html/meetings.htmlと同じガード
+function safeHref(url) {
+  return /^https?:\/\//i.test(url) ? escHTML(url) : null;
+}
 
 async function init() {
   try {
@@ -284,7 +288,7 @@ async function initReportArchive() {
         return `<tr>
           <td class="left report-date">${dispDate}</td>
           <td class="left"><div class="report-who"><span class="report-avatar">${initial}</span><span>${escHTML(r['氏名'])}</span></div></td>
-          <td class="left"><a class="report-link" href="${escHTML(r['ファイルリンク']||'#')}" target="_blank" rel="noopener">PDFを見る ↗</a></td>
+          <td class="left">${safeHref(r['ファイルリンク']) ? `<a class="report-link" href="${safeHref(r['ファイルリンク'])}" target="_blank" rel="noopener">PDFを見る ↗</a>` : '<span style="color:var(--text3)">—</span>'}</td>
         </tr>`;
       }).join('');
     }
