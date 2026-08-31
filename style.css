@@ -432,10 +432,12 @@ body {
 .chip-sub  { font-size: 10px; color: var(--text2); }
 
 /* ── 異動・退職者セクション（member.html） ──────────────────
-   ALLタブでのみ表示。既定は折りたたみ（在籍者一覧を主役に保つため）。
+   ALLタブでのみ表示。ステータス（異動／退職）ごとに別々の折りたたみに分け、
+   既定はどちらも閉じた状態（在籍者一覧を主役に保つため）。
    氏名＋Notion「備考」の一言コメントのみのシンプルな一覧で、日付・異動先等を
    別項目に分解しない（正式な履歴の置き場はchronicle.htmlのライン年表）。
    ────────────────────────────────────────────────── */
+.former-groups { display: flex; flex-direction: column; gap: 10px; }
 details.former {
   background: var(--bg2); border: 1px solid var(--border);
   border-radius: var(--radius-lg); overflow: hidden;

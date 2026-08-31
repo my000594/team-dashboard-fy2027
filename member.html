@@ -259,6 +259,10 @@ function updateOrgChartSection() {
 }
 
 let formerMembers = [];
+const FORMER_GROUPS = [
+  { status: '異動', label: '異動者', icon: '🔀' },
+  { status: '退職', label: '退職者', icon: '👋' },
+];
 function renderFormerSection(list) {
   formerMembers = list;
   updateFormerSection();
@@ -266,21 +270,33 @@ function renderFormerSection(list) {
 function updateFormerSection() {
   const el = document.getElementById('formerSection');
   if (currentTab !== 'all' || !formerMembers.length) { el.innerHTML = ''; return; }
+
+  const groups = FORMER_GROUPS
+    .map(g => ({ ...g, items: formerMembers.filter(m => m.status === g.status) }))
+    .filter(g => g.items.length);
+  // ステータスが「異動」「退職」以外の値（想定外の入力）も取りこぼさないよう、その他としてまとめる
+  const known = new Set(FORMER_GROUPS.map(g => g.status));
+  const others = formerMembers.filter(m => !known.has(m.status));
+  if (others.length) groups.push({ status: '', label: 'その他', icon: '🕘', items: others });
+
   el.innerHTML = `<div class="section-label">履歴</div>
-    <details class="former">
-      <summary>
-        <span>🕘</span>
-        <span>異動・退職者</span>
-        <span class="former-count">${formerMembers.length}名</span>
-        <span class="former-chevron">▸</span>
-      </summary>
-      <div class="former-body">
-        ${formerMembers.map(m => `<div class="former-item">
-          <span class="former-name">${escHTML(m.name)}</span>
-          <span class="former-comment">${m.note ? escHTML(m.note) : '—'}</span>
-        </div>`).join('')}
-      </div>
-    </details>`;
+    <div class="former-groups">
+      ${groups.map(g => `
+        <details class="former">
+          <summary>
+            <span>${g.icon}</span>
+            <span>${g.label}</span>
+            <span class="former-count">${g.items.length}名</span>
+            <span class="former-chevron">▸</span>
+          </summary>
+          <div class="former-body">
+            ${g.items.map(m => `<div class="former-item">
+              <span class="former-name">${escHTML(m.name)}</span>
+              <span class="former-comment">${m.note ? escHTML(m.note) : '—'}</span>
+            </div>`).join('')}
+          </div>
+        </details>`).join('')}
+    </div>`;
 }
 
 function switchTab(id) {
@@ -320,7 +336,7 @@ async function init() {
 
     const formerRows = rows
       .filter(r => { const s=(r['ステータス']||'').trim(); return s && s!=='在籍'; })
-      .map(r => ({ name:(r['氏名']||'').trim(), note:(r['備考']||'').trim() }));
+      .map(r => ({ name:(r['氏名']||'').trim(), note:(r['備考']||'').trim(), status:(r['ステータス']||'').trim() }));
     renderFormerSection(formerRows);
 
     try {
