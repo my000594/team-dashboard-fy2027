@@ -274,7 +274,7 @@ async function init() {
         </div>`;
       }).join('');
       if (activeInfo.length > INFO_TOP_LIMIT) {
-        infoList.innerHTML += `<a href="info.html" style="display:block;text-align:center;font-size:12px;color:var(--text3);padding:10px 0 2px">他 ${activeInfo.length - INFO_TOP_LIMIT}件 → インフォメーションですべて見る</a>`;
+        infoList.innerHTML += `<a href="info.html" style="display:block;text-align:right;font-size:12px;color:var(--text3);padding:10px 0 2px">他 ${activeInfo.length - INFO_TOP_LIMIT}件 → インフォメーションですべて見る</a>`;
       }
     }
 
