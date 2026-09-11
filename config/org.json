@@ -1,0 +1,14 @@
+{
+  "orgLabel": "SI部 第1ライン",
+  "fyLabel": "FY2027 Dashboard",
+  "lines": [
+    { "key": "第1ライン",   "manager": "米花 雅史", "color": "#3b82f6", "bg": "rgba(59,130,246,0.12)" },
+    { "key": "第1-1ライン", "manager": "伊藤 良多", "color": "#22c55e", "bg": "rgba(34,197,94,0.12)"  }
+  ],
+  "lineLabelMap": {
+    "百瀬 陽一Bライン": "第1ライン",
+    "米花雅史Ｋライン": "第1-1ライン"
+  },
+  "referenceMembers": ["百瀬 陽一"],
+  "skillPeriods": ["2026年8月", "2026年11月", "2027年2月", "2027年5月"]
+}

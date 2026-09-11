@@ -32,17 +32,31 @@ const ICONS = {
   book:         `<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>`,
 };
 
-function buildNav() {
+// 組織名・FY表記はconfig/org.jsonから読み込む。パッケージ配布時はこのファイルを差し替えるだけでよい。
+// 取得できない場合は現行運用と同じ値にフォールバックする
+async function loadOrgBranding() {
+  try {
+    const res = await fetch('config/org.json');
+    if (!res.ok) throw new Error('no config');
+    const cfg = await res.json();
+    return { orgLabel: cfg.orgLabel || 'SI部 第1ライン', fyLabel: cfg.fyLabel || 'FY2027 Dashboard' };
+  } catch (e) {
+    return { orgLabel: 'SI部 第1ライン', fyLabel: 'FY2027 Dashboard' };
+  }
+}
+
+async function buildNav() {
   const current = location.pathname.split('/').pop() || 'index.html';
   const nav = document.getElementById('nav');
   if (!nav) return;
+  const { orgLabel, fyLabel } = await loadOrgBranding();
 
   nav.innerHTML = `
     <div class="nav-logo">
       <div class="nav-logo-icon">📊</div>
       <div>
-        <div class="nav-logo-text">SI部 第1ライン</div>
-        <div class="nav-logo-sub">FY2027 Dashboard</div>
+        <div class="nav-logo-text">${orgLabel}</div>
+        <div class="nav-logo-sub">${fyLabel}</div>
       </div>
     </div>
     <div style="flex:1;overflow-y:auto;padding:.5rem 0">
@@ -115,7 +129,7 @@ async function checkMaintenance() {
 
 document.addEventListener('DOMContentLoaded', async () => {
   const isMaint = await checkMaintenance();
-  if (!isMaint) buildNav();
+  if (!isMaint) await buildNav();
 });
 
 // ── テーマカラー ──

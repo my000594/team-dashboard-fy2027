@@ -188,8 +188,22 @@ const TABS = [
   { id:'radar',  label:'レーダーチャート' },
   { id:'search', label:'スキル検索' },
 ];
-// ヒアリング実施時期。新しい時期が追加されたらここに追記する（scripts/sync-notion.mjsのSKILL_PERIODSと対応）
-const PERIODS = ['2026年8月','2026年11月','2027年2月','2027年5月'];
+// ヒアリング実施時期。新しい時期が追加されたらここに追記する（scripts/sync-notion.mjsのSKILL_PERIODSと対応）。
+// config/org.jsonのskillPeriodsから読み込む（init()冒頭のapplyOrgConfig()で設定）。取得できない場合は
+// 現行運用と同じ値にフォールバックする
+let PERIODS = ['2026年8月','2026年11月','2027年2月','2027年5月'];
+
+async function loadOrgConfig() {
+  try {
+    const res = await fetch('config/org.json');
+    if (!res.ok) throw new Error('no config');
+    return await res.json();
+  } catch (e) { return null; }
+}
+function applyOrgConfig(cfg) {
+  PERIODS = (cfg && cfg.skillPeriods) || ['2026年8月','2026年11月','2027年2月','2027年5月'];
+  REFERENCE_MEMBERS = (cfg && cfg.referenceMembers) || ['百瀬 陽一'];
+}
 const CAT_PALETTE = ['blue','green','amber','purple','cyan','red'];
 const OVERALL_GROUP = '__overall__'; // 「総合」タブ：分野（サブカテゴリ）ごとの平均レベルを表示
 const TEAM_KEY = '__team__'; // レーダーチャートの「チーム全体」擬似メンバー
@@ -294,8 +308,9 @@ function skillDotHTML(v, cat, note) {
 // 🍑ピンク表示の対象は名簿不一致による自動判定ではなく、明示的な名前リストで管理する（2026-08-18）。
 // 新規配属者は名簿（member_master.csv）登録前の一時的な期間だけmembers末尾に混ざることがあるが、
 // それは「参考データ」ではなく単なる登録待ちなので、自動でピンク扱いにはしたくないという判断。
-// 今後また参考値のみのメンバーが出た場合は、その都度ここに氏名を追記する運用
-const REFERENCE_MEMBERS = ['百瀬 陽一'];
+// 今後また参考値のみのメンバーが出た場合は、その都度config/org.jsonのreferenceMembersに氏名を追記する運用。
+// ここでの初期値はconfig取得に失敗した場合のフォールバック用（applyOrgConfig()参照）
+let REFERENCE_MEMBERS = ['百瀬 陽一'];
 function isRefMember(name) { return REFERENCE_MEMBERS.includes(name); }
 
 function memberThHTML(m) {
@@ -661,6 +676,7 @@ window.filterSkills = filterSkills;
 
 async function init() {
   try {
+    applyOrgConfig(await loadOrgConfig());
     const [skillR, memberR, certR] = await Promise.all([
       fetchCSVText('data/skill.csv'),
       fetchCSVText('data/members/member_master.csv'),
