@@ -58,7 +58,7 @@
   <div class="page-header with-you">
     <div>
       <h1>ライン年表</h1>
-      <p id="subtitle">参画・異動・ライン内MVP・資格取得・イベントを記録した第1ラインの一年</p>
+      <p id="subtitle">入社・異動・退職・ライン別MVP・資格取得・イベントを記録した第1ラインの一年</p>
     </div>
 
     <div class="you-mini" id="youMini" style="display:none">
@@ -120,13 +120,14 @@ function parseAttachments(raw) {
 }
 
 const TYPE_META = {
-  '参画':        { color: 'green',  dim: 'green-dim',  icon: '👋' },
+  '入社':        { color: 'green',  dim: 'green-dim',  icon: '👋' },
   '異動':        { color: 'amber',  dim: 'amber-dim',  icon: '🔀' },
-  'ライン内MVP': { color: 'purple', dim: 'purple-dim', icon: '🏆' },
+  '退職':        { color: 'red',    dim: 'red-dim',    icon: '🚪' },
+  'ライン別MVP': { color: 'purple', dim: 'purple-dim', icon: '🏆' },
   '資格取得':    { color: 'cyan',   dim: 'cyan-dim',   icon: '🎓' },
   'イベント':    { color: 'blue',   dim: 'blue-dim',   icon: '📅' },
 };
-const TYPE_ORDER = ['イベント', 'ライン内MVP', '参画', '異動', '資格取得'];
+const TYPE_ORDER = ['イベント', 'ライン別MVP', '入社', '異動', '退職', '資格取得'];
 const MONTHS = ['8月','9月','10月','11月','12月','1月','2月','3月','4月','5月','6月','7月'];
 
 // 8月始まり・7月終わりの期（例：2026年8月〜2027年7月＝FY2027）
@@ -272,7 +273,7 @@ async function init() {
       : Array.from(fysWithData).sort((a, b) => b - a)[0];
 
     document.getElementById('subtitle').textContent =
-      `参画・異動・ライン内MVP・資格取得・イベントを記録した第1ラインの一年（${new Date().toLocaleDateString('ja-JP')} 時点／全${allRows.length}件）`;
+      `入社・異動・退職・ライン別MVP・資格取得・イベントを記録した第1ラインの一年（${new Date().toLocaleDateString('ja-JP')} 時点／全${allRows.length}件）`;
 
     render();
 
