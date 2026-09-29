@@ -174,7 +174,9 @@ function safeHref(url) {
 async function init() {
   try {
     const { text } = await fetchCSVText('data/3se_report.csv');
-    const all  = Papa.parse(text, { header:true, skipEmptyLines:true, dynamicTyping:true }).data;
+    const rawAll = Papa.parse(text, { header:true, skipEmptyLines:true, dynamicTyping:true }).data;
+    // 退職・異動者（現時点でラインメンバーでない者）はページ全体から除外する
+    const all = rawAll.filter(r=>!String(r['備考']||'').match(/異動|退職/));
 
     const MONTH_KEYS = ['8月','9月','10月','11月','12月','1月','2月','3月','4月','5月','6月','7月'];
     const calcTotal  = r => MONTH_KEYS.reduce((s,m)=>s+(+r[m]||0), 0);
@@ -182,20 +184,18 @@ async function init() {
     const monthTotals = MONTHS.map(m=>all.reduce((s,r)=>s+(+r[m]||0),0));
     const qTotals     = Q_COLS.map(q=>all.reduce((s,r)=>s+(+r[q]||0),0));
 
-    const active   = all.filter(r=>!String(r['備考']||'').match(/異動|退職/));
-    const achieved = active.filter(r=>r['達成状況']==='達成').length;
-    const rate     = Math.round(achieved/active.length*100);
-    const isInactive = r => String(r['備考']||'').match(/異動|退職/);
+    const achieved = all.filter(r=>r['達成状況']==='達成').length;
+    const rate     = Math.round(achieved/all.length*100);
 
     document.getElementById('subtitle').textContent = `${new Date().toLocaleDateString('ja-JP')} 時点`;
-    document.getElementById('member-count').textContent = `${all.length}名（退職・異動含む）`;
+    document.getElementById('member-count').textContent = `${all.length}名`;
     document.getElementById('cnt-achieved').textContent = achieved+'名';
-    document.getElementById('cnt-not').textContent = (active.length-achieved)+'名';
+    document.getElementById('cnt-not').textContent = (all.length-achieved)+'名';
     document.getElementById('achieve-bar').style.width = rate+'%';
 
     const mEl = document.getElementById('metrics');
     [
-      { label:'課合計件数',     val:total+'件',     sub:`在籍 ${active.length}名`, cls:'blue'  },
+      { label:'課合計件数',     val:total+'件',     sub:`在籍 ${all.length}名`, cls:'blue'  },
       { label:'達成者数',       val:achieved+'名',  sub:`達成率 ${rate}%`,         cls:'green' },
       { label:'1Q（8〜10月）', val:qTotals[0]+'件',sub:'第一四半期',              cls:'amber' },
       { label:'2Q（11〜1月）', val:qTotals[1]+'件',sub:'第二四半期',              cls:'amber' },
@@ -217,11 +217,7 @@ async function init() {
     new Chart(document.getElementById('distCanvas'),{type:'doughnut',data:{labels:['0件','1件','2件','3件','4件','5件以上'],datasets:[{data:dData,backgroundColor:['#1a2235','#212d45','#3b82f6','#22c55e','#f59e0b','#f87171'],borderWidth:1,borderColor:'#111827'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{color:'#7f8fa8',font:{size:10},boxWidth:10,padding:8}}},cutout:'60%'}});
 
     const tbody=document.getElementById('memberBody');
-    [...all].sort((a,b)=>{
-      const ai=isInactive(a)?1:0,bi=isInactive(b)?1:0;
-      if(ai!==bi) return ai-bi;
-      return calcTotal(b)-calcTotal(a);
-    }).forEach(r=>{
+    [...all].sort((a,b)=>calcTotal(b)-calcTotal(a)).forEach(r=>{
       const status = (r['達成状況']||'').trim();
       tbody.innerHTML+=`<tr>
         <td class="left" style="font-weight:500">${escHTML(r['社員番号'])}</td>
