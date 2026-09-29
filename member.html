@@ -113,6 +113,8 @@ function calcTenure(joinStr) {
   const joinY = parseInt(m[1]), joinM = parseInt(m[2]);
   const now = new Date(); let years = now.getFullYear()-joinY; let months = (now.getMonth()+1)-joinM;
   if (months < 0) { years--; months += 12; }
+  // 入社年月日が未来（先行してステータスだけ「在籍」にしたプレビュー登録）の場合、マイナス表記になってしまうのを防ぐ
+  if (years < 0) return '入社前';
   return years + '年' + months + 'ヶ月';
 }
 function avatarHTML(m, sz=28) {
