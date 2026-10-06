@@ -25,6 +25,8 @@
 .pager-btn.active{background:var(--blue-dim);border-color:rgba(59,130,246,.4);color:var(--blue)}
 .pager-btn:disabled{opacity:.35;cursor:default}
 .pager-info{font-size:11.5px;color:var(--text3);margin-left:4px}
+.tbl tbody tr.filler-row td{border-bottom:none}
+.tbl tbody tr.filler-row:hover{background:transparent}
 </style>
 </head>
 <body>
@@ -291,6 +293,8 @@ async function initReportArchive() {
       if (page > totalPages) page = totalPages;
       const start = (page-1)*PAGE_SIZE;
       const shown = filtered.slice(start, start+PAGE_SIZE);
+      // ページ送りで表の縦サイズが変わらないよう、残り行数を空行で埋めて常にPAGE_SIZE行分の高さを維持する
+      const fillerCount = totalPages > 1 ? PAGE_SIZE - shown.length : 0;
 
       bodyEl.innerHTML = shown.map(r=>{
         const d = new Date(r['提出日']);
@@ -301,7 +305,7 @@ async function initReportArchive() {
           <td class="left"><div class="report-who"><span class="report-avatar">${initial}</span><span>${escHTML(r['氏名'])}</span></div></td>
           <td class="left">${safeHref(r['ファイルリンク']) ? `<a class="report-link" href="${safeHref(r['ファイルリンク'])}" target="_blank" rel="noopener">PDFを見る ↗</a>` : '<span style="color:var(--text3)">—</span>'}</td>
         </tr>`;
-      }).join('');
+      }).join('') + '<tr class="filler-row"><td colspan="3">&nbsp;</td></tr>'.repeat(fillerCount);
 
       renderPager(totalPages, filtered.length, start);
     }
