@@ -293,8 +293,8 @@ async function initReportArchive() {
       if (page > totalPages) page = totalPages;
       const start = (page-1)*PAGE_SIZE;
       const shown = filtered.slice(start, start+PAGE_SIZE);
-      // ページ送りで表の縦サイズが変わらないよう、残り行数を空行で埋めて常にPAGE_SIZE行分の高さを維持する
-      const fillerCount = totalPages > 1 ? PAGE_SIZE - shown.length : 0;
+      // ページ送り・氏名フィルターのどちらでも表の縦サイズが変わらないよう、常にPAGE_SIZE行分の高さを維持する
+      const fillerCount = Math.max(0, PAGE_SIZE - shown.length);
 
       bodyEl.innerHTML = shown.map(r=>{
         const d = new Date(r['提出日']);
