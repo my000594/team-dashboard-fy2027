@@ -19,6 +19,12 @@
 .report-link{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:500;color:var(--blue);background:var(--blue-dim);border-radius:999px;padding:5px 12px;text-decoration:none;border:.5px solid transparent}
 .report-link:hover{border-color:var(--blue)}
 .report-date{font-family:var(--mono);color:var(--text2);white-space:nowrap}
+.pager{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin-top:1rem}
+.pager-btn{font-size:12px;font-weight:500;padding:4px 11px;border-radius:999px;cursor:pointer;border:.5px solid var(--border);background:transparent;color:var(--text2);font-family:var(--mono);transition:.15s}
+.pager-btn:hover:not(:disabled){border-color:var(--border2);color:var(--text)}
+.pager-btn.active{background:var(--blue-dim);border-color:rgba(59,130,246,.4);color:var(--blue)}
+.pager-btn:disabled{opacity:.35;cursor:default}
+.pager-info{font-size:11.5px;color:var(--text3);margin-left:4px}
 </style>
 </head>
 <body>
@@ -150,6 +156,7 @@
           <tbody id="archiveBody"></tbody>
         </table>
       </div>
+      <div class="pager" id="archivePager"></div>
     </div>
     <div id="archiveEmpty" style="display:none;text-align:center;color:var(--text3);font-size:12px;padding:1.5rem 0">まだ登録されたレポートがありません</div>
   </div>
@@ -263,6 +270,8 @@ async function initReportArchive() {
   const emptyEl   = document.getElementById('archiveEmpty');
   const bodyEl    = document.getElementById('archiveBody');
   const filtersEl = document.getElementById('archiveFilters');
+  const pagerEl   = document.getElementById('archivePager');
+  const PAGE_SIZE = 10;
   try {
     const { ok, text } = await fetchCSVText('data/3se_report_archive.csv');
     const parsed = ok ? Papa.parse(text, { header:true, skipEmptyLines:true }).data : [];
@@ -274,9 +283,15 @@ async function initReportArchive() {
 
     const names = [...new Set(rows.map(r=>r['氏名']))];
     let active = 'すべて';
+    let page = 1;
 
     function render() {
-      const shown = active==='すべて' ? rows : rows.filter(r=>r['氏名']===active);
+      const filtered = active==='すべて' ? rows : rows.filter(r=>r['氏名']===active);
+      const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+      if (page > totalPages) page = totalPages;
+      const start = (page-1)*PAGE_SIZE;
+      const shown = filtered.slice(start, start+PAGE_SIZE);
+
       bodyEl.innerHTML = shown.map(r=>{
         const d = new Date(r['提出日']);
         const dispDate = isNaN(d) ? escHTML(r['提出日']) : d.toLocaleDateString('ja-JP');
@@ -287,6 +302,26 @@ async function initReportArchive() {
           <td class="left">${safeHref(r['ファイルリンク']) ? `<a class="report-link" href="${safeHref(r['ファイルリンク'])}" target="_blank" rel="noopener">PDFを見る ↗</a>` : '<span style="color:var(--text3)">—</span>'}</td>
         </tr>`;
       }).join('');
+
+      renderPager(totalPages, filtered.length, start);
+    }
+
+    function renderPager(totalPages, totalCount, start) {
+      if (totalPages <= 1) { pagerEl.innerHTML=''; return; }
+      const btn = (label, p, disabled, cls='') =>
+        `<button type="button" class="pager-btn ${cls}" data-page="${p}"${disabled?' disabled':''}>${label}</button>`;
+      let html = btn('« 前へ', page-1, page===1);
+      for (let p=1; p<=totalPages; p++) html += btn(p, p, false, p===page?'active':'');
+      html += btn('次へ »', page+1, page===totalPages);
+      html += `<span class="pager-info">${totalCount}件中 ${start+1}〜${Math.min(start+PAGE_SIZE, totalCount)}件</span>`;
+      pagerEl.innerHTML = html;
+      pagerEl.querySelectorAll('.pager-btn').forEach(b=>{
+        if (b.disabled) return;
+        b.addEventListener('click', ()=>{
+          page = +b.dataset.page;
+          render();
+        });
+      });
     }
 
     filtersEl.innerHTML = ['すべて', ...names].map(n=>{
@@ -296,6 +331,7 @@ async function initReportArchive() {
     filtersEl.querySelectorAll('.filter-btn').forEach(btn=>{
       btn.addEventListener('click', ()=>{
         active = btn.dataset.name;
+        page = 1;
         filtersEl.querySelectorAll('.filter-btn').forEach(b=>b.classList.toggle('active', b===btn));
         render();
       });
