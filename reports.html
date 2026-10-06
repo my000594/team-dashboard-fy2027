@@ -312,7 +312,7 @@ async function initReportArchive() {
     }
 
     function renderPager(totalPages, totalCount, start) {
-      if (totalPages <= 1) { pagerEl.innerHTML=''; return; }
+      // ページ数が1件でもボタン行自体は常に描画し、ページャーの有無で縦サイズが変わらないようにする
       const btn = (label, p, disabled, cls='') =>
         `<button type="button" class="pager-btn ${cls}" data-page="${p}"${disabled?' disabled':''}>${label}</button>`;
       let html = btn('« 前へ', page-1, page===1);
