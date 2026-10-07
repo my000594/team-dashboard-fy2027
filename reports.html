@@ -274,7 +274,10 @@ async function initReportArchive() {
   const pagerEl   = document.getElementById('archivePager');
   const PAGE_SIZE = 10;
   try {
-    const { ok, text } = await fetchCSVText('data/3se_report_archive.csv');
+    const [{ ok, text }, master] = await Promise.all([
+      fetchCSVText('data/3se_report_archive.csv'),
+      fetchCSVText('data/members/member_master.csv').catch(()=>({ ok:false, text:'' })),
+    ]);
     const parsed = ok ? Papa.parse(text, { header:true, skipEmptyLines:true }).data : [];
     const rows = parsed
       .filter(r => r['氏名'] && r['提出日'])
@@ -282,7 +285,18 @@ async function initReportArchive() {
 
     if (!rows.length) { contentEl.style.display='none'; emptyEl.style.display='block'; return; }
 
-    const names = [...new Set(rows.map(r=>r['氏名']))];
+    // フィルターボタンはメンバー一覧（member_master.csvの在籍者の行順）と同じ並びで固定する。
+    // 提出の無いメンバーはボタン自体を出さない。名簿に見当たらない氏名は末尾に出現順で追加
+    const rosterOrder = master.ok
+      ? Papa.parse(master.text, { header:true, skipEmptyLines:true }).data
+          .filter(r => r['ステータス']==='在籍' && r['氏名'])
+          .map(r => String(r['氏名']).trim())
+      : [];
+    const submitted = [...new Set(rows.map(r=>r['氏名']))];
+    const names = [
+      ...rosterOrder.filter(n => submitted.includes(n)),
+      ...submitted.filter(n => !rosterOrder.includes(n)),
+    ];
     let active = 'すべて';
     let page = 1;
 
