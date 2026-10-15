@@ -22,7 +22,7 @@ const DB = {
   info:        '3a529672-672f-80bb-9dc1-e33637e02fb1', // インフォメーション
   knowledge:   '3a529672-672f-80ab-bd6e-c045e34a326a', // ナレッジ・FAQ
   meetingPlan: '3a629672-672f-80a0-8ad7-ce53a48198df', // 実施計画（ライン別会議実施計画）
-  skill:       'd94ebc91-0300-4476-b244-2da697341c25', // 📍 スキルマップ
+  skill:       '3fa29672-672f-8016-a120-f830c90b90d3', // 📍 スキルマップ（2026-10-15にDBごと差し替え。旧ID d94ebc91-… はゴミ箱）
   certification: 'b88a98ca-3014-4f63-9d23-95cafbea9048', // 💯 保有資格
   chronicle:   'a4c700d71a98421d874ee6789f9e6885', // 📖 ライン年表
   reportArchive: 'fc02988a-d0f8-42a3-a00d-5722cf2ca036', // 📚 3SEレポート事例集
@@ -107,6 +107,13 @@ const getStatus      = (p) => p?.status?.name || '';
 const getMultiSelect = (p) => (p?.multi_select || []).map(o => o.name);
 const getCheckbox    = (p) => p?.checkbox === true;
 const getNumber      = (p) => p?.number ?? 0;
+// Notion側でDBを作り直した際などに型がselect⇔テキスト、数値⇔テキストへ変わっても値を落とさないための寛容な取得
+const getSelectOrText = (p) => p?.type === 'select' ? getSelect(p) : (p?.rich_text || []).map(t => t.plain_text).join('').trim();
+const getNumberLoose = (p) => {
+  if (p?.type === 'number') return p.number ?? 0;
+  const n = parseFloat((p?.rich_text || []).map(t => t.plain_text).join('').replace(/[０-９．]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)));
+  return Number.isFinite(n) ? n : 0;
+};
 const getDateStart   = (p) => p?.date?.start || '';
 // files型プロパティからリンクだけを取り出す（Notionアップロードのfile.urlは期限付きプリサインURLである点に注意）
 const getFileLinks   = (p) => (p?.files || []).map(f => f.type === 'external' ? f.external?.url : f.file?.url).filter(Boolean);
@@ -494,11 +501,11 @@ async function main() {
         __order: props['表示順']?.number ?? null,
         'タイトル': getTitle(props['タイトル']),
         '氏名': getSelect(props['氏名']),
-        'スキル名': getSelect(props['スキル名']),
+        'スキル名': getSelectOrText(props['スキル名']),
         'カテゴリ': getSelect(props['カテゴリ']),
         'サブカテゴリ': getSelect(props['サブカテゴリ']),
       };
-      for (const period of SKILL_PERIODS) row[period] = getNumber(props[period]);
+      for (const period of SKILL_PERIODS) row[period] = getNumberLoose(props[period]);
       row['備考'] = getRichText(props['備考']);
       row['更新日'] = getDateStart(props['更新日']);
       return row;
