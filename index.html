@@ -71,7 +71,7 @@
   <div class="card" id="infoCard" style="margin-bottom:1.5rem;display:none">
     <div class="info-card-header">
       <div class="card-title">📢 インフォメーション</div>
-      <a href="info.html" class="info-archive-btn">過去のお知らせも見る</a>
+      <a href="info.html?view=archive" class="info-archive-btn">過去のお知らせも見る</a>
     </div>
     <div class="info-split">
       <div class="info-split-main">
@@ -229,21 +229,21 @@ async function init() {
       setTimeout(() => { btn.textContent = LINK_COPY_LABEL; }, 2000);
     };
 
-    // 恒常項目は右列に全件表示する（0件のときは.info-split-side:emptyで列ごと消える）
+    // 恒常項目は右列に全件表示する（0件のときは.info-split-side:emptyで列ごと消える）。
+    // 本文は長いものが多く、その場で開くと右列だけ縦に伸びるため、info.htmlの該当項目へ遷移させる
     if (persistentInfo.length > 0) {
       const shown = persistentInfo.map(({ r, start }) => {
         const daysSinceStart = start ? Math.floor((today0 - start) / (1000*60*60*24)) : -1;
         const isNew = daysSinceStart >= 0 && daysSinceStart < NEW_BADGE_DAYS;
-        return `<div class="info-item info-row" onclick="this.classList.toggle('open')">
+        return `<a class="info-item info-row info-row-link" href="info.html?item=${encodeURIComponent(r['タイトル'] || '')}">
           <div class="info-main">
             <div class="info-title-row">
               ${isNew ? '<span class="info-new-badge">NEW!</span>' : ''}
               <span class="info-title">${escapeHTML(r['タイトル'] || '')}</span>
               <span class="info-chevron">›</span>
             </div>
-            ${infoBodyHTML(r['タイトル'] || '', r['本文'])}
           </div>
-        </div>`;
+        </a>`;
       }).join('');
       persistentSection.innerHTML = `<div class="info-split-label">いつも確認すること<span>${persistentInfo.length}件</span></div>${shown}`;
     } else {

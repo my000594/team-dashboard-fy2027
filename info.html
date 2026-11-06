@@ -51,7 +51,7 @@
 
   <div class="card">
     <div class="info-card-header">
-      <div class="card-title">📢 現在の表示</div>
+      <div class="card-title" id="infoCardTitle">📢 現在の表示</div>
       <button type="button" class="info-archive-btn" id="archiveToggleBtn" onclick="toggleArchive()">アーカイブ</button>
     </div>
     <div id="persistent" style="scroll-margin-top:1rem"></div>
@@ -206,12 +206,17 @@ async function init() {
       const btn = document.getElementById('archiveToggleBtn');
       btn.classList.toggle('active', !showingArchive);
       btn.textContent = showingArchive ? 'アーカイブ' : '現在の表示に戻る';
-      document.querySelector('.card-title').textContent = showingArchive ? '📢 現在の表示' : '📦 アーカイブ';
+      document.getElementById('infoCardTitle').textContent = showingArchive ? '📢 現在の表示' : '📦 アーカイブ';
     };
 
     // ディープリンク（?item=タイトル）で開かれた場合、該当項目まで自動スクロール＋展開する。
     // タイトルが変更・削除されていて見つからない場合は何もせず通常表示のまま（サイレントフェイル）
-    const deepLinkTitle = new URLSearchParams(location.search).get('item');
+    const params = new URLSearchParams(location.search);
+    const deepLinkTitle = params.get('item');
+    // トップの「過去のお知らせも見る」（?view=archive）からはアーカイブを開いた状態で表示する
+    if (!deepLinkTitle && params.get('view') === 'archive') {
+      window.toggleArchive();
+    }
     if (deepLinkTitle) {
       let target = null;
       const pIdx = persistentInfo.findIndex(x => (x.r['タイトル'] || '') === deepLinkTitle);
