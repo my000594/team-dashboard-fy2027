@@ -300,6 +300,25 @@ body {
 .pin-mini-more:hover { color: var(--text2); }
 .pin-section-divider { height: 1px; background: var(--border); margin: 10px 0 12px; }
 
+/* ── トップページのインフォメーション（左：期限あり／右：恒常の2列） ──
+   クリック展開は.info-itemの仕組みをそのまま使い、行の詰め方と期限バッジの揃え方だけ上書きする */
+.info-split { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: flex-start; }
+.info-split-main { flex: 2 1 420px; min-width: 0; }
+.info-split-side { flex: 1 1 260px; min-width: 0; background: var(--bg); border-radius: var(--radius); padding: 8px 4px; }
+.info-split-side:empty { display: none; }
+.info-split-label { padding: 0 8px 4px; font-size: 12px; font-weight: 700; }
+.info-split-label span { margin-left: 6px; font-weight: 400; color: var(--text2); }
+.info-split-more { display: block; padding: 8px; font-size: 12px; color: var(--text2); text-align: right; text-decoration: none; border-top: .5px solid var(--border); }
+.info-split-more:hover { color: var(--text); }
+.info-split-empty { padding: 10px 8px; font-size: 12px; color: var(--text2); border-top: .5px solid var(--border); }
+.info-row { padding: 7px 8px; border-bottom: none; border-top: .5px solid var(--border); }
+.info-row:hover { background: var(--bg3); }
+.info-row .info-title-row { flex-wrap: nowrap; align-items: flex-start; }
+.info-row .info-title { flex: 1; min-width: 0; }
+.info-row .info-due-badge { min-width: 52px; font-size: 11px; text-align: center; margin-top: 1px; }
+.info-row .info-new-badge { margin-top: 2px; }
+.info-row .info-chevron { color: var(--text2); }
+
 /* ── お知らせへの直接リンクをコピー（展開した本文内にのみ表示） ── */
 .info-link-copy {
   display: inline-flex; align-items: center; gap: 5px;

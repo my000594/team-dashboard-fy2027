@@ -71,10 +71,15 @@
   <div class="card" id="infoCard" style="margin-bottom:1.5rem;display:none">
     <div class="info-card-header">
       <div class="card-title">📢 インフォメーション</div>
-      <a href="info.html" class="info-archive-btn">すべて見る</a>
+      <a href="info.html" class="info-archive-btn">過去のお知らせも見る</a>
     </div>
-    <div id="persistentSection"></div>
-    <div id="infoList"></div>
+    <div class="info-split">
+      <div class="info-split-main">
+        <div class="info-split-label">期限のあるお知らせ<span id="infoCount"></span></div>
+        <div id="infoList"></div>
+      </div>
+      <div class="info-split-side" id="persistentSection"></div>
+    </div>
   </div>
 
   <div class="metrics" id="metrics"></div>
@@ -167,8 +172,7 @@ async function init() {
       if (m) return new Date(+m[1], +m[2]-1, +m[3]);
       return null;
     }
-    const INFO_TOP_LIMIT = 5;
-    const PERSISTENT_TOP_LIMIT = 2; // 恒常インフォメーションはトップページで最大何件表示するか（超過分はinfo.htmlへ）
+    const INFO_TOP_LIMIT = 8;
     const NEW_BADGE_DAYS = 3; // 開始日から何日間「NEW!」を表示するか（開始日を含む）
     const infoCard = document.getElementById('infoCard');
     const infoList = document.getElementById('infoList');
@@ -205,7 +209,7 @@ async function init() {
     // 展開した本文内にだけ「リンクをコピー」を出す（一覧をごちゃつかせないため）。
     // お知らせにはタイトル文字列以外の一意なIDが無いため、タイトルを識別子として使う
     // （knowledge.htmlの👍投票と同じ理由・同じ制約：Notion側でタイトルを変えるとリンクが該当項目を見つけられなくなる）
-    // リンクは常にinfo.htmlを指す（トップページは最大5件・恒常も上限2件までしか表示しないため、
+    // リンクは常にinfo.htmlを指す（トップページは期間限定を上限件数までしか表示せず、アーカイブも持たないため、
     // ディープリンクの受け口＝全件表示のinfo.html側にだけ用意している）
     const LINK_COPY_LABEL = '🔗 このお知らせへのリンクをコピー';
     function infoBodyHTML(title, body) {
@@ -225,12 +229,12 @@ async function init() {
       setTimeout(() => { btn.textContent = LINK_COPY_LABEL; }, 2000);
     };
 
+    // 恒常項目は右列に全件表示する（0件のときは.info-split-side:emptyで列ごと消える）
     if (persistentInfo.length > 0) {
-      const shown = persistentInfo.slice(0, PERSISTENT_TOP_LIMIT).map(({ r, start }) => {
+      const shown = persistentInfo.map(({ r, start }) => {
         const daysSinceStart = start ? Math.floor((today0 - start) / (1000*60*60*24)) : -1;
         const isNew = daysSinceStart >= 0 && daysSinceStart < NEW_BADGE_DAYS;
-        return `<div class="info-item pin-mini-item" onclick="this.classList.toggle('open')">
-          <span class="pin-mini-ico">📌</span>
+        return `<div class="info-item info-row" onclick="this.classList.toggle('open')">
           <div class="info-main">
             <div class="info-title-row">
               ${isNew ? '<span class="info-new-badge">NEW!</span>' : ''}
@@ -241,11 +245,7 @@ async function init() {
           </div>
         </div>`;
       }).join('');
-      const overflow = persistentInfo.length > PERSISTENT_TOP_LIMIT
-        ? `<a href="info.html#persistent" class="pin-mini-more">ほか${persistentInfo.length - PERSISTENT_TOP_LIMIT}件の恒常情報 → すべて見る</a>`
-        : '';
-      const divider = activeInfo.length > 0 ? '<div class="pin-section-divider"></div>' : '';
-      persistentSection.innerHTML = `<div class="pin-mini-list">${shown}</div>${overflow}${divider}`;
+      persistentSection.innerHTML = `<div class="info-split-label">いつも確認すること<span>${persistentInfo.length}件</span></div>${shown}`;
     } else {
       persistentSection.innerHTML = '';
     }
@@ -253,22 +253,20 @@ async function init() {
     if (activeInfo.length > 0 || persistentInfo.length > 0) {
       infoCard.style.display = '';
     }
+    document.getElementById('infoCount').textContent = `${activeInfo.length}件`;
     if (activeInfo.length > 0) {
       infoList.innerHTML = activeInfo.slice(0, INFO_TOP_LIMIT).map(({ r, start, end }) => {
-        const type = r['種別'] || 'info';
-        const dotClass = type === 'deadline' ? 'info-deadline' : type === 'event' ? 'info-event' : 'info-info';
         const diff = Math.ceil((end - today0) / (1000*60*60*24));
         const dueClass = diff <= 7 ? 'info-due-urgent' : 'info-due-normal';
-        const dueText = diff <= 7 ? `残${diff}日（〜${end.getFullYear()}/${end.getMonth()+1}/${end.getDate()}）` : `〜${end.getFullYear()}/${end.getMonth()+1}/${end.getDate()}`;
+        const dueText = diff === 0 ? '本日' : diff <= 7 ? `残${diff}日` : `${end.getMonth()+1}/${end.getDate()}`;
         const daysSinceStart = Math.floor((today0 - start) / (1000*60*60*24));
         const isNew = daysSinceStart >= 0 && daysSinceStart < NEW_BADGE_DAYS;
-        return `<div class="info-item" onclick="this.classList.toggle('open')">
-          <span class="info-dot ${dotClass}"></span>
+        return `<div class="info-item info-row" onclick="this.classList.toggle('open')">
+          <span class="info-due-badge ${dueClass}">${dueText}</span>
           <div class="info-main">
             <div class="info-title-row">
               ${isNew ? '<span class="info-new-badge">NEW!</span>' : ''}
               <span class="info-title">${escapeHTML(r['タイトル'] || '')}</span>
-              <span class="info-due-badge ${dueClass}">${dueText}</span>
               <span class="info-chevron">›</span>
             </div>
             ${infoBodyHTML(r['タイトル'] || '', r['本文'])}
@@ -276,8 +274,10 @@ async function init() {
         </div>`;
       }).join('');
       if (activeInfo.length > INFO_TOP_LIMIT) {
-        infoList.innerHTML += `<a href="info.html" style="display:block;text-align:right;font-size:12px;color:var(--text3);padding:10px 0 2px">他 ${activeInfo.length - INFO_TOP_LIMIT}件 → インフォメーションですべて見る</a>`;
+        infoList.innerHTML += `<a href="info.html" class="info-split-more">他 ${activeInfo.length - INFO_TOP_LIMIT}件 → インフォメーションですべて見る</a>`;
       }
+    } else {
+      infoList.innerHTML = '<div class="info-split-empty">現在、期限のあるお知らせはありません</div>';
     }
 
     // Metrics
