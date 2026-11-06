@@ -203,6 +203,7 @@ async function init() {
       const showingArchive = archiveList.style.display !== 'none';
       archiveList.style.display = showingArchive ? 'none' : '';
       infoList.style.display = showingArchive ? '' : 'none';
+      persistentSection.style.display = showingArchive ? '' : 'none';
       const btn = document.getElementById('archiveToggleBtn');
       btn.classList.toggle('active', !showingArchive);
       btn.textContent = showingArchive ? 'アーカイブ' : '現在の表示に戻る';
