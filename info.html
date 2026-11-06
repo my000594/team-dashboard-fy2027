@@ -122,9 +122,14 @@ async function init() {
     // お知らせにはタイトル文字列以外の一意なIDが無いため、タイトルを識別子として使う
     // （knowledge.htmlの👍投票と同じ理由・同じ制約：Notion側でタイトルを変えるとリンクが該当項目を見つけられなくなる）
     const LINK_COPY_LABEL = '🔗 このお知らせへのリンクをコピー';
-    function infoBodyHTML(title, body) {
+    function infoBodyHTML(title, body, showBackLink) {
+      // 恒常項目はトップページの右列から遷移してくるため、戻り先のリンクを添える
+      const backLink = showBackLink
+        ? '<a href="index.html" class="info-link-copy info-link-back" onclick="event.stopPropagation()">← トップに戻る</a>'
+        : '';
       return `<div class="info-body">
         <div class="md-body">${md2html(body)}</div>
+        ${backLink}
         <button type="button" class="info-link-copy" data-title="${escapeHTML(title)}" onclick="event.stopPropagation(); copyInfoLink(this)">${LINK_COPY_LABEL}</button>
       </div>`;
     }
@@ -152,7 +157,7 @@ async function init() {
               <span class="info-title">${escapeHTML(r['タイトル'] || '')}</span>
               <span class="info-chevron">›</span>
             </div>
-            ${infoBodyHTML(r['タイトル'] || '', r['本文'])}
+            ${infoBodyHTML(r['タイトル'] || '', r['本文'], true)}
           </div>
         </div>`;
       }).join('');

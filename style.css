@@ -328,6 +328,7 @@ body {
   padding: 4px 11px; cursor: pointer; font-family: var(--font); transition: .15s;
 }
 .info-link-copy:hover { color: var(--text); border-color: var(--border2); }
+.info-link-back { margin-right: 6px; text-decoration: none; }
 
 /* 他ページからのディープリンクで開いた項目を一瞬ハイライトする */
 .info-item-flash { animation: infoItemFlash 1.8s ease-out; border-radius: var(--radius); }
