@@ -237,7 +237,9 @@ async function init() {
       }
       if (target) {
         target.classList.add('open', 'info-item-flash');
-        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        // 本文が長いと中央揃えではタイトルが画面外に出るため、タイトルが見えるよう上端に揃える
+        target.style.scrollMarginTop = '16px';
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
         setTimeout(() => target.classList.remove('info-item-flash'), 1800);
       }
     }
