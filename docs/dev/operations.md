@@ -79,6 +79,7 @@ PowerShellでDownloads内の全 `*ExportBlock*.zip` をスキャンし、CSVの�
 | 開発ドキュメント | 全`*.html`に`docs/dev/pages/<名前>.md`があり、ルートCLAUDE.mdが参照する`docs/dev/`のファイルが実在するか |
 | robots / SRI | 全ページにnoindexのmetaがあり、外部`<script>`に`integrity`・`crossorigin`が付き、同じURLならページ間で同じintegrityか（ハッシュ値自体の正しさはネットワークが要るため見ていない） |
 | you-widget | `you-widget.js`を読むページが`data.js`を先に読み、`#youMini`を持っているか |
+| 配信許可リスト | 全`*.html`が`functions/_middleware.js`の`PAGES`にあり、各ページが読む同一オリジンのJS/CSSが`FILES`にあるか（漏れると本番でそのファイルだけ404）。逆に`PAGES`/`FILES`に実在しないものが残っていないか |
 
 - 判断が要る確認（ドキュメントの記述がコードと合っているか等）はこのスクリプトではなく、`docs-sync`サブエージェント（`.claude/agents/docs-sync.md`）が担当する。役割分担：**決まった値の照合＝スクリプト（無料・確実）、文章と実装の突き合わせ＝サブエージェント（Sonnetで実行しコストを抑える）**
 - 変数名を変えるとスクリプトが「定義が見つからない」と報告するので、その場合はスクリプト側の正規表現も直すこと

@@ -98,6 +98,25 @@ const htmlPages = fs.readdirSync(ROOT).filter((f) => f.endsWith('.html')).sort()
   }
 }
 
+// 7. 配信許可リスト（functions/_middleware.js）：全ページ・各ページが読む同一オリジンのJS/CSSが載っているか
+//    載っていないと本番でそのファイルだけ404になる
+{
+  const mw = read('functions/_middleware.js');
+  const list = (name) => parseArr((mw.match(new RegExp(`const ${name} = (\\[[^\\]]*\\])`)) || [, ''])[1]);
+  const pages = list('PAGES'), files = list('FILES');
+  if (!pages.length || !files.length) ng('[配信許可] functions/_middleware.js の PAGES / FILES が読み取れない');
+  for (const f of htmlPages) {
+    if (!pages.includes(f.replace(/\.html$/, ''))) ng(`[配信許可] ${f}: functions/_middleware.js の PAGES に無い（本番で404になる）`);
+    for (const m of read(f).matchAll(/<(?:script|link)[^>]+(?:src|href)="([^"]+\.(?:js|css))"/g)) {
+      const ref = m[1];
+      if (/^(https?:)?\/\//.test(ref)) continue;
+      if (!files.includes('/' + ref.replace(/^\.?\//, ''))) ng(`[配信許可] ${f}: ${ref} が functions/_middleware.js の FILES に無い（本番で404になる）`);
+    }
+  }
+  for (const p of files) if (!exists(p.slice(1))) ng(`[配信許可] FILES の ${p} が存在しない`);
+  for (const p of pages) if (!exists(`${p}.html`)) ng(`[配信許可] PAGES の ${p} に対応する ${p}.html が存在しない（削除したページなら PAGES からも外す）`);
+}
+
 if (problems.length) {
   console.log(`整合性チェック：${problems.length}件の問題\n` + problems.map((p) => `  - ${p}`).join('\n'));
   process.exit(1);

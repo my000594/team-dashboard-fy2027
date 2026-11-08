@@ -87,6 +87,7 @@ Cloudflareダッシュボード（[dash.cloudflare.com](https://dash.cloudflare.
 | 特定の人だけログインできない | Cloudflare Accessの許可リストにメールアドレスが登録されているか確認（5章） |
 | 全員ログインできない・サインイン画面がおかしい | Zero Trust → Integrations → Identity providers に「One-time PIN」が存在するか確認。無い場合は「Add an identity provider」から追加し直す |
 | サイトが真っ白・表示が崩れる | Cloudflare Pagesのデプロイが失敗している可能性。Cloudflareダッシュボード → Workers & Pages → team-dashboard-fy2027 → Deployments で直近のビルド状況を確認 |
+| 新しく追加したページ・ファイルだけ「Not Found」になる | `functions/_middleware.js`の配信許可リスト（`PAGES`/`FILES`）に追記されていない。ダッシュボードの表示に不要なファイル（docs/・CLAUDE.md等）は意図的にNot Foundにしている |
 
 ## 7. ナレッジ👍投票データ（D1）の管理
 

@@ -49,7 +49,7 @@ disable-model-invocation: true
 2. 評価時期は `config/org.json` 以外にもハードコードがあるので揃える：`skill.html`（`PERIODS` 初期値とフォールバック値）・`portfolio.html`・`you-widget.js`・`scripts/sync-notion.mjs`
 3. `org.json` で賄えない表記を置き換える。`Grep` で元組織の名前（組織名・ライン名・年度表記）を全 `*.html`・`*.js` から探し、`<title>`・ページ見出し・サイドバーのロゴなどを書き換える。コメント内の記述は書き換えなくてよい
 4. `maintenance-app.html` の `OWNER`・`REPO` を導入者の GitHub アカウント名・リポジトリ名にする（Step 6 で決まってから戻ってきてもよい）
-5. 使わないページを削除し、`nav.js` の `NAV_ITEMS`・`docs/dev/pages/<ページ名>.md`・ルート `CLAUDE.md` のファイル構成と索引からも外す。削除したページのCSVを読む処理が `scripts/sync-notion.mjs` にあれば、その `section()` と `DB` 定数の行も消す
+5. 使わないページを削除し、`nav.js` の `NAV_ITEMS`・`docs/dev/pages/<ページ名>.md`・ルート `CLAUDE.md` のファイル構成と索引と、配信許可リスト `functions/_middleware.js` の `PAGES` からも外す。削除したページのCSVを読む処理が `scripts/sync-notion.mjs` にあれば、その `section()` と `DB` 定数の行も消す
 6. `node scripts/check-consistency.mjs` を実行し、OKになるまで直す
 
 ## Step 3：サンプルデータの片付け

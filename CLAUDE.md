@@ -8,7 +8,7 @@
 
 | 変更内容 | 更新箇所 |
 |----------|---------|
-| ページを追加・削除した | ファイル構成・開発ドキュメント索引・`docs/dev/pages/<ページ名>.md`（`nav.js`の`NAV_ITEMS`も） |
+| ページを追加・削除した | ファイル構成・開発ドキュメント索引・`docs/dev/pages/<ページ名>.md`（`nav.js`の`NAV_ITEMS`と、配信許可リスト`functions/_middleware.js`の`PAGES`も。共通JS/CSSを追加した場合は`FILES`） |
 | ページ・共通スクリプトの仕様や設計判断を変えた | `docs/dev/pages/` または `docs/dev/shared/` の該当ファイル |
 | データファイルの構造を変えた | `data/CLAUDE.md`の該当セクション（CSVフォーマット詳細はこちらに分離済み） |
 | 新しいデータファイルを追加した | ファイル構成・`data/CLAUDE.md` |
@@ -76,6 +76,7 @@ team-dashboard-fy2027/
 ├── you-widget.js        「あなたの状況」ウィジェット共通スクリプト（全ページのpage-headerで共用）
 ├── robots.txt           検索エンジン避け（全ページDisallow）
 ├── functions/           Cloudflare Pages Functions（knowledge.htmlの👍投票API。詳細は後述。npm依存なし・ビルドコマンド不要）
+│   ├── _middleware.js        サイト全体の配信許可リスト（ページ・共通JS/CSS・config/org.json・data/だけを通し、docs/・CLAUDE.md・scripts/等は404。docs/dev/security.md参照）
 │   └── api/
 │       ├── _middleware.js    /api配下をCloudflare AccessのJWT検証（Web Crypto APIのみで自前実装）で保護
 │       └── knowledge-votes.js ナレッジ👍投票のGET（集計取得）/POST（トグル）
@@ -114,7 +115,7 @@ team-dashboard-fy2027/
     │   └── 氏名.png            顔写真（個人名でリネーム・手動管理）
     └── knowledge_images/    ナレッジ本文に常時確実に表示したい画像（外部ドライブ経由の認証問題を避けるための手動管理領域。詳細は`docs/dev/shared/md-js.md`参照）
 └── docs/
-    ├── skill_hearing_sheet.xlsx  スキル・保有資格ヒアリングシート（部下配布用のフォーマット。ダッシュボードからリンクはしていないが、Cloudflare Pagesはリポジトリ全体を配信するため`/docs/skill_hearing_sheet.xlsx`をURL直打ちすれば取得できる（Access認証の内側）。docs/配下のmd・CLAUDE.md等も同様。2026-11-08に実機確認）
+    ├── skill_hearing_sheet.xlsx  スキル・保有資格ヒアリングシート（部下配布用のフォーマット。GitHubにフォーマットとして置いているだけ。`functions/_middleware.js`の配信許可リストによりサイトからは404になる。docs/配下のmd・CLAUDE.md等も同様）
     ├── spec.md              仕様書（人間向け。仕組み・技術スタック・ページ構成の概要）
     ├── user_manual.md       ユーザーマニュアル（部下向け。アクセス方法・各ページの使い方）
     ├── admin_manual.md      管理マニュアル（管理者向け。データ更新・メンバー管理・Access管理・トラブル対応の手順）
@@ -200,11 +201,11 @@ team-dashboard-fy2027/
 
 - 分離先ファイル内の「〇〇.htmlセクション」「データフォーマット節」等の参照は、上表の対応ファイルを指す（分離前の節名のまま残している）
 - 複数ページにまたがる共通部品（you-widget.js等）を変えた場合は、共通スクリプト側のmdに加えて影響するページのmdも確認すること
-- 新しいページを追加したら`docs/dev/pages/<ページ名>.md`を新規作成し、この表とファイル構成に追記すること
+- 新しいページを追加したら`docs/dev/pages/<ページ名>.md`を新規作成し、この表とファイル構成に追記すること。**`functions/_middleware.js`の`PAGES`への追記も必須**（忘れると本番でそのページが404になる）
 
 ### 作業の締めくくり（コミット前）
 
-1. `node scripts/check-consistency.mjs` を実行する（評価時期のハードコード4ファイル・`NEW_BADGE_DAYS`の2ページ・`NAV_ITEMS`の`mini`・各ページの開発ドキュメントの有無・CDNのSRI・robots・you-widgetの読み込み順を機械的に照合。問題があれば終了コード1）
+1. `node scripts/check-consistency.mjs` を実行する（評価時期のハードコード4ファイル・`NEW_BADGE_DAYS`の2ページ・`NAV_ITEMS`の`mini`・各ページの開発ドキュメントの有無・CDNのSRI・robots・you-widgetの読み込み順・配信許可リスト（`functions/_middleware.js`）の記載漏れを機械的に照合。問題があれば終了コード1）
 2. ページ・共通スクリプト・同期スクリプト・ワークフロー・`config/org.json`に構造的な変更をした場合は、`docs-sync`サブエージェント（`.claude/agents/docs-sync.md`）に更新漏れを洗い出させ、指摘を反映してからコミットする。デザイン調整・文言修正だけなら不要（トークンコストを抑えるため）
 
 ---
