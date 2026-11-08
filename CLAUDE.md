@@ -114,7 +114,7 @@ team-dashboard-fy2027/
     │   └── 氏名.png            顔写真（個人名でリネーム・手動管理）
     └── knowledge_images/    ナレッジ本文に常時確実に表示したい画像（外部ドライブ経由の認証問題を避けるための手動管理領域。詳細は`docs/dev/shared/md-js.md`参照）
 └── docs/
-    ├── skill_hearing_sheet.xlsx  スキル・保有資格ヒアリングシート（部下配布用。サイト非公開・デプロイ対象外）
+    ├── skill_hearing_sheet.xlsx  スキル・保有資格ヒアリングシート（部下配布用のフォーマット。ダッシュボードからリンクはしていないが、Cloudflare Pagesはリポジトリ全体を配信するため`/docs/skill_hearing_sheet.xlsx`をURL直打ちすれば取得できる（Access認証の内側）。docs/配下のmd・CLAUDE.md等も同様。2026-11-08に実機確認）
     ├── spec.md              仕様書（人間向け。仕組み・技術スタック・ページ構成の概要）
     ├── user_manual.md       ユーザーマニュアル（部下向け。アクセス方法・各ページの使い方）
     ├── admin_manual.md      管理マニュアル（管理者向け。データ更新・メンバー管理・Access管理・トラブル対応の手順）
