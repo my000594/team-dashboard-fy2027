@@ -93,6 +93,7 @@ team-dashboard-fy2027/
 ├── update_knowledge.bat ナレッジCSV更新バッチ（同上）
 ├── CLAUDE.md           このファイル
 ├── .claude/agents/docs-sync.md  ドキュメント更新漏れを洗い出すサブエージェント（「作業の締めくくり」節参照）
+├── .claude/skills/dashboard-setup/SKILL.md  他部署・他組織へ渡した先での初期セットアップを対話で進めるスキル（`/dashboard-setup`で起動。自動起動はしない）
 ├── config/
 │   └── org.json        組織固有設定（ライン名・管理者名・カラー・参考メンバー等。詳細は「組織設定」節参照）
 └── data/
@@ -244,4 +245,4 @@ Cloudflare PagesとGitHub（`my000594/team-dashboard-fy2027`）を連携済み�
 - 顔写真（氏名.png）の準備・配置
 - 実売上データへの置き換え（現在サンプル値）
 - デザインのさらなる洗練
-- **他部署・他社への展開準備（2026-09-11着手）**：`config/org.json`によるコア部分（member/skill/knowledge/info＋共通基盤）の組織非依存化と、career/sales/reports/meetings/chronicleの「パターン集」化（`docs/PATTERNS.md`）まで完了。残タスク：①渡す際のgit履歴サニタイズ手順の確立（過去コミットに実メンバーの個人情報が残っているため、`git clone`ではなく現時点のファイルのみで新規履歴を作る必要がある。詳細はルートCLAUDE.mdの「組織設定」節および検討の経緯を参照）、②Notion側の複製可能テンプレート（空のDB一式）の用意、③セットアップ手順のAI主導スキル化（`.claude/skills/setup.md`等）、④簡易利用条件（ライセンス）文言の作成
+- **他部署・他社への展開準備（2026-09-11着手）**：`config/org.json`によるコア部分（member/skill/knowledge/info＋共通基盤）の組織非依存化と、career/sales/reports/meetings/chronicleの「パターン集」化（`docs/PATTERNS.md`）まで完了。残タスク：①渡す際のgit履歴サニタイズ手順の確立（過去コミットに実メンバーの個人情報が残っているため、`git clone`ではなく現時点のファイルのみで新規履歴を作る必要がある。詳細はルートCLAUDE.mdの「組織設定」節および検討の経緯を参照）、②Notion側の複製可能テンプレート（空のDB一式）の用意、③セットアップ手順のAI主導スキル化（2026-11-08に`.claude/skills/dashboard-setup/SKILL.md`として初版作成。実際に他部署で使ってもらった結果を反映して改訂する）、④簡易利用条件（ライセンス）文言の作成
