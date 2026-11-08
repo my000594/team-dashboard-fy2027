@@ -66,3 +66,19 @@ PowerShellでDownloads内の全 `*ExportBlock*.zip` をスキャンし、CSVの�
 復旧：Actionsタブ → メンテナンスモード切り替え → Run workflow → mode: off
 ```
 フォールバック：手動でdata/maintenance.jsonのactiveを直接編集してgit push（従来通りの方法。ローカルにリポジトリがある場合はこちらでも可）
+
+## 整合性チェック（scripts/check-consistency.mjs）
+
+2026-11-08追加。複数ファイルに重複定義されている値や、全ページ共通の約束事が崩れていないかを機械的に照合するNodeスクリプト（依存なし）。`node scripts/check-consistency.mjs`で実行し、問題があれば一覧を出して終了コード1になる。
+
+| チェック | 内容 |
+|---------|------|
+| 評価時期 | `config/org.json`の`skillPeriods`を正として、`skill.html`（`PERIODS`初期値・フォールバック値）・`portfolio.html`・`you-widget.js`・`scripts/sync-notion.mjs`のハードコード値が一致するか |
+| `NEW_BADGE_DAYS` | `index.html`と`info.html`で同じ値か |
+| nav.js | `NAV_ITEMS`の全項目に`mini`があり、リンク先ファイルが実在するか |
+| 開発ドキュメント | 全`*.html`に`docs/dev/pages/<名前>.md`があり、ルートCLAUDE.mdが参照する`docs/dev/`のファイルが実在するか |
+| robots / SRI | 全ページにnoindexのmetaがあり、外部`<script>`に`integrity`・`crossorigin`が付き、同じURLならページ間で同じintegrityか（ハッシュ値自体の正しさはネットワークが要るため見ていない） |
+| you-widget | `you-widget.js`を読むページが`data.js`を先に読み、`#youMini`を持っているか |
+
+- 判断が要る確認（ドキュメントの記述がコードと合っているか等）はこのスクリプトではなく、`docs-sync`サブエージェント（`.claude/agents/docs-sync.md`）が担当する。役割分担：**決まった値の照合＝スクリプト（無料・確実）、文章と実装の突き合わせ＝サブエージェント（Sonnetで実行しコストを抑える）**
+- 変数名を変えるとスクリプトが「定義が見つからない」と報告するので、その場合はスクリプト側の正規表現も直すこと

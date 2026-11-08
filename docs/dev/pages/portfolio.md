@@ -6,7 +6,7 @@
 - `?member=氏名`パラメータで表示するメンバーを指定。未指定の場合は`localStorage['you_widget_member']`（you-widget.jsと同じキー）にフォールバックし、それも無ければメンバーセレクター画面を表示する
 - **nav.jsのNAV_ITEMSには載せない**。member.htmlのALLタブのTR行クリック・グループタブ（ライン別/役職別/等級別/委員会別）のchipクリックで`portfolio.html?member=氏名`へ遷移する設計（専用のメニュー項目を持たない）
 - 取得するCSVは`member_master.csv` / `skill.csv` / `certifications.csv` / `3se_report_archive.csv`の4ファイルを並行fetch（`data.js`の`fetchCSVText`を使用）
-- **評価時期の自動判定**（`detectLatestPeriod()`）：PERIODS配列（skill.htmlと同じ4時期）のうち、当該メンバーに1件でもレベル入力がある最新の時期を選ぶ。全時期未入力なら先頭時期
+- **評価時期の自動判定**（`detectLatestPeriod()`）：PERIODS配列（skill.htmlと同じ4時期。**`config/org.json`を読まずページ内にハードコードしている**ため、評価時期を追加する際はここも更新が必要。`node scripts/check-consistency.mjs`で不一致を検出できる）のうち、当該メンバーに1件でもレベル入力がある最新の時期を選ぶ。全時期未入力なら先頭時期
 - **表示セクション**：
   - ヒーロー：顔写真（`data/members/氏名.png`）・氏名・役職・等級・所属ライン
   - メンバー切替チップ（在籍者一覧、クリックで同ページ内でメンバー切替）

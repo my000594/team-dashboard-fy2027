@@ -19,4 +19,4 @@
 - CSS（`.you-mini*`）はstyle.cssに集約。ページ見出し行を横並びにする`.page-header.with-you`もstyle.cssで定義しているため、ウィジェットを置くページの`.page-header`には`with-you`クラスを付けるだけでよい
 - 選択メンバーが変わるたびに（初回表示・チップ切替のどちらでも）`window.dispatchEvent(new CustomEvent('you-widget-changed', {detail:{name}}))`を発火する（2026-08-18追加）。他ページのスクリプトがこのウィジェットの選択に追従したい場合に購読する想定で、現状はskill.htmlの「チーム全体」レーダーの自動比較線がこれを使っている（詳細はskill.htmlセクション参照）。`localStorage.setItem`の**後**に発火させている点に注意（先に発火させると、購読側がその場で`localStorage`を読み直しても書き込み前の古い値を拾ってしまう）
 - 新しいページを追加してウィジェットも置く場合は、他ページの`.page-header.with-you`ブロックと同じマークアップをコピーし、`<script src="data.js">`の直後に`<script src="you-widget.js">`を追加すればよい（Papaparse本体のCDN読み込みも必要）
-- スキルマップの評価時期（`YOU_SKILL_PERIODS`）はyou-widget.js内にも定義がある。新しい時期が追加されたらskill.html内の`PERIODS`・scripts/sync-notion.mjsの`SKILL_PERIODS`と合わせて追記すること（3箇所目）
+- スキルマップの評価時期（`YOU_SKILL_PERIODS`）はyou-widget.js内にも定義がある。新しい時期を追加する際は、一次情報源の`config/org.json`（`skillPeriods`）に加え、ハードコードしている`scripts/sync-notion.mjs`の`SKILL_PERIODS`・`portfolio.html`の`PERIODS`・`skill.html`のフォールバック値も揃えること（`node scripts/check-consistency.mjs`で一致を確認できる）

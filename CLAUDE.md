@@ -81,7 +81,8 @@ team-dashboard-fy2027/
 │       └── knowledge-votes.js ナレッジ👍投票のGET（集計取得）/POST（トグル）
 ├── scripts/
 │   ├── sync-notion.mjs Notion APIからdata/配下のCSVを自動生成するスクリプト
-│   └── knowledge_votes_schema.sql 👍投票用D1データベースの初期スキーマ（Cloudflareダッシュボードで手動実行）
+│   ├── knowledge_votes_schema.sql 👍投票用D1データベースの初期スキーマ（Cloudflareダッシュボードで手動実行）
+│   └── check-consistency.mjs 重複定義・共通の約束事の整合性チェック（依存なし。`node scripts/check-consistency.mjs`）
 ├── .github/workflows/
 │   ├── sync-notion.yml  上記スクリプトを実行するGitHub Actions（手動実行＋毎日自動実行）
 │   └── maintenance.yml  メンテナンスモードのON/OFFを手動実行（workflow_dispatch）で切り替えるGitHub Actions
@@ -91,6 +92,7 @@ team-dashboard-fy2027/
 ├── update_info.bat     インフォメーションCSV更新バッチ（同上）
 ├── update_knowledge.bat ナレッジCSV更新バッチ（同上）
 ├── CLAUDE.md           このファイル
+├── .claude/agents/docs-sync.md  ドキュメント更新漏れを洗い出すサブエージェント（「作業の締めくくり」節参照）
 ├── config/
 │   └── org.json        組織固有設定（ライン名・管理者名・カラー・参考メンバー等。詳細は「組織設定」節参照）
 └── data/
@@ -146,7 +148,7 @@ team-dashboard-fy2027/
 - 参照元：`nav.js`（`orgLabel`/`fyLabel`をサイドバーのロゴ表記に使用）、`member.html`（`lines`→`LINE_ORDER`/`LINE_META`/`LINE_COLORS`、`lineLabelMap`→`LINE_LABEL_MAP`、`referenceMembers`→`REFERENCE_MEMBERS`）、`skill.html`（`skillPeriods`→`PERIODS`、`referenceMembers`→`REFERENCE_MEMBERS`）、`index.html`（`referenceMembers`→課員数カウントから参考メンバーを除外する判定）。各ページの`loadOrgConfig()`（またはindex.htmlは`Promise.all`内の直接fetch）が`config/org.json`を取得し、CSV取得と同じタイミングで該当する変数に反映する
 - **取得に失敗しても現行運用と同じ値にフォールバックする**（各ページの`applyOrgConfig()`内にデフォルト値としてハードコード済み）。`config/org.json`自体を配布物から削除してしまっても表示は壊れない設計
 - ライン・管理者・カラーを変える場合はこのファイルの`lines`配列を編集するだけでよい。`member.html`側の定数を直接触る必要はなくなった（2026-09-11、パッケージ配布を見据えた改修）
-- `skillPeriods`はスキル評価時期の一次情報源。ただし`scripts/sync-notion.mjs`の`SKILL_PERIODS`・`you-widget.js`の`YOU_SKILL_PERIODS`は独立した定数のままなので、新しい時期を追加する際はこの3箇所（`config/org.json`・`scripts/sync-notion.mjs`・`you-widget.js`）を揃えて更新すること
+- `skillPeriods`はスキル評価時期の一次情報源。ただし`scripts/sync-notion.mjs`の`SKILL_PERIODS`・`you-widget.js`の`YOU_SKILL_PERIODS`・`portfolio.html`の`PERIODS`は独立した定数のままなので、新しい時期を追加する際はこの4箇所（`config/org.json`・`scripts/sync-notion.mjs`・`you-widget.js`・`portfolio.html`）を揃えて更新すること（`skill.html`のフォールバック値も含め、`node scripts/check-consistency.mjs`で一致を確認できる。portfolio.htmlは2026-11-08の整合性チェック導入時に4箇所目として判明）
 - career.html（等級・昇格基準）・meetings.html（方針文）・sales.html・reports.html・chronicle.htmlは、御社固有の制度・実データに強く依存するためconfig化していない。他組織に渡す場合はコードごと「参考実装」として渡し、その組織の実情に合わせて作り直してもらう方針（詳細は今後の課題・展開方針を参照）
 
 ---
@@ -182,7 +184,7 @@ team-dashboard-fy2027/
 
 ## 開発ドキュメント索引（ページ・共通スクリプト・運用の詳細）
 
-**ページや共通スクリプトを変更する前に、下表の該当ファイルを必ず`Read`してから着手すること。** 過去の不具合の経緯・設計判断・他ページとの連動（例：`NEW_BADGE_DAYS`は2ページ、評価時期は3箇所で定義）はすべてそちらに書いてある。2026-11-08、ルートCLAUDE.mdが約97KBに肥大化し毎セッションのトークンコストが大きくなったため、作業対象に応じて必要な分だけ読む方式に分割した（`data/CLAUDE.md`の分離と同じ考え方）。
+**ページや共通スクリプトを変更する前に、下表の該当ファイルを必ず`Read`してから着手すること。** 過去の不具合の経緯・設計判断・他ページとの連動（例：`NEW_BADGE_DAYS`は2ページ、評価時期は`config/org.json`以外に4ファイルでハードコード）はすべてそちらに書いてある。2026-11-08、ルートCLAUDE.mdが約97KBに肥大化し毎セッションのトークンコストが大きくなったため、作業対象に応じて必要な分だけ読む方式に分割した（`data/CLAUDE.md`の分離と同じ考え方）。
 
 | 変更対象 | 読むファイル |
 |----------|-------------|
@@ -198,6 +200,11 @@ team-dashboard-fy2027/
 - 分離先ファイル内の「〇〇.htmlセクション」「データフォーマット節」等の参照は、上表の対応ファイルを指す（分離前の節名のまま残している）
 - 複数ページにまたがる共通部品（you-widget.js等）を変えた場合は、共通スクリプト側のmdに加えて影響するページのmdも確認すること
 - 新しいページを追加したら`docs/dev/pages/<ページ名>.md`を新規作成し、この表とファイル構成に追記すること
+
+### 作業の締めくくり（コミット前）
+
+1. `node scripts/check-consistency.mjs` を実行する（評価時期のハードコード4ファイル・`NEW_BADGE_DAYS`の2ページ・`NAV_ITEMS`の`mini`・各ページの開発ドキュメントの有無・CDNのSRI・robots・you-widgetの読み込み順を機械的に照合。問題があれば終了コード1）
+2. ページ・共通スクリプト・同期スクリプト・ワークフロー・`config/org.json`に構造的な変更をした場合は、`docs-sync`サブエージェント（`.claude/agents/docs-sync.md`）に更新漏れを洗い出させ、指摘を反映してからコミットする。デザイン調整・文言修正だけなら不要（トークンコストを抑えるため）
 
 ---
 
