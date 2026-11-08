@@ -165,7 +165,7 @@ function renderPortfolio(member, skills, certs, reports) {
   // ── 強みスキル（Lv.4以上）──
   const strengths = skills
     .filter(s => parseInt(s[period] || '0') >= 4)
-    .map(s => ({ name: s['スキル名'], subcat: s['サブカテゴリ'] || s['カテゴリ'], lv: parseInt(s[period]), note: s['備考'] || '' }))
+    .map(s => ({ name: s['スキル名'], subcat: s['サブカテゴリ'] || s['カテゴリ'], lv: parseInt(s[period]) }))
     .sort((a, b) => b.lv - a.lv);
 
   // ── 資格（取得日順）──
@@ -211,7 +211,7 @@ function renderPortfolio(member, skills, certs, reports) {
           <div class="strength-item">
             <div class="strength-text">
               <div class="strength-name">${esc(s.name)}</div>
-              <div class="strength-sub">${esc(s.subcat)}${s.note ? ` <span style="color:var(--text3)">/ ${esc(s.note)}</span>` : ''}</div>
+              <div class="strength-sub">${esc(s.subcat)}</div>
             </div>
             <div class="strength-bar-bg"><div class="strength-bar-fill" style="width:${s.lv/5*100}%;background:${s.lv>=5?'var(--green)':'var(--blue)'}"></div></div>
             <div class="strength-lv">${s.lv}</div>
@@ -317,7 +317,7 @@ function printPortfolio() {
         return '<div class="si">'
           + '<div class="sdot" style="background:' + c + '"></div>'
           + '<div class="sl"><div class="sn">' + esc(s.name) + '</div>'
-          + '<div class="ss">' + esc(s.subcat) + (s.note ? ' / ' + esc(s.note) : '') + '</div></div>'
+          + '<div class="ss">' + esc(s.subcat) + '</div></div>'
           + '<div class="sb"><div class="sf" style="width:' + (s.lv / 5 * 100).toFixed(0) + '%;background:' + c + '"></div></div>'
           + '<div class="sv">' + s.lv + '</div></div>';
       }).join('')

@@ -209,7 +209,7 @@ const OVERALL_GROUP = '__overall__'; // 「総合」タブ：分野（サブカ�
 const TEAM_KEY = '__team__'; // レーダーチャートの「チーム全体」擬似メンバー
 const OTHER_PLACEHOLDER_NAME = 'その他（自由記入）'; // 自由記入欄の書き換え検出・並び替えに使う元の項目名
 
-let members = [], skillList = [], dataByPeriod = {}, noteMap = {}, catColorMap = {}, categories = [], skillNameCounts = {};
+let members = [], skillList = [], dataByPeriod = {}, catColorMap = {}, categories = [], skillNameCounts = {};
 // membersのうちmember_master.csvの在籍名簿と実際に一致した人だけ（表記ゆれ救済等でmembers末尾に追加された、
 // 名簿に無い人は含まない）。「チーム全体」レーダーの平均・最小・最大はこちらを使う（詳細はmembers代入箇所のコメント参照）
 let teamRosterMembers = [];
@@ -296,11 +296,13 @@ window.addEventListener('you-widget-changed', () => {
   if (selectedMember === TEAM_KEY && teamCompareMode === '__auto__') showRadar(TEAM_KEY);
 });
 
-// スキルレベルのドット＋備考のHTML断片。デスクトップのマトリクスセルとモバイルの縦一覧行の両方から使う
-function skillDotHTML(v, cat, note) {
+// スキルレベルのドットのHTML断片。デスクトップのマトリクスセルとモバイルの縦一覧行の両方から使う。
+// skill.csvの「備考」は評価時期ごとではなく1列しか無く、後の時期に書いたコメントが過去の時期の表示にも出て
+// 紛らわしいため、2026-11-09以降は表示しない（CSVには残っているが読まない）
+function skillDotHTML(v, cat) {
   if (v > 0) {
     const col = catColor(cat);
-    return `<span class="skill-dot" style="background:var(--${col}-dim);color:var(--${col})"${note ? ` title="${esc(note)}"` : ''}>${v}</span>${note ? `<div class="skill-note">${esc(note)}</div>` : ''}`;
+    return `<span class="skill-dot" style="background:var(--${col}-dim);color:var(--${col})">${v}</span>`;
   }
   return `<span class="skill-dot-empty">・</span>`;
 }
@@ -343,8 +345,7 @@ function renderMatrix() {
     html += `<tr><td class="name-col">${esc(skillLabel(s))}</td>`;
     members.forEach(m => {
       const v = data[m]?.[s.key] || 0;
-      const note = noteMap[m]?.[s.key];
-      html += `${memberTdOpen(m)}${skillDotHTML(v, s.cat, note)}</td>`;
+      html += `${memberTdOpen(m)}${skillDotHTML(v, s.cat)}</td>`;
     });
     html += '</tr>';
   });
@@ -361,8 +362,7 @@ function renderMobileSkillList(m) {
     const items = g.items.filter(s => !isEmptyOtherPlaceholder(s, data));
     const rows = items.map(s => {
       const v = data[m]?.[s.key] || 0;
-      const note = noteMap[m]?.[s.key];
-      return `<div class="mobile-row"><span class="mobile-row-name">${esc(skillLabel(s))}</span><div class="mobile-row-val">${skillDotHTML(v, s.cat, note)}</div></div>`;
+      return `<div class="mobile-row"><span class="mobile-row-name">${esc(skillLabel(s))}</span><div class="mobile-row-val">${skillDotHTML(v, s.cat)}</div></div>`;
     }).join('');
     return `<div class="group-section">
       <div class="group-header" style="border-left-color:var(--${col})"><span class="group-title" style="color:var(--${col})">${esc(g.key)}</span><span class="group-count">${items.length}件</span></div>
@@ -660,12 +660,10 @@ function filterSkills(q) {
       <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:.5rem">${esc(s.name)} <span style="font-size:10px;font-weight:500;color:var(--text2)">(${esc(s.cat)}${s.sub ? ' / ' + esc(s.sub) : ''})</span></div>
       ${results.map(r => {
         const c = levelColor(r.v);
-        const note = noteMap[r.m]?.[s.key];
         return `<div class="skill-result">
           <div class="sr-name">${esc(r.m)}</div>
           <div class="sr-bar-wrap"><div class="sr-bar" style="width:${r.v / 5 * 100}%;background:${c.text}"></div></div>
           <div class="sr-lv">Lv.${r.v}</div>
-          ${note ? `<div style="flex-basis:100%;font-size:11px;color:var(--text2);margin-top:2px">${esc(note)}</div>` : ''}
         </div>`;
       }).join('')}
     </div>`;
@@ -696,7 +694,6 @@ async function init() {
           // 「その他（自由記入）」等、同名スキルが複数のサブカテゴリに存在するため、スキル名だけでは一意にならない
           key: skill + '||' + sub,
           levels: Object.fromEntries(PERIODS.map(p => [p, +r[p]||0])),
-          note:  (r['備考']||'').trim(),
         };
       })
       .filter(r => r.name && r.skill);
@@ -788,14 +785,12 @@ async function init() {
     currentGroup = OVERALL_GROUP;
 
     dataByPeriod = {};
-    noteMap = {};
     PERIODS.forEach(p => { dataByPeriod[p] = {}; });
     // その時期に1件でもレベル入力がある人＝ヒアリング実施済みとみなす（レーダーの前回比較表示の判定に使う）
     memberPeriodHasData = {};
     PERIODS.forEach(p => { memberPeriodHasData[p] = new Set(rows.filter(r => r.levels[p] > 0).map(r => r.name)); });
     rows.forEach(r => {
       PERIODS.forEach(p => { (dataByPeriod[p][r.name] ??= {})[r.key] = r.levels[p]; });
-      if (r.note) (noteMap[r.name] ??= {})[r.key] = r.note;
     });
 
     // カテゴリはNotion側の選択肢をそのまま採用し、出現順に色を自動割り当てする。
