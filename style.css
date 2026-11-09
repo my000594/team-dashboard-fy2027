@@ -452,6 +452,18 @@ body {
 .chip-name { font-weight: 500; color: var(--text); }
 .chip-sub  { font-size: 10px; color: var(--text2); }
 
+/* ── 組織構成図リンク（member.html） ──────────────────
+   <a>のままだとブラウザ既定の濃い青でダーク背景に埋もれるため、青系のタグ風にする */
+.org-link {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 14px; border-radius: 999px;
+  background: rgba(59,130,246,0.15); border: 1px solid rgba(59,130,246,0.45);
+  color: #93c5fd; font-size: 12px; font-weight: 500;
+  text-decoration: none; transition: background .15s, border-color .15s, color .15s;
+}
+.org-link:hover { background: rgba(59,130,246,0.28); border-color: var(--blue); color: #dbeafe; }
+.org-link .org-link-ext { font-size: 10px; opacity: .7; }
+
 /* ── 異動・退職者セクション（member.html） ──────────────────
    ALLタブでのみ表示。ステータス（異動／退職）ごとに別々の折りたたみに分け、
    既定はどちらも閉じた状態（在籍者一覧を主役に保つため）。
