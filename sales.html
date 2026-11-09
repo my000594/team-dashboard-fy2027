@@ -172,7 +172,7 @@ function buildCustChart(id, data, color) {
 
 async function init() {
   try {
-    const { text } = await fetchCSVText('data/sales.csv');
+    const text = await requireCSVText('data/sales.csv');
     const rows = Papa.parse(text, { header:true, skipEmptyLines:true, dynamicTyping:true }).data;
 
     // 顧客別・月別に整理

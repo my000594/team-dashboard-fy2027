@@ -102,7 +102,7 @@ function safeHref(url) {
 }
 async function init() {
   try {
-    const { text } = await fetchCSVText('data/meeting_plan.csv');
+    const text = await requireCSVText('data/meeting_plan.csv');
     const rows = Papa.parse(text, { header: true, skipEmptyLines: true }).data;
 
     document.getElementById('subtitle').textContent =

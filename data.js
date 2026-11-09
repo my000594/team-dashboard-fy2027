@@ -16,12 +16,25 @@ async function fetchCSVText(path) {
   const res = await fetch(path);
   const buf = await res.arrayBuffer();
   const text = new TextDecoder('utf-8').decode(buf).replace(/^﻿/, '');
-  const entry = { ok: res.ok, status: res.status, text, t: now };
+  // 404ページやAccessのログイン画面などHTMLが返ってきた場合は、HTTP 200でも失敗扱いにする
+  // （CSVとしてパースすると例外にならず「0件」に見えてしまい、データ欠落に気づけないため）
+  const looksLikeHTML = /^\s*</.test(text);
+  const entry = { ok: res.ok && !looksLikeHTML, status: res.status, text, t: now };
 
-  if (res.ok) {
+  if (entry.ok === false && res.ok) entry.status = 'HTMLが返されました';
+
+  if (entry.ok) {
     try { sessionStorage.setItem(cacheKey, JSON.stringify(entry)); }
     catch { /* 容量超過等は無視。キャッシュ無しで動作継続 */ }
   }
 
   return entry;
+}
+
+// ページの表示に必須のCSV用。取得できなければ例外を投げ、各ページのcatchで
+// 「データの読み込みに失敗しました」を出させる（黙って0件表示にしないため）。
+async function requireCSVText(path) {
+  const { ok, status, text } = await fetchCSVText(path);
+  if (!ok) throw new Error(`${path} が読み込めませんでした（${status}）`);
+  return text;
 }

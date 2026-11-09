@@ -181,7 +181,7 @@ function safeHref(url) {
 
 async function init() {
   try {
-    const { text } = await fetchCSVText('data/3se_report.csv');
+    const text = await requireCSVText('data/3se_report.csv');
     const rawAll = Papa.parse(text, { header:true, skipEmptyLines:true, dynamicTyping:true }).data;
     // 退職・異動者（現時点でラインメンバーでない者）はページ全体から除外する
     const all = rawAll.filter(r=>!String(r['備考']||'').match(/異動|退職/));

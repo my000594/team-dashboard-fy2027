@@ -17,7 +17,8 @@ const ng = (msg) => problems.push(msg);
 const parseArr = (s) => [...s.matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1]);
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
-const htmlPages = fs.readdirSync(ROOT).filter((f) => f.endsWith('.html')).sort();
+// 404.html はCloudflare Pagesが存在しないパスに返す専用ページで、ナビ・開発ドキュメント・配信許可リストの対象外
+const htmlPages = fs.readdirSync(ROOT).filter((f) => f.endsWith('.html') && f !== '404.html').sort();
 
 // 1. スキル評価時期：config/org.json の skillPeriods を正として、各所のハードコードと一致するか
 {

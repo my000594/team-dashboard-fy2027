@@ -80,7 +80,7 @@ function parseDateFlexible(str) {
 
 async function init() {
   try {
-    const { text } = await fetchCSVText('data/info.csv');
+    const text = await requireCSVText('data/info.csv');
     const infoRows = Papa.parse(text, { header: true, skipEmptyLines: true, dynamicTyping: true }).data;
 
     const NEW_BADGE_DAYS = 3; // 開始日から何日間「NEW!」を表示するか（開始日を含む）

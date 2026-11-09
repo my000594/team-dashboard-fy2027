@@ -7,5 +7,21 @@
       "mcp__claude-in-chrome__get_page_text",
       "mcp__claude-in-chrome__read_page"
     ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "bash",
+            "command": "N=\"$(command -v node || echo '/c/Program Files/nodejs/node.exe')\"; \"$N\" \"$CLAUDE_PROJECT_DIR/.claude/hooks/pre-commit-check.mjs\"",
+            "timeout": 60,
+            "statusMessage": "コミット前の整合性チェック中..."
+          }
+        ]
+      }
+    ]
   }
 }

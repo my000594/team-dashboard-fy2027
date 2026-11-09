@@ -246,7 +246,7 @@ function render() {
 
 async function init() {
   try {
-    const { text } = await fetchCSVText('data/chronicle.csv');
+    const text = await requireCSVText('data/chronicle.csv');
     const rows = Papa.parse(text, { header: true, skipEmptyLines: true }).data;
 
     allRows = rows.map(r => {

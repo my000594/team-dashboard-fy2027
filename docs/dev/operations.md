@@ -81,5 +81,17 @@ PowerShellでDownloads内の全 `*ExportBlock*.zip` をスキャンし、CSVの�
 | you-widget | `you-widget.js`を読むページが`data.js`を先に読み、`#youMini`を持っているか |
 | 配信許可リスト | 全`*.html`が`functions/_middleware.js`の`PAGES`にあり、各ページが読む同一オリジンのJS/CSSが`FILES`にあるか（漏れると本番でそのファイルだけ404）。逆に`PAGES`/`FILES`に実在しないものが残っていないか |
 
+- `404.html`はCloudflare Pagesが存在しないパスに返す専用ページのため、上記のページ単位のチェック（開発ドキュメント・配信許可リスト等）の対象から除外している（2026-11-09）
+- **実行のタイミング（2026-11-09に自動化）**：
+  - **GitHub Actions「整合性チェック」**（`.github/workflows/check-consistency.yml`）：`main`へのpush（`data/`配下だけの変更＝Notion同期の自動コミットは除く）・PR・手動実行で必ず走る。Node.jsが入っていないPCからpushした場合でもここで検知できる。失敗するとActions上で赤くなりGitHubから通知が来る（デプロイ自体は止まらないので、通知が来たら修正する）
+  - **Claude Codeのコミット前フック**（`.claude/settings.json`の`PreToolUse`→`.claude/hooks/pre-commit-check.mjs`）：Claude CodeがBash/PowerShellで`git commit`を実行する直前にこのスクリプトを走らせ、問題があればコミットをブロックする（終了コード2で止め、指摘内容をClaudeに返す）。`git commit`を含まないコマンドでは何もしない。nodeにPATHが通っていない場合は`C:Program Files
+odejs
+ode.exe`を使う。人が手でコミットする場合は対象外
 - 判断が要る確認（ドキュメントの記述がコードと合っているか等）はこのスクリプトではなく、`docs-sync`サブエージェント（`.claude/agents/docs-sync.md`）が担当する。役割分担：**決まった値の照合＝スクリプト（無料・確実）、文章と実装の突き合わせ＝サブエージェント（Sonnetで実行しコストを抑える）**
 - 変数名を変えるとスクリプトが「定義が見つからない」と報告するので、その場合はスクリプト側の正規表現も直すこと
+- 画面まわり（ダークテーマで読みにくい色・エスケープ漏れ・onclickへの生データ埋め込み・CSV欠落時の黙った0件表示）の点検は`ui-check`サブエージェント（`.claude/agents/ui-check.md`）が担当する。毎回のコミットでは使わず、見た目に関わる変更をまとめて行った後や定期点検で呼ぶ
+
+## GitHub Actionsの実行環境
+
+- 2026-11-09、Node.js 20のサポート終了（2026-04-30）に合わせて、全ワークフローを`actions/checkout@v5`・`actions/setup-node@v5`・`node-version: '24'`に更新した。`maintenance.yml`は`setup-node`を使わずランナー標準のnodeで`node -e`を実行している
+- Node.jsのLTSが切り替わったら（概ね毎年4月にLTSのサポート終了がある）、`sync-notion.yml`・`check-consistency.yml`の`node-version`を上げること

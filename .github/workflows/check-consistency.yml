@@ -1,0 +1,28 @@
+name: 整合性チェック
+
+# どのPCから・誰がpushしても scripts/check-consistency.mjs を必ず実行する
+# （ローカルにNode.jsが無いPCでは手元のチェックが抜けるため、GitHub側で担保する）。
+# Notion同期の自動コミット（data/配下のみ）では走らせない。
+"on":
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'data/**'
+  pull_request:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+
+      - name: scripts/check-consistency.mjs を実行
+        run: node scripts/check-consistency.mjs

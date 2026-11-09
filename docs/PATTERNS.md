@@ -14,7 +14,7 @@
 2. **CSVの型は「縦持ち」か「横持ち」の2択**：
    - 横持ち（1行＝1メンバー、列＝月や項目）：`3se_report.csv`型。集計は「月別列を直接合算」（`calcTotal()`パターン）で行い、Notion側の「合計」列は信用しない（Notion側の集計プロパティは同期タイミングでズレることがあるため）
    - 縦持ち（1行＝1メンバー×1項目、列に共通の「値」）：`sales.csv`・`skill.csv`型。メンバー×項目のマトリクスにする場合はこちらが素直
-3. **取得側は`data.js`の`fetchCSVText()`を必ず使う**（5分キャッシュ・BOM除去済み）。パースオプション（`dynamicTyping`等）はページ側で指定する
+3. **取得側は`data.js`の`fetchCSVText()`を必ず使う**（5分キャッシュ・BOM除去済み）。表示に必須のCSVは`requireCSVText(path)`（取得できなければ例外を投げ、ページ側のcatchでエラー表示）、補助的なCSVは`fetchCSVText`で`ok`を見て空として扱う。パースオプション（`dynamicTyping`等）はページ側で指定する
 4. **日付列は`new Date()`で直接パースしない**。Notion同期後の値が「2027年7月1日」のような日本語表記になり`Invalid Date`になる実例が過去にあった（`sales.html`の`parseMonth()`を参照）。ISO形式（`YYYY-MM-DD`）で出力できるDBなら`chronicle.csv`のようにそのまま`new Date()`で問題ない
 5. **CSV由来の自由記述文字列は必ずエスケープしてから`innerHTML`に入れる**（各ページの`escHTML`/`esc`、長文はmd.jsの`md2html()`）
 6. **取得失敗時は補助情報なら握りつぶして本体表示を継続する**（`member.html`の組織構成図チップ、`skill.html`の保有資格カード等と同じ「失敗しても本体は継続」方針）。集計の核になるCSV（例:`3se_report.csv`本体）が無い場合のみ、明示的なエラー表示にする

@@ -737,8 +737,8 @@ function switchSection(s) {
 
 async function init() {
   try {
-    const [{ text }] = await Promise.all([
-      fetchCSVText('data/knowledge.csv'),
+    const [text] = await Promise.all([
+      requireCSVText('data/knowledge.csv'),
       loadVotes(),
     ]);
     const rows = Papa.parse(text, { header:true, skipEmptyLines:true }).data;

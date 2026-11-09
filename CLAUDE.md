@@ -68,6 +68,7 @@ team-dashboard-fy2027/
 ├── career.html         キャリアロードマップ（等級・昇格基準の確認ツール。データはCSVではなくHTML内にハードコーディング）
 ├── chronicle.html      ライン年表（入社・異動・退職・ライン別MVP・資格取得・イベントの時系列記録）
 ├── portfolio.html      個人ポートフォリオ（?member=氏名でCSVから動的生成。nav.jsメニュー非掲載・member.htmlのカードクリックからのみアクセス）
+├── 404.html            存在しないパス用の404ページ（これが無いとCloudflare Pagesが全パスにindex.htmlを200で返し、CSV欠落に気づけない。ナビ・PAGES・開発ドキュメントの対象外。docs/dev/security.md参照）
 ├── maintenance-app.html 課長本人用のメンテナンス切替スマホアプリ風ページ（nav.jsのメニューには載せない管理者専用ツール）
 ├── style.css           全ページ共通スタイル（ダークテーマ）
 ├── nav.js              左サイドバーナビ＋メンテナンス制御
@@ -86,7 +87,8 @@ team-dashboard-fy2027/
 │   └── check-consistency.mjs 重複定義・共通の約束事の整合性チェック（依存なし。`node scripts/check-consistency.mjs`）
 ├── .github/workflows/
 │   ├── sync-notion.yml  上記スクリプトを実行するGitHub Actions（手動実行＋毎日自動実行）
-│   └── maintenance.yml  メンテナンスモードのON/OFFを手動実行（workflow_dispatch）で切り替えるGitHub Actions
+│   ├── maintenance.yml  メンテナンスモードのON/OFFを手動実行（workflow_dispatch）で切り替えるGitHub Actions
+│   └── check-consistency.yml  main へのpush（data/のみの変更は除く）・PRで scripts/check-consistency.mjs を実行するGitHub Actions
 ├── update_csv.bat      3SEレポートCSV更新バッチ（手動運用時のフォールバック）
 ├── update_master.bat   メンバーマスタCSV更新バッチ（同上）
 ├── update_sales.bat    売上CSV更新バッチ（同上）
@@ -94,6 +96,8 @@ team-dashboard-fy2027/
 ├── update_knowledge.bat ナレッジCSV更新バッチ（同上）
 ├── CLAUDE.md           このファイル
 ├── .claude/agents/docs-sync.md  ドキュメント更新漏れを洗い出すサブエージェント（「作業の締めくくり」節参照）
+├── .claude/agents/ui-check.md   画面まわり（ダークテーマで読みにくい色・エスケープ漏れ・onclickへの生データ埋め込み・CSV欠落時の黙った0件表示）を点検するサブエージェント
+├── .claude/settings.json + .claude/hooks/pre-commit-check.mjs  Claude Codeが git commit する直前に整合性チェックを走らせ、問題があればブロックするフック
 ├── .claude/skills/dashboard-setup/SKILL.md  他部署・他組織へ渡した先での初期セットアップを対話で進めるスキル（`/dashboard-setup`で起動。自動起動はしない）
 ├── config/
 │   └── org.json        組織固有設定（ライン名・管理者名・カラー・参考メンバー等。詳細は「組織設定」節参照）
@@ -205,7 +209,7 @@ team-dashboard-fy2027/
 
 ### 作業の締めくくり（コミット前）
 
-1. `node scripts/check-consistency.mjs` を実行する（評価時期のハードコード4ファイル・`NEW_BADGE_DAYS`の2ページ・`NAV_ITEMS`の`mini`・各ページの開発ドキュメントの有無・CDNのSRI・robots・you-widgetの読み込み順・配信許可リスト（`functions/_middleware.js`）の記載漏れを機械的に照合。問題があれば終了コード1）
+1. `node scripts/check-consistency.mjs` を実行する（2026-11-09以降、Claude Codeの`git commit`直前にフックで自動実行され、pushするとGitHub Actionsでも必ず実行される。評価時期のハードコード4ファイル・`NEW_BADGE_DAYS`の2ページ・`NAV_ITEMS`の`mini`・各ページの開発ドキュメントの有無・CDNのSRI・robots・you-widgetの読み込み順・配信許可リスト（`functions/_middleware.js`）の記載漏れを機械的に照合。問題があれば終了コード1）
 2. ページ・共通スクリプト・同期スクリプト・ワークフロー・`config/org.json`に構造的な変更をした場合は、`docs-sync`サブエージェント（`.claude/agents/docs-sync.md`）に更新漏れを洗い出させ、指摘を反映してからコミットする。デザイン調整・文言修正だけなら不要（トークンコストを抑えるため）
 
 ---

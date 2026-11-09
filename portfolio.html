@@ -481,7 +481,7 @@ function showMemberSelector(members) {
       <div class="member-select-title">ポートフォリオを見るメンバーを選択してください</div>
       <div class="member-chips">
         ${members.map(m => `
-          <div class="member-chip" onclick="location.href='portfolio.html?member='+encodeURIComponent('${m['氏名'].trim()}')">
+          <div class="member-chip" data-member="${esc(m['氏名'].trim())}" onclick="location.href='portfolio.html?member='+encodeURIComponent(this.dataset.member)">
             <span class="member-chip-fb">${esc(initials(m['氏名'].trim()))}</span>
             ${esc(m['氏名'].trim())}
           </div>`).join('')}
@@ -494,14 +494,16 @@ async function init() {
     const params = new URLSearchParams(location.search);
     const targetName = params.get('member') || localStorage.getItem('you_widget_member') || '';
 
-    const [memberRes, skillRes, certRes, reportRes] = await Promise.all([
-      fetchCSVText('data/members/member_master.csv'),
+    // メンバー一覧は必須（無ければエラー表示）。スキル・資格・レポートは取得できなければ空として描画を続ける
+    const [memberText, skillRes, certRes, reportRes] = await Promise.all([
+      requireCSVText('data/members/member_master.csv'),
       fetchCSVText('data/skill.csv'),
       fetchCSVText('data/certifications.csv'),
       fetchCSVText('data/3se_report_archive.csv'),
     ]);
+    const optText = res => res.ok ? res.text : '';
 
-    const allMembers = Papa.parse(memberRes.text, { header: true, skipEmptyLines: true }).data
+    const allMembers = Papa.parse(memberText, { header: true, skipEmptyLines: true }).data
       .filter(r => (r['ステータス']||'').trim() === '在籍');
 
     document.getElementById('loading').style.display = 'none';
@@ -512,13 +514,13 @@ async function init() {
 
     document.title = `${member['氏名'].trim()} — ポートフォリオ`;
 
-    const skills = Papa.parse(skillRes.text, { header: true, skipEmptyLines: true }).data
+    const skills = Papa.parse(optText(skillRes), { header: true, skipEmptyLines: true }).data
       .filter(r => r['氏名']?.trim() === targetName);
 
-    const certs = Papa.parse(certRes.text, { header: true, skipEmptyLines: true }).data
+    const certs = Papa.parse(optText(certRes), { header: true, skipEmptyLines: true }).data
       .filter(r => r['氏名']?.trim() === targetName && !(r['資格分野']||'').includes('研修'));
 
-    const reports = Papa.parse(reportRes.text, { header: true, skipEmptyLines: true }).data
+    const reports = Papa.parse(optText(reportRes), { header: true, skipEmptyLines: true }).data
       .filter(r => r['氏名']?.trim() === targetName);
 
     renderPortfolio(member, skills, certs, reports);
